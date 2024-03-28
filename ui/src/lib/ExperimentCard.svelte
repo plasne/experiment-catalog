@@ -1,0 +1,56 @@
+<script lang="ts">
+  import { createEventDispatcher } from "svelte";
+
+  export let experiment: Experiment;
+
+  const dispatch = createEventDispatcher();
+
+  const select = () => {
+    dispatch("select", experiment);
+  };
+</script>
+
+<div class="card">
+  <div class="title">
+    <button class="link-button" on:click={select}>{experiment.name}</button>
+  </div>
+  <div class="desc">{experiment.description}</div>
+  <div class="hypothesis"><b>Hypothesis:</b> {experiment.hypothesis}</div>
+</div>
+
+<style>
+  .card {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ccc;
+  }
+
+  .link-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+  }
+
+  .link-button:hover {
+    text-decoration: underline;
+  }
+
+  .desc {
+    font-size: 1.2rem;
+  }
+
+  .hypothesis {
+    font-size: 1rem;
+  }
+</style>
