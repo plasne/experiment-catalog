@@ -43,3 +43,14 @@ curl -i -X POST -d '{ "set": "alpha", "description": "my eval", "metrics": { "gp
 ```bash
 curl -i http://localhost:5003/api/projects/project-01/experiments/experiment-000/compare
 ```
+
+## TODO
+
+- Add validation to the API
+- Add an endpoint for creating a project
+- Add UI to create a project
+- Add UI to create an experiment
+- Add UI to mark a baseline
+- Add a Dockerfile and test deploying
+- Get docs from Stewart
+- Bulk up documentation
