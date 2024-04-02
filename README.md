@@ -51,6 +51,8 @@ curl -i http://localhost:5003/api/projects/project-01/experiments/experiment-000
 - Add UI to create a project
 - Add UI to create an experiment
 - Add UI to mark a baseline
+- Add previous few runs to the compare
+- Auto-increment set when it sees the same set, metric, id/line, and iteration
 - Add a Dockerfile and test deploying
 - Get docs from Stewart
 - Bulk up documentation
