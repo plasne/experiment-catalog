@@ -7,13 +7,18 @@
 
   const dispatch = createEventDispatcher();
 
-  const unselect = () => {
-    dispatch("unselect");
+  const unselectExperiment = () => {
+    dispatch("unselectExperiment");
+  };
+
+  const selectSet = (event: CustomEvent<string>) => {
+    dispatch("selectSet", event.detail);
   };
 </script>
 
-<button class="link-button" on:click={unselect}>back</button>
-<h1>{experiment.name}</h1>
+<button class="link-button" on:click={unselectExperiment}>back</button>
+<h1>PROJECT: {projectName}</h1>
+<h2>EXPERIMENT: {experiment.name}</h2>
 <div>
   <span class="label">Description:</span>
   <span>{experiment.description}</span>
@@ -37,7 +42,7 @@
 </div>
 
 <div class="table">
-  <ComparisonTable {projectName} {experiment} />
+  <ComparisonTable {projectName} {experiment} on:selectSet={selectSet} />
 </div>
 
 <style>
@@ -61,6 +66,8 @@
     font-size: inherit;
     font-weight: inherit;
     color: inherit;
+    text-decoration: underline;
+    text-decoration-color: #777;
   }
 
   .link-button:hover {

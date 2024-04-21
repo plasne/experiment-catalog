@@ -1,8 +1,9 @@
 interface Result {
-    description?: string;
+    ref?: string;
     set?: string;
-    metadata?: Record<string, string>;
+    result_uri?: string;
+    desc?: string;
     metrics?: Record<string, Metric>;
-    isBaseline: boolean;
+    is_baseline: boolean;
     created: Date;
 }

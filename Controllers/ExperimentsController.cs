@@ -18,21 +18,8 @@ public class ExperimentsController : ControllerBase
         [FromServices] IStorage storage,
         [FromRoute] string projectName)
     {
-        try
-        {
-            var experiments = await storage.GetExperiments(projectName);
-            return Ok(experiments);
-        }
-        catch (HttpException e)
-        {
-            logger.LogWarning(e, "Failed to list experiments for project {projectName}.", projectName);
-            return StatusCode(e.StatusCode, e.Message);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to list experiments for project {projectName}.", projectName);
-            return StatusCode(500, e.Message);
-        }
+        var experiments = await storage.GetExperiments(projectName);
+        return Ok(experiments);
     }
 
     [HttpPost]
@@ -42,21 +29,8 @@ public class ExperimentsController : ControllerBase
         [FromBody] Experiment experiment)
     {
         // TODO: validate projectName and experiment
-        try
-        {
-            await storage.AddExperiment(projectName, experiment);
-            return Ok();
-        }
-        catch (HttpException e)
-        {
-            logger.LogWarning(e, "Failed to add experiment {experiment.Name} to project {projectName}.", experiment.Name, projectName);
-            return StatusCode(e.StatusCode, e.Message);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to add experiment {experiment.Name} to project {projectName}.", experiment.Name, projectName);
-            return StatusCode(500, e.Message);
-        }
+        await storage.AddExperiment(projectName, experiment);
+        return Ok();
     }
 
     [HttpPatch("{experimentName}/baseline")]
@@ -65,28 +39,16 @@ public class ExperimentsController : ControllerBase
         [FromRoute] string projectName,
         [FromRoute] string experimentName)
     {
-        try
-        {
-            await storage.SetExperimentAsBaseline(projectName, experimentName);
-            return Ok();
-        }
-        catch (HttpException e)
-        {
-            logger.LogWarning(e, "Failed to set experiment {experiment.Name} as baseline for project {projectName}.", experimentName, projectName);
-            return StatusCode(e.StatusCode, e.Message);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to set experiment {experiment.Name} as baseline for project {projectName}.", experimentName, projectName);
-            return StatusCode(500, e.Message);
-        }
+        await storage.SetExperimentAsBaseline(projectName, experimentName);
+        return Ok();
     }
 
     [HttpGet("{experimentName}/compare")]
     public async Task<ActionResult<Comparison>> Compare(
         [FromServices] IStorage storage,
         [FromRoute] string projectName,
-        [FromRoute] string experimentName)
+        [FromRoute] string experimentName,
+        [FromQuery] int count = 0)
     {
         var comparison = new Comparison();
 
@@ -94,33 +56,41 @@ public class ExperimentsController : ControllerBase
         try
         {
             var baseline = await storage.GetProjectBaseline(projectName);
-            comparison.LastResultForBaselineExperiment = baseline.GetLastSet();
+            comparison.LastResultForBaselineExperiment = baseline.AggregateLastSet();
         }
         catch (Exception e)
         {
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
-        // get the chosen experiment
-        try
-        {
-            var experiment = await storage.GetExperiment(projectName, experimentName);
-            comparison.BaselineResultForChosenExperiment =
-                experiment.GetBaselineSet()
-                ?? experiment.GetFirstSet();
-            comparison.LastResultForChosenExperiment = experiment.GetLastSet();
-        }
-        catch (HttpException e)
-        {
-            logger.LogWarning(e, "Failed to compare experiment {experiment.Name} in project {projectName}.", experimentName, projectName);
-            return StatusCode(e.StatusCode, e.Message);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to compare experiment {experiment.Name} in project {projectName}.", experimentName, projectName);
-            return StatusCode(500, e.Message);
-        }
+        // get the comparison data
+        var experiment = await storage.GetExperiment(projectName, experimentName);
+        comparison.BaselineResultForChosenExperiment =
+            experiment.AggregateBaselineSet()
+            ?? experiment.AggregateFirstSet();
+        comparison.LastResultsForChosenExperiment = experiment.AggregateLastSets(count);
 
         return Ok(comparison);
+    }
+
+    [HttpGet("{experimentName}/compare-by-ref")]
+    public async Task<ActionResult<ComparisonByRef>> CompareByRef(
+        [FromServices] IStorage storage,
+        [FromRoute] string projectName,
+        [FromRoute] string experimentName)
+    {
+        return Ok(new ComparisonByRef());
+    }
+
+    [HttpGet("{experimentName}/sets/{setName}")]
+    public async Task<ActionResult<Comparison>> GetNamedSet(
+    [FromServices] IStorage storage,
+    [FromRoute] string projectName,
+    [FromRoute] string experimentName,
+    [FromRoute] string setName)
+    {
+        var experiment = await storage.GetExperiment(projectName, experimentName);
+        var results = experiment.GetAllResultsOfSet(setName);
+        return Ok(results);
     }
 }

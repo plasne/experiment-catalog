@@ -17,7 +17,7 @@ curl -i -X POST -d '{ "name": "project-baseline", "description": "my baseline" }
 Record one or more evaluations...
 
 ```bash
-curl -i -X POST -d '{ "set": "alpha", "description": "my eval", "metrics": { "gpt-coherance": { "value": 2 }, "gpt-relevance": { "value": 3 } } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/project-baseline/results
+curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "metrics": { "gpt-coherance": { "value": 2 }, "gpt-relevance": { "value": 3 }, "gpt-correctness": { "value": 2 } } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/pelasne-baseline/results
 ```
 
 Mark this experiment as the baseline for the project...
@@ -35,22 +35,27 @@ curl -i -X POST -d '{ "name": "experiment-000", "description": "decrease temp", 
 Record one or more evaluations...
 
 ```bash
-curl -i -X POST -d '{ "set": "alpha", "description": "my eval", "metrics": { "gpt-coherance": { "value": 3 }, "gpt-relevance": { "value": 3 } } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/experiment-000/results
+curl -i -X POST -d '{ "ref": "q1", "set": "alpha", "metrics": { "gpt-coherance": { "value": 3 }, "gpt-relevance": { "value": 2 }, "gpt-correctness": { "value": 3 } } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/experiment-000/results
 ```
 
 ## Compare
 
 ```bash
-curl -i http://localhost:5003/api/projects/project-01/experiments/experiment-000/compare
+curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000/compare
 ```
 
 ## TODO
 
+- Add a view of details of an evaluation, for instance the metrics aggregated by question in ground truth
+  - Extend further down to the actual run
+  - Add links for the actual run
 - Add validation to the API
 - Add an endpoint for creating a project
 - Add UI to create a project
 - Add UI to create an experiment
 - Add UI to mark a baseline
+- Share styles like link-button across the ui project
+- Test cases like no baseline experiment, no experiment to compare, etc.
 - Add a Dockerfile and test deploying
 - Get docs from Stewart
 - Bulk up documentation

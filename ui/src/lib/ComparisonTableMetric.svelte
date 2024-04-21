@@ -2,6 +2,8 @@
   export let result: Result;
   export let baseline: Result = undefined;
   export let metric: string;
+  export let showStdDev: boolean = true;
+  export let showCount: boolean = true;
 
   let diff: number;
 
@@ -13,8 +15,18 @@
 
 {#if result && result.metrics[metric]}
   <span>{result.metrics[metric].value.toFixed(2)}</span>
-  <span>({result.metrics[metric].stdDev.toFixed(2)})</span>
+  {#if showStdDev}
+    <span>({result.metrics[metric].std_dev.toFixed(2)})</span>
+  {/if}
 
+  {#if diff === 0}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+      <polygon
+        points="10,15 35,15 35,35 10,35"
+        style="fill:gray;stroke:black;stroke-width:1"
+      />
+    </svg>
+  {/if}
   {#if diff > 0}
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
       <polygon
@@ -30,6 +42,9 @@
         style="fill:red;stroke:black;stroke-width:1"
       />
     </svg>
+  {/if}
+  {#if showCount}
+    <span>x{result.metrics[metric].count}</span>
   {/if}
 {:else}
   <span>-</span>

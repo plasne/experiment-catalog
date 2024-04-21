@@ -20,22 +20,22 @@ public class ResultsController : ControllerBase
         [FromRoute] string experimentName,
         [FromBody] Result result)
     {
-        // TODO: validate projectName and experimentName
-        // TODO: validate result
-        try
+        if (projectName is null || experimentName is null || result is null)
         {
-            await storage.AddResult(projectName, experimentName, result);
-            return Ok();
+            return BadRequest("a project name, experiment name, and result (as body) are required.");
         }
-        catch (HttpException e)
+
+        if (result.Ref is null || result.Set is null)
         {
-            logger.LogWarning(e, "Failed to add result to experiment {experiment.Name} to project {projectName}.", experimentName, projectName);
-            return StatusCode(e.StatusCode, e.Message);
+            return BadRequest("ref and set are required.");
         }
-        catch (Exception e)
+
+        if (result.Metrics is not null && result.Metrics.Any(x => x.Value is null))
         {
-            logger.LogError(e, "Failed to add result to experiment {experiment.Name} to project {projectName}.", experimentName, projectName);
-            return StatusCode(500, e.Message);
+            return BadRequest("all metrics must have a value.");
         }
+
+        await storage.AddResult(projectName, experimentName, result);
+        return Ok();
     }
 }

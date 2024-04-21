@@ -8,14 +8,34 @@ using Azure.Storage.Blobs.Specialized;
 
 public class AzureBlobStorage : IStorage
 {
-    private readonly SemaphoreSlim connectLock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim connectLock = new(1, 1);
     private BlobServiceClient? blobServiceClient;
-    private JsonSerializerOptions jsonOptions = new JsonSerializerOptions
+    private JsonSerializerOptions jsonOptionsForSerialization = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        WriteIndented = false
+        WriteIndented = false,
+        Converters = { new MetricConverter() },
     };
+    private JsonSerializerOptions jsonOptionsForDeserialization = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+    };
+
+    private class MetricConverter : JsonConverter<Metric>
+    {
+        public override Metric Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Write(Utf8JsonWriter writer, Metric value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("value", value.Value);
+            writer.WriteEndObject();
+        }
+    }
 
     private async Task<BlobContainerClient> Connect(string projectName)
     {
@@ -80,7 +100,7 @@ public class AzureBlobStorage : IStorage
         {
             HttpHeaders = new BlobHttpHeaders { ContentType = "application/x-ndjson" }
         });
-        var serializedJson = JsonSerializer.Serialize(experiment, jsonOptions);
+        var serializedJson = JsonSerializer.Serialize(experiment, jsonOptionsForSerialization);
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
         await appendBlobClient.AppendBlockAsync(memoryStream);
     }
@@ -102,7 +122,7 @@ public class AzureBlobStorage : IStorage
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
         var response = await appendBlobClient.ExistsAsync();
         if (!response.Value) throw new HttpException(404, "experiment not found.");
-        var serializedJson = JsonSerializer.Serialize(result, jsonOptions);
+        var serializedJson = JsonSerializer.Serialize(result, jsonOptionsForSerialization);
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
         await appendBlobClient.AppendBlockAsync(memoryStream);
     }
@@ -122,7 +142,7 @@ public class AzureBlobStorage : IStorage
         // the first line is of type Experiment
         var experimentLine = await streamReader.ReadLineAsync()
             ?? throw new Exception("no experiment info was found in the file.");
-        var experiment = JsonSerializer.Deserialize<Experiment>(experimentLine, jsonOptions)
+        var experiment = JsonSerializer.Deserialize<Experiment>(experimentLine, jsonOptionsForDeserialization)
             ?? throw new Exception("the experiment info was corrupt.");
 
         // if we don't need to load the results, we're done
@@ -134,7 +154,7 @@ public class AzureBlobStorage : IStorage
         {
             var resultLine = await streamReader.ReadLineAsync();
             if (resultLine is null) break;
-            var result = JsonSerializer.Deserialize<Result>(resultLine, jsonOptions);
+            var result = JsonSerializer.Deserialize<Result>(resultLine, jsonOptionsForDeserialization);
             if (result is null) continue;
             results.Add(result);
         }

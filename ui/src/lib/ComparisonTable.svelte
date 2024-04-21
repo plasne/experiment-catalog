@@ -1,9 +1,16 @@
 <script lang="ts">
+  import { createEventDispatcher } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
 
   export let projectName: string;
   export let experiment: Experiment;
+
+  const dispatch = createEventDispatcher();
+
+  const selectSet = (event: CustomEvent<string>) => {
+    dispatch("selectSet", event.detail);
+  };
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
@@ -12,18 +19,20 @@
 
   const fetchComparison = async () => {
     const response = await fetch(
-      `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/compare`
+      `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/compare?count=3`
     );
     comparison = await response.json();
     const allKeys = [
-      ...(comparison.lastResultForBaselineExperiment
-        ? Object.keys(comparison.lastResultForBaselineExperiment.metrics)
+      ...(comparison.last_result_for_baseline_experiment
+        ? Object.keys(comparison.last_result_for_baseline_experiment.metrics)
         : []),
-      ...(comparison.baselineResultForChosenExperiment
-        ? Object.keys(comparison.baselineResultForChosenExperiment.metrics)
+      ...(comparison.baseline_result_for_chosen_experiment
+        ? Object.keys(comparison.baseline_result_for_chosen_experiment.metrics)
         : []),
-      ...(comparison.lastResultForChosenExperiment
-        ? Object.keys(comparison.lastResultForChosenExperiment.metrics)
+      ...(comparison.last_results_for_chosen_experiment
+        ? comparison.last_results_for_chosen_experiment.flatMap((experiment) =>
+            Object.keys(experiment.metrics)
+          )
         : []),
     ];
     metrics = [...new Set(allKeys)];
@@ -32,58 +41,63 @@
   $: fetchComparison();
 </script>
 
-<table>
-  <thead>
-    <tr>
-      <th></th>
-      <th>
-        <ComparisonTableHeader
-          title="Project Baseline"
-          result={comparison?.lastResultForBaselineExperiment}
-        />
-      </th>
-      <th>
-        <ComparisonTableHeader
-          title="Experiment Baseline"
-          result={comparison?.baselineResultForChosenExperiment}
-        />
-      </th>
-      <th>
-        <ComparisonTableHeader
-          title="Last Experiment"
-          result={comparison?.lastResultForChosenExperiment}
-        />
-      </th>
-    </tr>
-  </thead>
-  <tbody>
-    {#each metrics as metric}
+{#if comparison}
+  <table>
+    <thead>
       <tr>
-        <td class="label">{metric}</td>
-        <td
-          ><ComparisonTableMetric
-            result={comparison.lastResultForBaselineExperiment}
-            {metric}
-          /></td
-        >
-        <td
-          ><ComparisonTableMetric
-            result={comparison.baselineResultForChosenExperiment}
-            baseline={comparison.lastResultForBaselineExperiment}
-            {metric}
-          /></td
-        >
-        <td
-          ><ComparisonTableMetric
-            result={comparison.lastResultForChosenExperiment}
-            baseline={comparison.lastResultForBaselineExperiment}
-            {metric}
-          /></td
-        >
+        <th></th>
+        <th>
+          <ComparisonTableHeader
+            title="Project Baseline"
+            result={comparison.last_result_for_baseline_experiment}
+            on:selectSet={selectSet}
+          />
+        </th>
+        <th>
+          <ComparisonTableHeader
+            title="Experiment Baseline"
+            result={comparison.baseline_result_for_chosen_experiment}
+            on:selectSet={selectSet}
+          />
+        </th>
+        {#each comparison.last_results_for_chosen_experiment as result}
+          <th>
+            <ComparisonTableHeader title="" {result} on:selectSet={selectSet} />
+          </th>
+        {/each}
       </tr>
-    {/each}
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      {#each metrics as metric}
+        <tr>
+          <td class="label">{metric}</td>
+          <td
+            ><ComparisonTableMetric
+              result={comparison.last_result_for_baseline_experiment}
+              baseline={comparison.baseline_result_for_chosen_experiment}
+              {metric}
+            /></td
+          >
+          <td
+            ><ComparisonTableMetric
+              result={comparison.baseline_result_for_chosen_experiment}
+              {metric}
+            /></td
+          >
+          {#each comparison?.last_results_for_chosen_experiment as result}
+            <td
+              ><ComparisonTableMetric
+                {result}
+                baseline={comparison.baseline_result_for_chosen_experiment}
+                {metric}
+              /></td
+            >
+          {/each}
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+{/if}
 
 <style>
   table {
@@ -95,11 +109,14 @@
     padding-left: 1.5rem;
     padding-right: 1.5rem;
     text-align: left;
+    vertical-align: bottom;
     border-bottom: 1px solid #ddd;
   }
 
   td {
-    text-align: center;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    text-align: left;
   }
 
   td.label {

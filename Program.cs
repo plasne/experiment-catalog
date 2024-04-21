@@ -1,6 +1,7 @@
 using dotenv.net;
 using NetBricks;
-using Microsoft.AspNetCore.Rewrite;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 // load environment variables from .env file
 DotEnv.Load();
@@ -11,7 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 // add services to the container
 builder.Services.AddConfig();
 builder.Services.AddSingleton<IStorage, AzureBlobStorage>();
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -35,12 +40,11 @@ app.UseSwaggerUI();
 // use CORS
 app.UseCors("default-policy");
 
-// redirect to index.html
-var options = new RewriteOptions().AddRedirect("^$", "index.html");
-app.UseRewriter(options);
-
 // add endpoints
+app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseRouting();
+app.UseMiddleware<HttpExceptionMiddleware>();
 app.MapControllers();
 
 var port = Config.GetOnce("PORT") ?? "6010";

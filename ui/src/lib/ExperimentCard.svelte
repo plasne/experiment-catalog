@@ -40,6 +40,8 @@
     font-size: inherit;
     font-weight: inherit;
     color: inherit;
+    text-decoration: underline;
+    text-decoration-color: #777;
   }
 
   .link-button:hover {
