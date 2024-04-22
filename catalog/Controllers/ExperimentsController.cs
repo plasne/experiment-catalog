@@ -14,9 +14,10 @@ public class ExperimentsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Experiment>>> List(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName)
+        [FromRoute] string projectName,
+        CancellationToken cancellationToken)
     {
-        var experiments = await storageService.GetExperiments(projectName);
+        var experiments = await storageService.GetExperiments(projectName, cancellationToken);
         return Ok(experiments);
     }
 
@@ -24,10 +25,11 @@ public class ExperimentsController : ControllerBase
     public async Task<IActionResult> Add(
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
-        [FromBody] Experiment experiment)
+        [FromBody] Experiment experiment,
+        CancellationToken cancellationToken)
     {
         // TODO: validate projectName and experiment
-        await storageService.AddExperiment(projectName, experiment);
+        await storageService.AddExperiment(projectName, experiment, cancellationToken);
         return Ok();
     }
 
@@ -35,9 +37,10 @@ public class ExperimentsController : ControllerBase
     public async Task<IActionResult> SetBaseline(
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
-        [FromRoute] string experimentName)
+        [FromRoute] string experimentName,
+        CancellationToken cancellationToken)
     {
-        await storageService.SetExperimentAsBaseline(projectName, experimentName);
+        await storageService.SetExperimentAsBaseline(projectName, experimentName, cancellationToken);
         return Ok();
     }
 
@@ -46,6 +49,7 @@ public class ExperimentsController : ControllerBase
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
+        CancellationToken cancellationToken,
         [FromQuery] int count = 0)
     {
         var comparison = new Comparison();
@@ -53,7 +57,7 @@ public class ExperimentsController : ControllerBase
         // get the baseline
         try
         {
-            var baseline = await storageService.GetProjectBaseline(projectName);
+            var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
             comparison.LastResultForBaselineExperiment = baseline.AggregateLastSet();
         }
         catch (Exception e)
@@ -62,7 +66,7 @@ public class ExperimentsController : ControllerBase
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperiment(projectName, experimentName);
+        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
         comparison.BaselineResultForChosenExperiment =
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
@@ -76,14 +80,15 @@ public class ExperimentsController : ControllerBase
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
-        [FromRoute] string setName)
+        [FromRoute] string setName,
+        CancellationToken cancellationToken)
     {
         var comparison = new ComparisonByRef();
 
         // get the baseline
         try
         {
-            var baseline = await storageService.GetProjectBaseline(projectName);
+            var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
             comparison.LastResultsForBaselineExperiment = baseline.AggregateLastSetByRef();
         }
         catch (Exception e)
@@ -92,7 +97,7 @@ public class ExperimentsController : ControllerBase
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperiment(projectName, experimentName);
+        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
         comparison.BaselineResultsForChosenExperiment =
             experiment.AggregateBaselineSetByRef()
             ?? experiment.AggregateFirstSetByRef();
@@ -106,9 +111,10 @@ public class ExperimentsController : ControllerBase
     [FromServices] IStorageService storageService,
     [FromRoute] string projectName,
     [FromRoute] string experimentName,
-    [FromRoute] string setName)
+    [FromRoute] string setName,
+    CancellationToken cancellationToken)
     {
-        var experiment = await storageService.GetExperiment(projectName, experimentName);
+        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
         var results = experiment.GetAllResultsOfSet(setName);
         return Ok(results);
     }

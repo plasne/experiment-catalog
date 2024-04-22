@@ -8,11 +8,11 @@ public class AzureBlobStorageService : IStorageService
     private BlobServiceClient? blobServiceClient;
     private BlobContainerClient? blobContainerClient;
 
-    private async Task<BlobContainerClient> Connect()
+    private async Task<BlobContainerClient> Connect(CancellationToken cancellationToken = default)
     {
         try
         {
-            await this.connectLock.WaitAsync();
+            await this.connectLock.WaitAsync(cancellationToken);
 
             // create if it doesn't exist
             if (this.blobServiceClient is null || this.blobContainerClient is null)
@@ -22,7 +22,7 @@ public class AzureBlobStorageService : IStorageService
                 this.blobServiceClient = new BlobServiceClient(connectionString);
 
                 this.blobContainerClient = this.blobServiceClient.GetBlobContainerClient(containerName);
-                await blobContainerClient.CreateIfNotExistsAsync();
+                await blobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
             }
 
             return blobContainerClient;
@@ -33,12 +33,12 @@ public class AzureBlobStorageService : IStorageService
         }
     }
 
-    public async Task<List<string>> ListGroundTruthUris()
+    public async Task<List<string>> ListGroundTruthUris(CancellationToken cancellationToken = default)
     {
-        var container = await this.Connect();
+        var container = await this.Connect(cancellationToken);
         var blobUrls = new List<string>();
 
-        await foreach (var blob in container.GetBlobsAsync())
+        await foreach (var blob in container.GetBlobsAsync(cancellationToken: cancellationToken))
         {
             var blobClient = container.GetBlobClient(blob.Name);
 

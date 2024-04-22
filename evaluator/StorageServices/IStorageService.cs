@@ -1,4 +1,4 @@
 public interface IStorageService
 {
-    public Task<List<string>> ListGroundTruthUris();
+    public Task<List<string>> ListGroundTruthUris(CancellationToken cancellationToken = default);
 }

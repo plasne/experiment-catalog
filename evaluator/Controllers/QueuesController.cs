@@ -12,9 +12,11 @@ public class QueuesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<Queue>>> List([FromServices] IQueueService queueService)
+    public async Task<ActionResult<List<Queue>>> List(
+        [FromServices] IQueueService queueService,
+        CancellationToken cancellationToken)
     {
-        var queues = await queueService.ListQueues();
+        var queues = await queueService.ListQueues(cancellationToken);
         return Ok(queues);
     }
 
@@ -22,9 +24,10 @@ public class QueuesController : ControllerBase
     public async Task<ActionResult<List<string>>> Enqueue(
         [FromServices] IQueueService queueService,
         [FromServices] IStorageService storageService,
-        [FromRoute] string queueName)
+        [FromRoute] string queueName,
+        CancellationToken cancellationToken)
     {
-        var groundTruthUris = await storageService.ListGroundTruthUris();
+        var groundTruthUris = await storageService.ListGroundTruthUris(cancellationToken);
         return Ok(groundTruthUris);
     }
 }

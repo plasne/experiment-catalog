@@ -10,14 +10,14 @@ public class AzureBlobStorageService : IStorageService
 {
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private BlobServiceClient? blobServiceClient;
-    private JsonSerializerOptions jsonOptionsForSerialization = new()
+    private readonly JsonSerializerOptions jsonOptionsForSerialization = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = false,
         Converters = { new MetricConverter() },
     };
-    private JsonSerializerOptions jsonOptionsForDeserialization = new()
+    private readonly JsonSerializerOptions jsonOptionsForDeserialization = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
@@ -37,11 +37,11 @@ public class AzureBlobStorageService : IStorageService
         }
     }
 
-    private async Task<BlobContainerClient> Connect(string projectName)
+    private async Task<BlobContainerClient> Connect(string projectName, CancellationToken cancellationToken = default)
     {
         try
         {
-            await this.connectLock.WaitAsync();
+            await this.connectLock.WaitAsync(cancellationToken);
 
             // create the blob service client if it doesn't exist
             if (this.blobServiceClient is null)
@@ -52,7 +52,7 @@ public class AzureBlobStorageService : IStorageService
 
             // create the container client
             var containerClient = this.blobServiceClient.GetBlobContainerClient(projectName);
-            await containerClient.CreateIfNotExistsAsync();
+            await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
             return containerClient;
         }
@@ -62,9 +62,9 @@ public class AzureBlobStorageService : IStorageService
         }
     }
 
-    public async Task<IEnumerable<Experiment>> GetExperiments(string projectName)
+    public async Task<IEnumerable<Experiment>> GetExperiments(string projectName, CancellationToken cancellationToken = default)
     {
-        var containerClient = await this.Connect(projectName);
+        var containerClient = await this.Connect(projectName, cancellationToken);
 
         // get experiment names
         var experimentNames = new List<string>();
@@ -80,12 +80,12 @@ public class AzureBlobStorageService : IStorageService
         var semaphore = new SemaphoreSlim(4);
         foreach (var experimentName in experimentNames)
         {
-            await semaphore.WaitAsync();
+            await semaphore.WaitAsync(cancellationToken);
             tasks.Add(Task.Run(() =>
             {
                 try
                 {
-                    return this.LoadExperiment(containerClient, experimentName, includeResults: false);
+                    return this.LoadExperiment(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
                 }
                 finally
                 {
@@ -97,58 +97,59 @@ public class AzureBlobStorageService : IStorageService
         return await Task.WhenAll(tasks);
     }
 
-    public async Task AddExperiment(string projectName, Experiment experiment)
+    public async Task AddExperiment(string projectName, Experiment experiment, CancellationToken cancellationToken = default)
     {
         // TODO: validate projectName and experiment.Name
-        var containerClient = await this.Connect(projectName);
+        var containerClient = await this.Connect(projectName, cancellationToken);
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experiment.Name}.jsonl");
         var response = await appendBlobClient.ExistsAsync();
         if (response.Value) throw new HttpException(409, "experiment already exists.");
         await appendBlobClient.CreateAsync(new AppendBlobCreateOptions
         {
             HttpHeaders = new BlobHttpHeaders { ContentType = "application/x-ndjson" }
-        });
+        }, cancellationToken);
         var serializedJson = JsonSerializer.Serialize(experiment, jsonOptionsForSerialization);
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
-        await appendBlobClient.AppendBlockAsync(memoryStream);
+        await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
     }
 
-    public async Task SetExperimentAsBaseline(string projectName, string experimentName)
+    public async Task SetExperimentAsBaseline(string projectName, string experimentName, CancellationToken cancellationToken = default)
     {
-        var containerClient = await this.Connect(projectName);
+        var containerClient = await this.Connect(projectName, cancellationToken);
         var metadata = new Dictionary<string, string>
         {
             { "baseline", experimentName }
         };
-        await containerClient.SetMetadataAsync(metadata);
+        await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
-    public async Task AddResult(string projectName, string experimentName, Result result)
+    public async Task AddResult(string projectName, string experimentName, Result result, CancellationToken cancellationToken = default)
     {
         // TODO: validate projectName and experimentName
-        var containerClient = await this.Connect(projectName);
+        var containerClient = await this.Connect(projectName, cancellationToken);
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
         var response = await appendBlobClient.ExistsAsync();
         if (!response.Value) throw new HttpException(404, "experiment not found.");
         var serializedJson = JsonSerializer.Serialize(result, jsonOptionsForSerialization);
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
-        await appendBlobClient.AppendBlockAsync(memoryStream);
+        await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
     }
 
     private async Task<Experiment> LoadExperiment(
         BlobContainerClient containerClient,
         string experimentName,
-        bool includeResults = true)
+        bool includeResults = true,
+        CancellationToken cancellationToken = default)
     {
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
-        var response = await appendBlobClient.DownloadAsync();
+        var response = await appendBlobClient.DownloadAsync(cancellationToken);
         using var memoryStream = new MemoryStream();
-        await response.Value.Content.CopyToAsync(memoryStream);
+        await response.Value.Content.CopyToAsync(memoryStream, cancellationToken);
         memoryStream.Position = 0;
         using var streamReader = new StreamReader(memoryStream);
 
         // the first line is of type Experiment
-        var experimentLine = await streamReader.ReadLineAsync()
+        var experimentLine = await streamReader.ReadLineAsync(cancellationToken)
             ?? throw new Exception("no experiment info was found in the file.");
         var experiment = JsonSerializer.Deserialize<Experiment>(experimentLine, jsonOptionsForDeserialization)
             ?? throw new Exception("the experiment info was corrupt.");
@@ -171,26 +172,26 @@ public class AzureBlobStorageService : IStorageService
         return experiment;
     }
 
-    public async Task<Experiment> GetProjectBaseline(string projectName)
+    public async Task<Experiment> GetProjectBaseline(string projectName, CancellationToken cancellationToken = default)
     {
-        var containerClient = await this.Connect(projectName);
+        var containerClient = await this.Connect(projectName, cancellationToken);
 
         // identify the baseline experiment
-        var properties = await containerClient.GetPropertiesAsync();
+        var properties = await containerClient.GetPropertiesAsync(cancellationToken: cancellationToken);
         if (!properties.Value.Metadata.TryGetValue("baseline", out var baselineExperimentName))
         {
             throw new HttpException(404, "no baseline experiment has been identified.");
         }
 
         // load the baseline experiment
-        var experiment = await this.LoadExperiment(containerClient, baselineExperimentName);
+        var experiment = await this.LoadExperiment(containerClient, baselineExperimentName, cancellationToken: cancellationToken);
         return experiment;
     }
 
-    public async Task<Experiment> GetExperiment(string projectName, string experimentName)
+    public async Task<Experiment> GetExperiment(string projectName, string experimentName, CancellationToken cancellationToken = default)
     {
-        var containerClient = await this.Connect(projectName);
-        var experiment = await this.LoadExperiment(containerClient, experimentName);
+        var containerClient = await this.Connect(projectName, cancellationToken);
+        var experiment = await this.LoadExperiment(containerClient, experimentName, cancellationToken: cancellationToken);
         return experiment;
     }
 }

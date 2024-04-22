@@ -5,11 +5,11 @@ public class AzureStorageQueueService : IQueueService
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private QueueServiceClient? queueServiceClient;
 
-    private async Task<QueueServiceClient> Connect()
+    private async Task<QueueServiceClient> Connect(CancellationToken cancellationToken = default)
     {
         try
         {
-            await this.connectLock.WaitAsync();
+            await this.connectLock.WaitAsync(cancellationToken);
 
             if (this.queueServiceClient is null)
             {
@@ -25,13 +25,13 @@ public class AzureStorageQueueService : IQueueService
         }
     }
 
-    public async Task<List<Queue>> ListQueues()
+    public async Task<List<Queue>> ListQueues(CancellationToken cancellationToken = default)
     {
-        var queueServiceClient = await this.Connect();
+        var queueServiceClient = await this.Connect(cancellationToken);
 
         // get all the queue names
         var queueNames = new List<string>();
-        await foreach (var queueItem in queueServiceClient.GetQueuesAsync())
+        await foreach (var queueItem in queueServiceClient.GetQueuesAsync(cancellationToken: cancellationToken))
         {
             queueNames.Add(queueItem.Name);
         }
@@ -52,5 +52,12 @@ public class AzureStorageQueueService : IQueueService
         }
 
         return queues;
+    }
+
+    public async Task Enqueue(string queueName, string message, CancellationToken cancellationToken = default)
+    {
+        var queueServiceClient = await this.Connect(cancellationToken);
+        var queueClient = queueServiceClient.GetQueueClient(queueName);
+        await queueClient.SendMessageAsync(message, cancellationToken);
     }
 }
