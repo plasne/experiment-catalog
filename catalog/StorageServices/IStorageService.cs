@@ -1,6 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
-
-public interface IStorage
+public interface IStorageService
 {
     public Task<IEnumerable<Experiment>> GetExperiments(string projectName);
     public Task AddExperiment(string projectName, Experiment experiment);

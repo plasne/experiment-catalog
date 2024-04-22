@@ -46,9 +46,8 @@ curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000
 
 ## TODO
 
-- Add a view of details of an evaluation, for instance the metrics aggregated by question in ground truth
-  - Extend further down to the actual run
-  - Add links for the actual run
+- Add proper config implementation
+- Add StyleCop
 - Add validation to the API
 - Add an endpoint for creating a project
 - Add UI to create a project
@@ -56,6 +55,7 @@ curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000
 - Add UI to mark a baseline
 - Share styles like link-button across the ui project
 - Test cases like no baseline experiment, no experiment to compare, etc.
+- Switch to DefaultAzureCredential
 - Add a Dockerfile and test deploying
 - Get docs from Stewart
 - Bulk up documentation

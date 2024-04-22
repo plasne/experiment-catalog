@@ -14,7 +14,6 @@
   <div class="title">
     <button class="link-button" on:click={select}>{experiment.name}</button>
   </div>
-  <div class="desc">{experiment.description}</div>
   <div class="hypothesis"><b>Hypothesis:</b> {experiment.hypothesis}</div>
 </div>
 
@@ -24,6 +23,7 @@
     border-radius: 4px;
     padding: 1rem;
     margin: 1rem;
+    max-width: 20rem;
   }
 
   .title {
@@ -48,11 +48,7 @@
     text-decoration: underline;
   }
 
-  .desc {
-    font-size: 1.2rem;
-  }
-
   .hypothesis {
-    font-size: 1rem;
+    font-size: 1.2rem;
   }
 </style>

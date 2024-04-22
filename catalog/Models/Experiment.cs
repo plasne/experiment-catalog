@@ -1,9 +1,6 @@
-using Microsoft.Net.Http.Headers;
-
 public class Experiment
 {
     public string? Name { get; set; }
-    public string? Description { get; set; }
     public string? Hypothesis { get; set; }
     public string? WorkItemUri { get; set; }
     public IEnumerable<Result>? Results { get; set; }
@@ -40,24 +37,52 @@ public class Experiment
         return result;
     }
 
+    public Result? AggregateSet(string? set)
+    {
+        if (string.IsNullOrEmpty(set)) return null;
+        if (this.Results is null) return null;
+        var filtered = this.Results.Where(x => x.Set == set);
+        var result = this.Aggregate(filtered);
+        result.Set = set;
+        return result;
+    }
+
+    public Dictionary<string, Result>? AggregateSetByRef(string? set)
+    {
+        if (string.IsNullOrEmpty(set)) return null;
+        if (this.Results is null) return null;
+        var results = new Dictionary<string, Result>();
+
+        var filtered = this.Results.Where(x => x.Set == set);
+        foreach (var group in filtered.GroupBy(x => x.Ref))
+        {
+            var result = this.Aggregate(group);
+            result.Ref = group.Key;
+            result.Set = set;
+            results.Add(group.Key!, result);
+        }
+
+        return results;
+    }
+
     public Result? AggregateFirstSet()
     {
-        if (this.Results is null) return null;
-        var first = this.Results.First();
-        var filtered = this.Results.Where(x => x.Set == first.Set);
-        var result = this.Aggregate(filtered);
-        result.Set = first.Set;
-        return result;
+        return this.AggregateSet(this.Results?.FirstOrDefault()?.Set);
+    }
+
+    public Dictionary<string, Result>? AggregateFirstSetByRef()
+    {
+        return this.AggregateSetByRef(this.Results?.FirstOrDefault()?.Set);
     }
 
     public Result? AggregateLastSet()
     {
-        if (this.Results is null) return null;
-        var first = this.Results.Last();
-        var filtered = this.Results.Where(x => x.Set == first.Set);
-        var result = this.Aggregate(filtered);
-        result.Set = first.Set;
-        return result;
+        return this.AggregateSet(this.Results?.LastOrDefault()?.Set);
+    }
+
+    public Dictionary<string, Result>? AggregateLastSetByRef()
+    {
+        return this.AggregateSetByRef(this.Results?.LastOrDefault()?.Set);
     }
 
     public List<Result> AggregateLastSets(int count)
@@ -73,10 +98,8 @@ public class Experiment
             if (next is null) break;
             if (!string.IsNullOrEmpty(next.Set) && sets.Contains(next.Set)) continue;
 
-            var filtered = this.Results.Where(x => x.Set == next.Set);
-            var rs = this.Aggregate(filtered);
-            rs.Set = next.Set;
-            results.Add(rs);
+            var result = this.AggregateSet(next.Set);
+            if (result is not null) results.Add(result);
             sets.Add(next.Set!);
         }
 
@@ -86,14 +109,12 @@ public class Experiment
 
     public Result? AggregateBaselineSet()
     {
-        if (this.Results is null) return null;
-        var baseline = this.Results.LastOrDefault(x => x.IsBaseline);
-        if (baseline is null) return null;
+        return this.AggregateSet(this.Results?.LastOrDefault(x => x.IsBaseline)?.Set);
+    }
 
-        var filtered = this.Results.Where(x => x.Set == baseline.Set);
-        var result = this.Aggregate(filtered);
-        result.Set = baseline.Set;
-        return result;
+    public Dictionary<string, Result>? AggregateBaselineSetByRef()
+    {
+        return this.AggregateSetByRef(this.Results?.LastOrDefault(x => x.IsBaseline)?.Set);
     }
 
     public List<Result> GetAllResultsOfSet(string name)

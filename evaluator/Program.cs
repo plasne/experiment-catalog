@@ -1,7 +1,7 @@
-using dotenv.net;
-using NetBricks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using dotenv.net;
+using NetBricks;
 
 // load environment variables from .env file
 DotEnv.Load();
@@ -11,7 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // add services to the container
 builder.Services.AddConfig();
-builder.Services.AddSingleton<IStorage, AzureBlobStorage>();
+builder.Services.AddSingleton<IQueueService, AzureStorageQueueService>();
+builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -47,5 +48,5 @@ app.UseRouting();
 app.UseMiddleware<HttpExceptionMiddleware>();
 app.MapControllers();
 
-var port = Config.GetOnce("PORT") ?? "6010";
+var port = Config.GetOnce("PORT") ?? "6030";
 app.Run($"http://localhost:{port}");

@@ -9,9 +9,9 @@ npm install
 # Build the Svelte project
 npm run build
 
-# Navigate back to the root directory
-cd ..
+# Navigate to the catalog
+cd ../catalog
 
 # Copy the built files to the wwwroot directory
 mkdir -p wwwroot/
-cp -r ui/dist/* wwwroot/
+cp -r ../ui/dist/* wwwroot/

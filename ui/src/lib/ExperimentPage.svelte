@@ -20,10 +20,6 @@
 <h1>PROJECT: {projectName}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
-  <span class="label">Description:</span>
-  <span>{experiment.description}</span>
-</div>
-<div>
   <span class="label">Hypothesis:</span>
   <span>{experiment.hypothesis}</span>
 </div>

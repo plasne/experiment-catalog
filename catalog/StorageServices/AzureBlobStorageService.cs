@@ -6,7 +6,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 
-public class AzureBlobStorage : IStorage
+public class AzureBlobStorageService : IStorageService
 {
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private BlobServiceClient? blobServiceClient;
@@ -42,10 +42,18 @@ public class AzureBlobStorage : IStorage
         try
         {
             await this.connectLock.WaitAsync();
-            var connectionString = NetBricks.Config.GetOnce("AZURE_STORAGE_CONNECTION_STRING");
-            this.blobServiceClient = new BlobServiceClient(connectionString);
-            var containerClient = blobServiceClient.GetBlobContainerClient(projectName);
+
+            // create the blob service client if it doesn't exist
+            if (this.blobServiceClient is null)
+            {
+                var connectionString = NetBricks.Config.GetOnce("AZURE_STORAGE_CONNECTION_STRING");
+                this.blobServiceClient = new BlobServiceClient(connectionString);
+            }
+
+            // create the container client
+            var containerClient = this.blobServiceClient.GetBlobContainerClient(projectName);
             await containerClient.CreateIfNotExistsAsync();
+
             return containerClient;
         }
         finally
