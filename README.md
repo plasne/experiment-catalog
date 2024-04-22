@@ -44,6 +44,12 @@ curl -i -X POST -d '{ "ref": "q1", "set": "alpha", "metrics": { "gpt-coherance":
 curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000/compare
 ```
 
+## Enqueue Inference
+
+```bash
+curl -i -X POST -H "Content-Type: application/json" -d '{ "set": "gamma" }' http://localhost:6030/api/queues/pelasne
+```
+
 ## TODO
 
 - Add proper config implementation

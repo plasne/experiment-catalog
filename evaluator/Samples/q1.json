@@ -1,9 +1,10 @@
 {
+    "ref": "q1",
     "history": [
         {
             "role": "user",
             "msg": "In Fury of Dracula 3rd edition, what is Dracula's encounter hand size?"
         }
     ],
-    "answer": "Normally, Dracula's maximum encounter hand size is five markers, but it is increased to seven while the Dracula's Brides Ally card is in play."
+    "ground_truth": "Normally, Dracula's maximum encounter hand size is five markers, but it is increased to seven while the Dracula's Brides Ally card is in play."
 }

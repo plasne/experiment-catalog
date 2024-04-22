@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // add services to the container
 builder.Services.AddConfig();
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IQueueService, AzureStorageQueueService>();
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
