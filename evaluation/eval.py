@@ -238,6 +238,7 @@ while True:
             catalog_payload = {
                 "ref": ref,
                 "set": set,
+                "result_uri": evaluation_uri,
                 "metrics": {
                     "gpt-coherance": { "value": coherence_score },
                     "gpt-groundedness": { "value": groundedness_score },

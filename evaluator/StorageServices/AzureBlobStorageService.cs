@@ -72,7 +72,7 @@ public class AzureBlobStorageService : IStorageService
         return blobUrls;
     }
 
-    private string CreateBlob(BlobContainerClient client, string blobName, CancellationToken cancellationToken = default)
+    private string CreateBlob(BlobContainerClient client, string blobName, DateTimeOffset expiry)
     {
         var sasBuilder = new BlobSasBuilder
         {
@@ -100,12 +100,12 @@ public class AzureBlobStorageService : IStorageService
     public async Task<string> CreateInferenceBlob(string blobName, CancellationToken cancellationToken = default)
     {
         await this.Connect(cancellationToken);
-        return this.CreateBlob(this.inferenceBlobContainerClient!, blobName, cancellationToken);
+        return this.CreateBlob(this.inferenceBlobContainerClient!, blobName, DateTimeOffset.UtcNow.AddHours(4));
     }
 
     public async Task<string> CreateEvaluationBlob(string blobName, CancellationToken cancellationToken = default)
     {
         await this.Connect(cancellationToken);
-        return this.CreateBlob(this.evaluationBlobContainerClient!, blobName, cancellationToken);
+        return this.CreateBlob(this.evaluationBlobContainerClient!, blobName, DateTimeOffset.UtcNow.AddYears(1));
     }
 }
