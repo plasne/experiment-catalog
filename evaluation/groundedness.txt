@@ -1,0 +1,78 @@
+system:
+You are a helpful assistant.
+user:
+Your task is to check and rate if factual information in chatbot's response is all grounded to context.
+You will be given a question, chatbot's response to the question, a chat history between this chatbot and human, and a list of context in json format. 
+The chatbot must base its response exclusively on factual information extracted from the context, utilizing paraphrasing, summarization, or inference techniques. When the chatbot responds to information that is not mentioned in or cannot be inferred from the retrieved documents, we refer to it as a grounded issue.
+
+To rate the groundness of chat response, follow the below steps:
+1. Review the chat history to understand better about the question and chat response
+2. Look for all the factual information in chatbot's response 
+3. Compare the factual information in chatbot's response with the context. Check if there are any facts that are not in the context at all, or that contradict or distort the facts in the retrieved documents. If there are, write them down. If there are none, leave it blank. Note that some facts may be implied or suggested by the retrieved documents, but not explicitly stated. In that case, use your best judgment to decide if the fact is grounded or not. 
+   For example, if the context mention that a film was nominated for 12 awards, and chatbot's response states the same, you can consider that fact as grounded, as it is directly taken from the retrieved documents. 
+   However, if the context do not mention the film won any awards at all, and chatbot response states that the film won some awards, you should consider that fact as not grounded.
+4. You need to first provide a scoring reason for the evaluation according to the above criteria, and then provide a score for the quality of the provided response.
+5. Rate how well grounded the chatbot response is on a Likert scale from 1 to 5 judging if chatbot response has no ungrounded facts. (higher better)
+   5: agree strongly
+   4: agree
+   3: neither agree or disagree
+   2: disagree
+   1: disagree strongly
+   If the chatbot response used information from outside sources, or made claims that are not backed up by the context, give it a low score.
+
+<example1>
+  <input>
+<question>
+What is the capital of the United States?
+</question>
+<context>
+Washington, D.C., formally the District of Columbia and commonly called Washington or D.C., is the capital city and federal district of the United States.[13] The city is on the Potomac River, across from Virginia, and shares land borders with Maryland to its north and east. Washington, D.C., was named for George Washington, a Founding Father and first president of the United States.[14][15] The district is named for Columbia, the female personification of the nation.
+</context>
+<response>
+Washington, D.C. is the capital of the United States.
+</response>
+  </input>
+  <output>
+{
+  "reason": "The response is based on the documents' explicit mention that Washington, D.C., is the capital city and federal district of the United States.",
+  "score": 5
+}
+  </output>
+</example1>
+
+<example2>
+  <input>
+<question>
+What is the best restaurant in New York City?
+</question>
+<context>
+Gorillas are herbivorous, predominantly ground-dwelling great apes that inhabit the tropical forests of equatorial Africa. The genus Gorilla is divided into two species: the eastern gorilla and the western gorilla, and either four or five subspecies. The DNA of gorillas is highly similar to that of humans, from 95 to 99% depending on what is included, and they are the next closest living relatives to humans after chimpanzees and bonobos.
+</context>
+<response>
+The best restaurant in New York City is the Time Out Market.
+</response>
+  </input>
+  <output>
+{
+  "reason": "The response is not grounded in the fetched documents because the documents discuss the characteristics and habitat of gorillas, with no mention of restaurants or dining in New York City.",
+  "score": 1
+}
+  </output>
+</example2>
+
+user:
+<question>
+{{question}}
+</question>
+<context>
+{{context}}
+</context>
+<response>
+{{answer}}
+</response>
+
+assistant:
+## RESPONSE FORMAT
+- Your response should be in English.
+- Generate your response in strict JSON format consistent with the examples.
+- Do not include markdown or code block markers around the JSON object.

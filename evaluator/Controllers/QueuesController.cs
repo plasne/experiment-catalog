@@ -33,9 +33,9 @@ public class QueuesController : ControllerBase
         CancellationToken cancellationToken)
     {
         // validate
-        if (string.IsNullOrEmpty(request.Set))
+        if (string.IsNullOrEmpty(request.Project) || string.IsNullOrEmpty(request.Experiment) || string.IsNullOrEmpty(request.Set))
         {
-            return BadRequest("set is required.");
+            return BadRequest("project, experiment, and set are required.");
         }
 
         // init
@@ -67,7 +67,7 @@ public class QueuesController : ControllerBase
                 this.logger.LogInformation("successfullly downloaded {uri}...", groundTruthUri);
 
                 // get the ground truth ref
-                var payload = JsonSerializer.Deserialize<GroundTruthPayload>(responseBody);
+                var payload = JsonSerializer.Deserialize<GroundTruthFile>(responseBody);
                 if (string.IsNullOrEmpty(payload?.Ref))
                 {
                     throw new Exception($"no ref found.");
@@ -90,8 +90,10 @@ public class QueuesController : ControllerBase
                     payload.Ref,
                     request.Set,
                     inferenceQueue);
-                var inferenceRequest = new InferenceRequest
+                var inferenceRequest = new PipelineRequest
                 {
+                    Project = request.Project,
+                    Experiment = request.Experiment,
                     Ref = payload.Ref,
                     Set = request.Set,
                     IsBaseline = request.IsBaseline,

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-public class InferenceRequest
+public class PipelineRequest
 {
     [JsonPropertyName("ground_truth_uri")]
     public string? GroundTruthUri { get; set; }
@@ -10,6 +10,12 @@ public class InferenceRequest
 
     [JsonPropertyName("evaluation_uri")]
     public string? EvaluationUri { get; set; }
+
+    [JsonPropertyName("project")]
+    public string? Project { get; set; }
+
+    [JsonPropertyName("experiment")]
+    public string? Experiment { get; set; }
 
     [JsonPropertyName("ref")]
     public string? Ref { get; set; }
