@@ -1,14 +1,28 @@
+using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
+using System.Threading;
+using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
 
-public class AzureBlobStorageService : IStorageService
+public class AzureBlobStorageService(
+    IConfig config,
+    DefaultAzureCredential defaultAzureCredential,
+    AzureStorageDetails azureStorageDetails)
+    : IBlobStorageService
 {
+    private readonly IConfig config = config;
+    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
+    private readonly AzureStorageDetails azureStorageDetails = azureStorageDetails;
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private BlobServiceClient? blobServiceClient;
     private BlobContainerClient? groundTruthBlobContainerClient;
     private BlobContainerClient? inferenceBlobContainerClient;
     private BlobContainerClient? evaluationBlobContainerClient;
+    private string? storageAccountName;
+    private string? storageAccountKey;
 
     private async Task Connect(CancellationToken cancellationToken = default)
     {
@@ -17,20 +31,23 @@ public class AzureBlobStorageService : IStorageService
             await this.connectLock.WaitAsync(cancellationToken);
             if (this.blobServiceClient is null || this.inferenceBlobContainerClient is null || this.evaluationBlobContainerClient is null)
             {
-                var connectionString = NetBricks.Config.GetOnce("AZURE_STORAGE_CONNECTION_STRING");
-                var groundTruthContainerName = NetBricks.Config.GetOnce("AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME");
-                var inferenceContainerName = NetBricks.Config.GetOnce("AZURE_STORAGE_INFERENCE_CONTAINER_NAME");
-                var evaluationContainerName = NetBricks.Config.GetOnce("AZURE_STORAGE_EVALUATION_CONTAINER_NAME");
-                this.blobServiceClient = new BlobServiceClient(connectionString);
+                // get the account name and key
 
-                this.groundTruthBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(groundTruthContainerName);
+                // get the blob service client
+                (this.storageAccountName, this.storageAccountKey) = await this.azureStorageDetails.GetNameAndKey(cancellationToken);
+                string blobServiceUri = $"https://{this.storageAccountName}.blob.core.windows.net";
+                this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
+
+                // get the blob container clients
+                this.groundTruthBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(this.config.AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME);
                 await groundTruthBlobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
-                this.inferenceBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(inferenceContainerName);
+                this.inferenceBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(this.config.AZURE_STORAGE_INFERENCE_CONTAINER_NAME);
                 await inferenceBlobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
-                this.evaluationBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(evaluationContainerName);
+                this.evaluationBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(this.config.AZURE_STORAGE_EVALUATION_CONTAINER_NAME);
                 await evaluationBlobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
             }
         }
         finally
@@ -52,15 +69,12 @@ public class AzureBlobStorageService : IStorageService
                 BlobName = blob.Name,
                 Resource = "b",
                 StartsOn = DateTimeOffset.UtcNow,
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(4)
+                ExpiresOn = DateTimeOffset.UtcNow + this.config.MAX_DURATION_TO_RUN_EVALUATIONS,
             };
 
             sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
-            // TODO: replace this with DefaultAzureCredential
-            var accountName = NetBricks.Config.GetOnce("AZURE_STORAGE_ACCOUNT_NAME");
-            var accountKey = NetBricks.Config.GetOnce("AZURE_STORAGE_ACCOUNT_KEY");
-            var cred = new StorageSharedKeyCredential(accountName, accountKey);
+            var cred = new StorageSharedKeyCredential(this.storageAccountName, this.storageAccountKey);
             var sasToken = sasBuilder.ToSasQueryParameters(cred).ToString();
 
             var blobClient = this.groundTruthBlobContainerClient.GetBlobClient(blob.Name);
@@ -80,15 +94,12 @@ public class AzureBlobStorageService : IStorageService
             BlobName = blobName,
             Resource = "b",
             StartsOn = DateTimeOffset.UtcNow,
-            ExpiresOn = DateTimeOffset.UtcNow.AddHours(4)
+            ExpiresOn = expiry,
         };
 
         sasBuilder.SetPermissions(BlobSasPermissions.Read | BlobSasPermissions.Write | BlobSasPermissions.Create);
 
-        // TODO: replace this with DefaultAzureCredential
-        var accountName = NetBricks.Config.GetOnce("AZURE_STORAGE_ACCOUNT_NAME");
-        var accountKey = NetBricks.Config.GetOnce("AZURE_STORAGE_ACCOUNT_KEY");
-        var cred = new StorageSharedKeyCredential(accountName, accountKey);
+        var cred = new StorageSharedKeyCredential(this.storageAccountName, this.storageAccountKey);
         var sasToken = sasBuilder.ToSasQueryParameters(cred).ToString();
 
         var blobClient = client.GetBlobClient(blobName);
@@ -100,12 +111,12 @@ public class AzureBlobStorageService : IStorageService
     public async Task<string> CreateInferenceBlob(string blobName, CancellationToken cancellationToken = default)
     {
         await this.Connect(cancellationToken);
-        return this.CreateBlob(this.inferenceBlobContainerClient!, blobName, DateTimeOffset.UtcNow.AddHours(4));
+        return this.CreateBlob(this.inferenceBlobContainerClient!, blobName, DateTimeOffset.UtcNow + this.config.MAX_DURATION_TO_RUN_EVALUATIONS);
     }
 
     public async Task<string> CreateEvaluationBlob(string blobName, CancellationToken cancellationToken = default)
     {
         await this.Connect(cancellationToken);
-        return this.CreateBlob(this.evaluationBlobContainerClient!, blobName, DateTimeOffset.UtcNow.AddYears(1));
+        return this.CreateBlob(this.evaluationBlobContainerClient!, blobName, DateTimeOffset.UtcNow + this.config.MAX_DURATION_TO_VIEW_RESULTS);
     }
 }

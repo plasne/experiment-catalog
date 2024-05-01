@@ -1,19 +1,21 @@
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 [ApiController]
 [Route("api/queues")]
-public class QueuesController : ControllerBase
+public class QueuesController(IConfig config, IHttpClientFactory httpClientFactory, ILogger<QueuesController> logger) : ControllerBase
 {
-    private readonly IHttpClientFactory httpClientFactory;
-    private readonly ILogger<QueuesController> logger;
-
-    public QueuesController(IHttpClientFactory httpClientFactory, ILogger<QueuesController> logger)
-    {
-        this.httpClientFactory = httpClientFactory;
-        this.logger = logger;
-    }
+    private readonly IConfig config = config;
+    private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
+    private readonly ILogger<QueuesController> logger = logger;
 
     [HttpGet]
     public async Task<ActionResult<List<Queue>>> List(
@@ -27,7 +29,7 @@ public class QueuesController : ControllerBase
     [HttpPost("{queueName}")]
     public async Task<ActionResult<EnqueueResponse>> Enqueue(
         [FromServices] IQueueService queueService,
-        [FromServices] IStorageService storageService,
+        [FromServices] IBlobStorageService storageService,
         [FromRoute] string queueName,
         [FromBody] EnqueueRequest request,
         CancellationToken cancellationToken)
@@ -42,7 +44,7 @@ public class QueuesController : ControllerBase
         var successful = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<string>();
         var httpClient = this.httpClientFactory.CreateClient();
-        var semaphore = new SemaphoreSlim(4);
+        var semaphore = new SemaphoreSlim(this.config.CONCURRENCY);
         var prefix = Guid.NewGuid().ToString();
 
         // get the ground truth URIs
@@ -125,8 +127,8 @@ public class QueuesController : ControllerBase
 
         return Ok(new EnqueueResponse
         {
-            Successful = [.. successful],
-            Failed = [.. failed],
+            Successful = new List<string>(successful),
+            Failed = new List<string>(failed),
         });
     }
 }

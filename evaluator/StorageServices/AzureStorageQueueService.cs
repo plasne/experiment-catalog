@@ -1,7 +1,20 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Azure.Identity;
 using Azure.Storage.Queues;
 
-public class AzureStorageQueueService : IQueueService
+public class AzureStorageQueueService(
+    IConfig config,
+    DefaultAzureCredential defaultAzureCredential,
+    AzureStorageDetails azureStorageDetails)
+    : IQueueService
 {
+    private readonly IConfig config = config;
+    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
+    private readonly AzureStorageDetails azureStorageDetails = azureStorageDetails;
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private QueueServiceClient? queueServiceClient;
 
@@ -11,11 +24,9 @@ public class AzureStorageQueueService : IQueueService
         {
             await this.connectLock.WaitAsync(cancellationToken);
 
-            if (this.queueServiceClient is null)
-            {
-                var connectionString = NetBricks.Config.GetOnce("AZURE_STORAGE_CONNECTION_STRING");
-                this.queueServiceClient = new QueueServiceClient(connectionString);
-            }
+            var (storageAccountName, storageAccountKey) = await this.azureStorageDetails.GetNameAndKey(cancellationToken);
+            string queueServiceUri = $"https://{storageAccountName}.queue.core.windows.net";
+            this.queueServiceClient ??= new QueueServiceClient(new Uri(queueServiceUri), this.defaultAzureCredential);
 
             return queueServiceClient;
         }
