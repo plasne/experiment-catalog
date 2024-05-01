@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using YamlDotNet.Serialization;
 
 [ApiController]
 [Route("api/queues")]
@@ -46,6 +47,7 @@ public class QueuesController(IConfig config, IHttpClientFactory httpClientFacto
         var httpClient = this.httpClientFactory.CreateClient();
         var semaphore = new SemaphoreSlim(this.config.CONCURRENCY);
         var prefix = Guid.NewGuid().ToString();
+        var yamlDeserializer = new DeserializerBuilder().IgnoreUnmatchedProperties().Build();
 
         // get the ground truth URIs
         this.logger.LogDebug("getting ground truth URIs...");
@@ -66,13 +68,30 @@ public class QueuesController(IConfig config, IHttpClientFactory httpClientFacto
                 {
                     throw new Exception($"{response.StatusCode}: {responseBody}");
                 }
-                this.logger.LogInformation("successfullly downloaded {uri}...", groundTruthUri);
+                this.logger.LogInformation("successfully downloaded {uri}...", groundTruthUri);
 
                 // get the ground truth ref
-                var payload = JsonSerializer.Deserialize<GroundTruthFile>(responseBody);
-                if (string.IsNullOrEmpty(payload?.Ref))
+                GroundTruthFile? payload;
+                var filepath = groundTruthUri.Split("?").First();
+                if (filepath.EndsWith(".json", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    throw new Exception($"no ref found.");
+                    payload = JsonSerializer.Deserialize<GroundTruthFile>(responseBody);
+                    if (string.IsNullOrEmpty(payload?.Ref))
+                    {
+                        throw new Exception($"no ref found.");
+                    }
+                }
+                else if (filepath.EndsWith(".yaml", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    payload = yamlDeserializer.Deserialize<GroundTruthFile>(responseBody);
+                    if (string.IsNullOrEmpty(payload?.Ref))
+                    {
+                        throw new Exception($"no ref found.");
+                    }
+                }
+                else
+                {
+                    throw new Exception($"cannot determine ground truth file type for {groundTruthUri}.");
                 }
 
                 // create the inference blob
@@ -85,7 +104,7 @@ public class QueuesController(IConfig config, IHttpClientFactory httpClientFacto
                 var evaluationBlobUri = await storageService.CreateEvaluationBlob($"{prefix}-{payload.Ref}.json", cancellationToken);
                 this.logger.LogInformation("created evaluation blob as {uri}.", evaluationBlobUri);
 
-                // enqueue the ref
+                // create the payload
                 var inferenceQueue = $"{queueName}-inference";
                 this.logger.LogDebug(
                     "enqueuing (ref:{r}, set:{s}) as an inference request to queue {q}...",
@@ -104,12 +123,18 @@ public class QueuesController(IConfig config, IHttpClientFactory httpClientFacto
                     EvaluationUri = evaluationBlobUri,
                 };
                 var json = JsonSerializer.Serialize(inferenceRequest);
-                await queueService.Enqueue(inferenceQueue, json, cancellationToken);
-                this.logger.LogDebug(
-                    "successfully enqueued (ref:{r}, set:{s}) as an inference request to queue {q}.",
-                    payload.Ref,
-                    request.Set,
-                    inferenceQueue);
+
+                // enqueue the payload the appropriate number of times
+                for (var i = 0; i < request.Iterations; i++)
+                {
+                    await queueService.Enqueue(inferenceQueue, json, cancellationToken);
+                    this.logger.LogInformation(
+                        "successfully enqueued (ref:{r}, set:{s}) as an inference request to queue {q} as iteration {i}.",
+                        payload.Ref,
+                        request.Set,
+                        inferenceQueue,
+                        i);
+                }
 
                 successful.Add(groundTruthUri);
             }

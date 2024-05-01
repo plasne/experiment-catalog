@@ -4,6 +4,7 @@ using dotenv.net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NetBricks;
 
 // load environment variables from .env file
@@ -20,6 +21,10 @@ config.Validate();
 builder.Services.AddSingleton<IConfig>(config);
 builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
 builder.Services.AddDefaultAzureCredential();
+
+// add logging
+builder.Logging.ClearProviders();
+builder.Services.AddSingleLineConsoleLogger();
 
 // add services to the container
 builder.Services.AddHttpClient();

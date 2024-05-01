@@ -1,0 +1,16 @@
+ref: q2
+history:
+  - role: user
+    msg: Can you describe the dawn, day, and dusk phases of Fury of Dracula 4th edition?
+ground_truth: >
+  Dawn occurs before day, and dusk occurs before night.
+  - At dawn, which is after the Dracula phase has ended, the time marker is advanced from its
+    current night space to the next day space.
+  - At dusk, which is before the hunters take their night actions, the time marker is advanced
+    from its current day space to the next night space.
+  - When the time marker advances from Sunday night to Monday day, place one despair token on
+    the space in the center of the time track. Also, Dracula gains one rumor token.
+  - There are event cards that can be played during dawn or dusk. If a character chooses to play
+    one of these cards, they do so after the time marker is advanced.
+  - If one or more hunters are in the same location as Dracula during dawn or dusk, a combat occurs
+    after the time marker is advanced (see the “Round Summary” on page 16).

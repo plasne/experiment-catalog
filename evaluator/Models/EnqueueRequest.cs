@@ -13,4 +13,7 @@ public class EnqueueRequest
 
     [JsonPropertyName("is_baseline")]
     public bool IsBaseline { get; set; }
+
+    [JsonPropertyName("iterations")]
+    public int Iterations { get; set; } = 1;
 }
