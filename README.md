@@ -56,15 +56,6 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01
 curl -i -X POST -d '{ "set": "alpha", "annotations": [ { "text": "commit 3746hf", "uri": "https://dev.azure.com/commit" } ] }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/pelasne-01/results
 ```
 
-## DONE
-
-- added datasources to enqueue
-- added annotations
-- added optimize
-- added loading indicator
-- allow selection of # of sets load
-- support for DefaultAzureCredential
-
 ## TODO
 
 - Add StyleCop
