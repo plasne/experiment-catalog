@@ -18,7 +18,6 @@ public class AzureBlobStorageService(
     private readonly AzureStorageDetails azureStorageDetails = azureStorageDetails;
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private BlobServiceClient? blobServiceClient;
-    private BlobContainerClient? groundTruthBlobContainerClient;
     private BlobContainerClient? inferenceBlobContainerClient;
     private BlobContainerClient? evaluationBlobContainerClient;
     private string? storageAccountName;
@@ -32,22 +31,17 @@ public class AzureBlobStorageService(
             if (this.blobServiceClient is null || this.inferenceBlobContainerClient is null || this.evaluationBlobContainerClient is null)
             {
                 // get the account name and key
+                (this.storageAccountName, this.storageAccountKey) = await this.azureStorageDetails.GetNameAndKey(cancellationToken);
 
                 // get the blob service client
-                (this.storageAccountName, this.storageAccountKey) = await this.azureStorageDetails.GetNameAndKey(cancellationToken);
                 string blobServiceUri = $"https://{this.storageAccountName}.blob.core.windows.net";
                 this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
 
                 // get the blob container clients
-                this.groundTruthBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(this.config.AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME);
-                await groundTruthBlobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
-
                 this.inferenceBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(this.config.AZURE_STORAGE_INFERENCE_CONTAINER_NAME);
                 await inferenceBlobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
-
                 this.evaluationBlobContainerClient = this.blobServiceClient.GetBlobContainerClient(this.config.AZURE_STORAGE_EVALUATION_CONTAINER_NAME);
                 await evaluationBlobContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
-
             }
         }
         finally
@@ -56,31 +50,41 @@ public class AzureBlobStorageService(
         }
     }
 
-    public async Task<List<string>> ListGroundTruthUris(CancellationToken cancellationToken = default)
+    public async Task<List<string>> ListGroundTruthUris(List<string> Datasources, CancellationToken cancellationToken = default)
     {
         await this.Connect(cancellationToken);
         var blobUrls = new List<string>();
 
-        await foreach (var blob in this.groundTruthBlobContainerClient!.GetBlobsAsync(cancellationToken: cancellationToken))
+        foreach (var datasourceName in Datasources)
         {
-            var sasBuilder = new BlobSasBuilder
+            var groundTruthBlobContainerClient = this.blobServiceClient!.GetBlobContainerClient($"{datasourceName}-groundtruth");
+            var existsResponse = await groundTruthBlobContainerClient.ExistsAsync(cancellationToken);
+            if (!existsResponse.Value)
             {
-                BlobContainerName = this.groundTruthBlobContainerClient.Name,
-                BlobName = blob.Name,
-                Resource = "b",
-                StartsOn = DateTimeOffset.UtcNow,
-                ExpiresOn = DateTimeOffset.UtcNow + this.config.MAX_DURATION_TO_RUN_EVALUATIONS,
-            };
+                continue;
+            }
 
-            sasBuilder.SetPermissions(BlobSasPermissions.Read);
+            await foreach (var blob in groundTruthBlobContainerClient!.GetBlobsAsync(cancellationToken: cancellationToken))
+            {
+                var sasBuilder = new BlobSasBuilder
+                {
+                    BlobContainerName = groundTruthBlobContainerClient.Name,
+                    BlobName = blob.Name,
+                    Resource = "b",
+                    StartsOn = DateTimeOffset.UtcNow,
+                    ExpiresOn = DateTimeOffset.UtcNow + this.config.MAX_DURATION_TO_RUN_EVALUATIONS,
+                };
 
-            var cred = new StorageSharedKeyCredential(this.storageAccountName, this.storageAccountKey);
-            var sasToken = sasBuilder.ToSasQueryParameters(cred).ToString();
+                sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
-            var blobClient = this.groundTruthBlobContainerClient.GetBlobClient(blob.Name);
-            var blobUrlWithSas = blobClient.Uri + "?" + sasToken;
+                var cred = new StorageSharedKeyCredential(this.storageAccountName, this.storageAccountKey);
+                var sasToken = sasBuilder.ToSasQueryParameters(cred).ToString();
 
-            blobUrls.Add(blobUrlWithSas);
+                var blobClient = groundTruthBlobContainerClient.GetBlobClient(blob.Name);
+                var blobUrlWithSas = blobClient.Uri + "?" + sasToken;
+
+                blobUrls.Add(blobUrlWithSas);
+            }
         }
 
         return blobUrls;
@@ -118,5 +122,20 @@ public class AzureBlobStorageService(
     {
         await this.Connect(cancellationToken);
         return this.CreateBlob(this.evaluationBlobContainerClient!, blobName, DateTimeOffset.UtcNow + this.config.MAX_DURATION_TO_VIEW_RESULTS);
+    }
+
+    public async Task<List<Datasource>> ListDatasources(CancellationToken cancellationToken = default)
+    {
+        await this.Connect(cancellationToken);
+        List<Datasource> containersWithGroundTruth = [];
+        await foreach (var container in this.blobServiceClient!.GetBlobContainersAsync(cancellationToken: cancellationToken))
+        {
+            if (container.Name.EndsWith("-groundtruth"))
+            {
+                var prefix = container.Name[..^12];
+                containersWithGroundTruth.Add(new Datasource { Name = prefix });
+            }
+        }
+        return containersWithGroundTruth;
     }
 }

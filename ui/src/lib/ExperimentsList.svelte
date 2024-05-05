@@ -4,16 +4,24 @@
 
   export let projectName: string;
   let experiments: Experiment[] = [];
+  let state: "loading" | "loaded" | "error" = "loading";
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   const dispatch = createEventDispatcher();
 
   const fetchExperiments = async () => {
-    const response = await fetch(
-      `${prefix}/api/projects/${projectName}/experiments`
-    );
-    experiments = await response.json();
+    try {
+      state = "loading";
+      const response = await fetch(
+        `${prefix}/api/projects/${projectName}/experiments`
+      );
+      experiments = await response.json();
+      state = "loaded";
+    } catch (error) {
+      console.error(error);
+      state = "error";
+    }
   };
 
   $: fetchExperiments();
@@ -24,11 +32,21 @@
 </script>
 
 <h1>Experiments in {projectName}</h1>
-<div class="flex-container">
-  {#each experiments as experiment (experiment.name)}
-    <ExperimentCard on:select={select} {experiment} />
-  {/each}
-</div>
+
+{#if state === "loading"}
+  <div>Loading...</div>
+  <div>
+    <img class="loading" alt="loading" src="/src/assets/spinner.gif" />
+  </div>
+{:else if state === "error"}
+  <div>Error loading experiments.</div>
+{:else}
+  <div class="flex-container">
+    {#each experiments as experiment (experiment.name)}
+      <ExperimentCard on:select={select} {experiment} />
+    {/each}
+  </div>
+{/if}
 
 <style>
   .flex-container {

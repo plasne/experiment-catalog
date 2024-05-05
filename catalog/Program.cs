@@ -9,9 +9,23 @@ DotEnv.Load();
 // create the web application
 var builder = WebApplication.CreateBuilder(args);
 
+// add config
+var netConfig = new NetBricks.Config();
+await netConfig.Apply();
+var config = new Config(netConfig);
+config.Validate();
+builder.Services.AddSingleton<IConfig>(config);
+builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
+builder.Services.AddDefaultAzureCredential();
+
+// setup logger
+builder.Logging.ClearProviders();
+builder.Services.AddSingleLineConsoleLogger();
+
 // add services to the container
 builder.Services.AddConfig();
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
+builder.Services.AddHostedService<AzureBlobStorageMaintenanceService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -32,6 +46,12 @@ builder.Services.AddCors(options =>
     });
 });
 
+// listen (disable TLS)
+builder.WebHost.UseKestrel(options =>
+{
+    options.ListenAnyIP(config.PORT);
+});
+
 // build with swagger
 var app = builder.Build();
 app.UseSwagger();
@@ -47,5 +67,5 @@ app.UseRouting();
 app.UseMiddleware<HttpExceptionMiddleware>();
 app.MapControllers();
 
-var port = Config.GetOnce("PORT") ?? "6010";
-app.Run($"http://localhost:{port}");
+// run
+app.Run();

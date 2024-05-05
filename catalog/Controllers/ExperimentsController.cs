@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -28,7 +29,16 @@ public class ExperimentsController : ControllerBase
         [FromBody] Experiment experiment,
         CancellationToken cancellationToken)
     {
-        // TODO: validate projectName and experiment
+        if (projectName is null || experiment is null)
+        {
+            return BadRequest("a project name and experiment (as body) are required.");
+        }
+
+        if (string.IsNullOrEmpty(experiment.Name) || string.IsNullOrEmpty(experiment.Hypothesis))
+        {
+            return BadRequest("an experiment name and hypothesis are required.");
+        }
+
         await storageService.AddExperiment(projectName, experiment, cancellationToken);
         return Ok();
     }
@@ -55,6 +65,7 @@ public class ExperimentsController : ControllerBase
         var comparison = new Comparison();
 
         // get the baseline
+        Stopwatch stopwatch = new();
         try
         {
             var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
@@ -117,5 +128,16 @@ public class ExperimentsController : ControllerBase
         var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
         var results = experiment.GetAllResultsOfSet(setName);
         return Ok(results);
+    }
+
+    [HttpPut("{experimentName}/optimize")]
+    public async Task<IActionResult> Optimize(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        [FromRoute] string experimentName,
+        CancellationToken cancellationToken)
+    {
+        await storageService.OptimizeExperiment(projectName, experimentName, cancellationToken);
+        return Ok();
     }
 }

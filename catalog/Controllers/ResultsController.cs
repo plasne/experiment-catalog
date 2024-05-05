@@ -16,12 +16,14 @@ public class ResultsController : ControllerBase
             return BadRequest("a project name, experiment name, and result (as body) are required.");
         }
 
-        if (result.Ref is null || result.Set is null || result.Metrics is null)
+        if (
+            (result.Annotations is null || !result.Annotations.Any()) &&
+            (result.Ref is null || result.Set is null || result.Metrics is null))
         {
-            return BadRequest("ref, set, and metrics are required.");
+            return BadRequest("ref, set, and metrics are required when there is not an annotation.");
         }
 
-        if (result.Metrics.Any(x => x.Value is null))
+        if (result.Metrics is not null && result.Metrics.Any(x => x.Value is null))
         {
             return BadRequest("all metrics must have a value.");
         }

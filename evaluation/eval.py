@@ -185,7 +185,7 @@ while True:
             experiment = request['experiment']
             ref = request['ref']
             set = request['set']
-            print(f"received request for evalutation of ref: {ref}...")
+            print(f"received request for evaluation of ref: {ref}...")
 
             # get the inference payload
             catalog_uri = request["inference_uri"]
@@ -245,9 +245,9 @@ while True:
                     "gpt-relevance": { "value": relevance_score }
                 }
             }
-            inference_response = requests.post(catalog_uri, headers=catalog_headers, data=json.dumps(catalog_payload))
-            if inference_response.status_code != 200:
-                raise Exception(f"{inference_response.status_code}: {inference_response.text}")
+            catalog_response = requests.post(catalog_uri, headers=catalog_headers, data=json.dumps(catalog_payload))
+            if catalog_response.status_code != 200:
+                raise Exception(f"{catalog_response.status_code}: {catalog_response.text}")
             print(f"successfully posted results for ref: {ref} to experiment catalog.")
 
             # delete the message as it has been processed

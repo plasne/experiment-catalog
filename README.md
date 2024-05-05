@@ -47,8 +47,17 @@ curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000
 ## Enqueue Inference
 
 ```bash
-curl -i -X POST -H "Content-Type: application/json" -d '{ "set": "gamma" }' http://localhost:6030/api/queues/pelasne
+curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "datasources": ["test"], "iterations": 3 }' http://localhost:6030/api/queues/pelasne
 ```
+
+## DONE
+
+- added datasources to enqueue
+- added annotations
+- added optimize
+- added loading indicator
+- allow selection of # of sets load
+- support for DefaultAzureCredential
 
 ## TODO
 

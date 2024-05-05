@@ -10,7 +10,6 @@ public class Config : IConfig
         this.config = config;
         this.PORT = this.config.Get<string>("PORT").AsInt(() => 6030);
         this.AZURE_STORAGE_ACCOUNT_ID = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_ID");
-        this.AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME = this.config.Get<string>("AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME");
         this.AZURE_STORAGE_INFERENCE_CONTAINER_NAME = this.config.Get<string>("AZURE_STORAGE_INFERENCE_CONTAINER_NAME");
         this.AZURE_STORAGE_EVALUATION_CONTAINER_NAME = this.config.Get<string>("AZURE_STORAGE_EVALUATION_CONTAINER_NAME");
         this.MAX_DURATION_TO_RUN_EVALUATIONS = this.config.Get<string>("MAX_DURATION_TO_RUN_EVALUATIONS").AsDuration(() => Duration.FromHours(24));
@@ -21,8 +20,6 @@ public class Config : IConfig
     public int PORT { get; }
 
     public string AZURE_STORAGE_ACCOUNT_ID { get; }
-
-    public string AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME { get; }
 
     public string AZURE_STORAGE_INFERENCE_CONTAINER_NAME { get; }
 
@@ -38,7 +35,6 @@ public class Config : IConfig
     {
         this.config.Require("PORT", this.PORT.ToString());
         this.config.Require("AZURE_STORAGE_ACCOUNT_ID", this.AZURE_STORAGE_ACCOUNT_ID);
-        this.config.Require("AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME", this.AZURE_STORAGE_GROUNDTRUTH_CONTAINER_NAME);
         this.config.Require("AZURE_STORAGE_INFERENCE_CONTAINER_NAME", this.AZURE_STORAGE_INFERENCE_CONTAINER_NAME);
         this.config.Require("AZURE_STORAGE_EVALUATION_CONTAINER_NAME", this.AZURE_STORAGE_EVALUATION_CONTAINER_NAME);
         this.config.Require("MAX_DURATION_TO_RUN_EVALUATIONS", this.MAX_DURATION_TO_RUN_EVALUATIONS.ToString());

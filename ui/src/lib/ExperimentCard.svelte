@@ -12,7 +12,7 @@
 
 <div class="card">
   <div class="title">
-    <button class="link-button" on:click={select}>{experiment.name}</button>
+    <button class="link" on:click={select}>{experiment.name}</button>
   </div>
   <div class="hypothesis"><b>Hypothesis:</b> {experiment.hypothesis}</div>
 </div>
@@ -30,22 +30,6 @@
     font-size: 1.5rem;
     font-weight: bold;
     color: #ccc;
-  }
-
-  .link-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-size: inherit;
-    font-weight: inherit;
-    color: inherit;
-    text-decoration: underline;
-    text-decoration-color: #777;
-  }
-
-  .link-button:hover {
-    text-decoration: underline;
   }
 
   .hypothesis {

@@ -3,7 +3,7 @@
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
 
-  let projectName = "project-01";
+  let projectName = "project-02";
   let experiment: Experiment;
   let setName: string;
 

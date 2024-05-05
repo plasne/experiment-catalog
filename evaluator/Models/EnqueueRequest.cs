@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 public class EnqueueRequest
@@ -10,6 +11,9 @@ public class EnqueueRequest
 
     [JsonPropertyName("set")]
     public string? Set { get; set; }
+
+    [JsonPropertyName("datasources")]
+    public List<string>? Datasources { get; set; }
 
     [JsonPropertyName("is_baseline")]
     public bool IsBaseline { get; set; }

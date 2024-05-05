@@ -16,7 +16,7 @@
   };
 </script>
 
-<button class="link-button" on:click={unselectExperiment}>back</button>
+<button class="link" on:click={unselectExperiment}>back</button>
 <h1>PROJECT: {projectName}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
@@ -36,6 +36,14 @@
     }).format(new Date(experiment.created))}
   </span>
 </div>
+{#if experiment.annotations}
+  {#each experiment.annotations as annotation}
+    <div>
+      <span class="label">Annotation:</span>
+      <span>{annotation.text}</span>
+    </div>
+  {/each}
+{/if}
 
 <div class="table">
   <ComparisonTable {projectName} {experiment} on:selectSet={selectSet} />
@@ -52,21 +60,5 @@
 
   .table {
     margin-top: 2rem;
-  }
-
-  .link-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-size: inherit;
-    font-weight: inherit;
-    color: inherit;
-    text-decoration: underline;
-    text-decoration-color: #777;
-  }
-
-  .link-button:hover {
-    text-decoration: underline;
   }
 </style>

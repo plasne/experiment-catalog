@@ -6,6 +6,8 @@
   export let experiment: Experiment;
   export let setName: string;
 
+  let state: "loading" | "loaded" | "error" = "loading";
+
   const dispatch = createEventDispatcher();
 
   const unselectSet = () => {
@@ -21,48 +23,62 @@
   let metrics: string[] = [];
 
   const fetchComparison = async () => {
-    // get the comparison
-    let url = `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/sets/${setName}/compare-by-ref`;
-    var response = await fetch(url);
-    comparison = await response.json();
+    try {
+      state = "loading";
+      // get the comparison
+      let url = `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/sets/${setName}/compare-by-ref`;
+      var response = await fetch(url);
+      comparison = await response.json();
 
-    // get a list of all refs in the chosen results
-    refs = Object.keys(comparison.chosen_results_for_chosen_experiment);
+      // get a list of all refs in the chosen results
+      refs = Object.keys(comparison.chosen_results_for_chosen_experiment);
 
-    // get a list of all metrics
-    const allMetrics = [
-      ...(comparison.last_results_for_baseline_experiment
-        ? Object.values(
-            comparison.last_results_for_baseline_experiment
-          ).flatMap((result) => Object.keys(result.metrics))
-        : []),
-      ...(comparison.baseline_results_for_chosen_experiment
-        ? Object.values(
-            comparison.baseline_results_for_chosen_experiment
-          ).flatMap((result) => Object.keys(result.metrics))
-        : []),
-      ...(comparison.chosen_results_for_chosen_experiment
-        ? Object.values(
-            comparison.chosen_results_for_chosen_experiment
-          ).flatMap((result) => Object.keys(result.metrics))
-        : []),
-    ];
-    metrics = [...new Set(allMetrics)];
+      // get a list of all metrics
+      const allMetrics = [
+        ...(comparison.last_results_for_baseline_experiment
+          ? Object.values(
+              comparison.last_results_for_baseline_experiment
+            ).flatMap((result) => Object.keys(result.metrics))
+          : []),
+        ...(comparison.baseline_results_for_chosen_experiment
+          ? Object.values(
+              comparison.baseline_results_for_chosen_experiment
+            ).flatMap((result) => Object.keys(result.metrics))
+          : []),
+        ...(comparison.chosen_results_for_chosen_experiment
+          ? Object.values(
+              comparison.chosen_results_for_chosen_experiment
+            ).flatMap((result) => Object.keys(result.metrics))
+          : []),
+      ];
+      metrics = [...new Set(allMetrics)];
+      state = "loaded";
+    } catch (error) {
+      console.error(error);
+      state = "error";
+    }
   };
 
   const fetchDetails = async () => {
-    showResults = !showResults;
-    if (!results) {
-      let url = `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/sets/${setName}`;
-      const response = await fetch(url);
-      results = await response.json();
+    try {
+      state = "loading";
+      showResults = !showResults;
+      if (!results) {
+        let url = `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/sets/${setName}`;
+        const response = await fetch(url);
+        results = await response.json();
+      }
+      state = "loaded";
+    } catch (error) {
+      console.error(error);
+      state = "error";
     }
   };
 
   $: fetchComparison();
 </script>
 
-<button class="link-button" on:click={unselectSet}>back</button>
+<button class="link" on:click={unselectSet}>back</button>
 <h1>PROJECT: {projectName}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
@@ -84,10 +100,17 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="link-button" on:click={fetchDetails}>(toggle details)</button>
+  <button class="link" on:click={fetchDetails}>(toggle details)</button>
 </h3>
 
-{#if comparison}
+{#if state === "loading"}
+  <div>Loading...</div>
+  <div>
+    <img class="loading" alt="loading" src="/src/assets/spinner.gif" />
+  </div>
+{:else if state === "error"}
+  <div>Error loading data.</div>
+{:else if comparison}
   <table>
     <thead>
       <tr>
@@ -99,95 +122,100 @@
       </tr>
     </thead>
     <tbody>
-      {#if comparison}
-        {#each refs as ref}
-          <tr class="experiment-baseline">
-            <td
+      {#each refs as ref}
+        <tr class="experiment-baseline">
+          <td
+            ><nobr
               >Experiment Baseline / {comparison
-                .last_results_for_baseline_experiment[ref]?.set ?? "-"}</td
-            >
-            <td class="label">{ref}</td>
-            {#each metrics as metric}
-              <td>
-                <ComparisonTableMetric
-                  result={comparison.last_results_for_baseline_experiment[ref]}
-                  {metric}
-                  baseline={comparison.baseline_results_for_chosen_experiment[
-                    ref
-                  ]}
-                ></ComparisonTableMetric>
-              </td>
-            {/each}
-          </tr>
-          <tr class="project-baseline">
-            <td
+                .last_results_for_baseline_experiment?.[ref]?.set ?? "-"}</nobr
+            ></td
+          >
+          <td class="label">{ref}</td>
+          {#each metrics as metric}
+            <td>
+              <ComparisonTableMetric
+                result={comparison.last_results_for_baseline_experiment?.[ref]}
+                {metric}
+                baseline={comparison.baseline_results_for_chosen_experiment[
+                  ref
+                ]}
+              ></ComparisonTableMetric>
+            </td>
+          {/each}
+        </tr>
+        <tr class="project-baseline">
+          <td
+            ><nobr
               >Project Baseline / {comparison
-                .baseline_results_for_chosen_experiment[ref]?.set ?? "-"}</td
-            >
-            <td class="label">{ref}</td>
-            {#each metrics as metric}
-              <td>
-                <ComparisonTableMetric
-                  result={comparison.baseline_results_for_chosen_experiment[
-                    ref
-                  ]}
-                  {metric}
-                ></ComparisonTableMetric>
-              </td>
-            {/each}
-          </tr>
-          <tr class="set-aggregate">
-            <td
+                .baseline_results_for_chosen_experiment[ref]?.set ?? "-"}</nobr
+            ></td
+          >
+          <td class="label">{ref}</td>
+          {#each metrics as metric}
+            <td>
+              <ComparisonTableMetric
+                result={comparison.baseline_results_for_chosen_experiment?.[
+                  ref
+                ]}
+                {metric}
+              ></ComparisonTableMetric>
+            </td>
+          {/each}
+        </tr>
+        <tr class="set-aggregate">
+          <td
+            ><nobr
               >Set Aggregate / {comparison.chosen_results_for_chosen_experiment[
                 ref
-              ].set}</td
-            >
-            <td class="label">{ref}</td>
-            {#each metrics as metric}
+              ].set}</nobr
+            ></td
+          >
+          <td class="label">{ref}</td>
+          {#each metrics as metric}
+            <td>
+              <ComparisonTableMetric
+                result={comparison.chosen_results_for_chosen_experiment[ref]}
+                {metric}
+                baseline={comparison.baseline_results_for_chosen_experiment[
+                  ref
+                ]}
+              ></ComparisonTableMetric>
+            </td>
+          {/each}
+        </tr>
+        {#if showResults && results}
+          {#each results.filter((x) => x.ref === ref) as result}
+            <tr>
               <td>
-                <ComparisonTableMetric
-                  result={comparison.chosen_results_for_chosen_experiment[ref]}
-                  {metric}
-                  baseline={comparison.baseline_results_for_chosen_experiment[
-                    ref
-                  ]}
-                ></ComparisonTableMetric>
+                {#if result.result_uri}
+                  <button
+                    class="link"
+                    on:click={() => window.open(result.result_uri, "_blank")}
+                    ><nobr>Set / {result.set}</nobr></button
+                  >
+                {:else}
+                  <nobr>Set / {result.set}</nobr>
+                {/if}
               </td>
-            {/each}
-          </tr>
-          {#if showResults && results}
-            {#each results.filter((x) => x.ref === ref) as result}
-              <tr>
+              <td class="label">{result.ref}</td>
+              {#each metrics as metric}
                 <td>
-                  {#if result.result_uri}
-                    <button
-                      class="link-button"
-                      on:click={() => window.open(result.result_uri, "_blank")}
-                      >Set / {result.set}</button
-                    >
-                  {:else}
-                    Set / {result.set}
-                  {/if}
+                  <ComparisonTableMetric
+                    {result}
+                    {metric}
+                    baseline={comparison.baseline_results_for_chosen_experiment[
+                      ref
+                    ]}
+                    showStdDev={false}
+                    showCount={false}
+                  ></ComparisonTableMetric>
                 </td>
-                <td class="label">{result.ref}</td>
-                {#each metrics as metric}
-                  <td>
-                    <ComparisonTableMetric
-                      {result}
-                      {metric}
-                      baseline={comparison
-                        .baseline_results_for_chosen_experiment[ref]}
-                      showStdDev={false}
-                      showCount={false}
-                    ></ComparisonTableMetric>
-                  </td>
-                {/each}
-              </tr>
-            {/each}
-          {/if}
-          <tr><td>&nbsp;</td></tr>
-        {/each}
-      {/if}
+              {/each}
+            </tr>
+          {/each}
+        {/if}
+        <tr><td>&nbsp;</td></tr>
+      {/each}
     </tbody>
   </table>
 {/if}
@@ -199,22 +227,6 @@
     width: 100px;
     display: inline-block;
     margin-right: 0.2rem;
-  }
-
-  .link-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-size: inherit;
-    font-weight: inherit;
-    color: inherit;
-    text-decoration: underline;
-    text-decoration-color: #777;
-  }
-
-  .link-button:hover {
-    text-decoration: underline;
   }
 
   table {

@@ -36,9 +36,13 @@ public class QueuesController(IConfig config, IHttpClientFactory httpClientFacto
         CancellationToken cancellationToken)
     {
         // validate
-        if (string.IsNullOrEmpty(request.Project) || string.IsNullOrEmpty(request.Experiment) || string.IsNullOrEmpty(request.Set))
+        if (string.IsNullOrEmpty(request.Project)
+            || string.IsNullOrEmpty(request.Experiment)
+            || string.IsNullOrEmpty(request.Set)
+            || request.Datasources is null
+            || request.Datasources.Count == 0)
         {
-            return BadRequest("project, experiment, and set are required.");
+            return BadRequest("project, experiment, set, and datasources are required.");
         }
 
         // init
@@ -51,7 +55,7 @@ public class QueuesController(IConfig config, IHttpClientFactory httpClientFacto
 
         // get the ground truth URIs
         this.logger.LogDebug("getting ground truth URIs...");
-        var groundTruthUris = await storageService.ListGroundTruthUris(cancellationToken);
+        var groundTruthUris = await storageService.ListGroundTruthUris(request.Datasources, cancellationToken);
         this.logger.LogInformation("obtained {c} ground truth URIs.", groundTruthUris.Count);
 
         // open them to get the refs

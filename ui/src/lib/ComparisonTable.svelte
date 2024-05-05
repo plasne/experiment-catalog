@@ -6,6 +6,9 @@
   export let projectName: string;
   export let experiment: Experiment;
 
+  let state: "loading" | "loaded" | "error" = "loading";
+  let compareCount = "3";
+
   const dispatch = createEventDispatcher();
 
   const selectSet = (event: CustomEvent<string>) => {
@@ -18,30 +21,57 @@
   let metrics: string[] = [];
 
   const fetchComparison = async () => {
-    const response = await fetch(
-      `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/compare?count=3`
-    );
-    comparison = await response.json();
-    const allKeys = [
-      ...(comparison.last_result_for_baseline_experiment
-        ? Object.keys(comparison.last_result_for_baseline_experiment.metrics)
-        : []),
-      ...(comparison.baseline_result_for_chosen_experiment
-        ? Object.keys(comparison.baseline_result_for_chosen_experiment.metrics)
-        : []),
-      ...(comparison.last_results_for_chosen_experiment
-        ? comparison.last_results_for_chosen_experiment.flatMap((experiment) =>
-            Object.keys(experiment.metrics)
-          )
-        : []),
-    ];
-    metrics = [...new Set(allKeys)];
+    try {
+      state = "loading";
+      const response = await fetch(
+        `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/compare?count=${compareCount}`
+      );
+      comparison = await response.json();
+      const allKeys = [
+        ...(comparison.last_result_for_baseline_experiment
+          ? Object.keys(comparison.last_result_for_baseline_experiment.metrics)
+          : []),
+        ...(comparison.baseline_result_for_chosen_experiment
+          ? Object.keys(
+              comparison.baseline_result_for_chosen_experiment.metrics
+            )
+          : []),
+        ...(comparison.last_results_for_chosen_experiment
+          ? comparison.last_results_for_chosen_experiment.flatMap(
+              (experiment) => Object.keys(experiment.metrics)
+            )
+          : []),
+      ];
+      metrics = [...new Set(allKeys)];
+      state = "loaded";
+    } catch (error) {
+      console.error(error);
+      state = "error";
+    }
   };
 
   $: fetchComparison();
 </script>
 
-{#if comparison}
+{#if state === "loading"}
+  <div>Loading...</div>
+  <div>
+    <img class="loading" alt="loading" src="/src/assets/spinner.gif" />
+  </div>
+{:else if state === "error"}
+  <div>Error loading comparison.</div>
+{:else if comparison}
+  <div class="selection">
+    <span>last:</span>
+    <select bind:value={compareCount} on:change={fetchComparison}>
+      <option value="3">3</option>
+      <option value="5">5</option>
+      <option value="10">10</option>
+      <option value="20">20</option>
+      <option value="30">30</option>
+      <option value="100">100</option>
+    </select>
+  </div>
   <table>
     <thead>
       <tr>
@@ -122,5 +152,14 @@
   td.label {
     text-align: left;
     font-weight: bold;
+  }
+
+  .selection {
+    text-align: right;
+  }
+
+  select {
+    text-align: center;
+    font-size: 1rem;
   }
 </style>

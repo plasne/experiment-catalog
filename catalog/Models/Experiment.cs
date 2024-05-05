@@ -4,23 +4,23 @@ public class Experiment
     public string? Hypothesis { get; set; }
     public string? WorkItemUri { get; set; }
     public IEnumerable<Result>? Results { get; set; }
+    public IEnumerable<Annotation>? Annotations { get; set; }
     public DateTime Created { get; set; } = DateTime.UtcNow;
 
     private Result Aggregate(IEnumerable<Result> from)
     {
         var result = new Result();
+        var annotations = new List<Annotation>();
 
         var metrics = new Dictionary<string, List<Metric>>();
         foreach (var r in from)
         {
+            if (r.Annotations is not null) annotations.AddRange(r.Annotations);
             if (r.Metrics is null) continue;
-            if (r.Metrics is not null)
+            foreach (var (key, metric) in r.Metrics)
             {
-                foreach (var (key, metric) in r.Metrics)
-                {
-                    if (!metrics.ContainsKey(key)) metrics[key] = [];
-                    metrics[key].Add(metric);
-                }
+                if (!metrics.ContainsKey(key)) metrics[key] = [];
+                metrics[key].Add(metric);
             }
         }
 
@@ -34,6 +34,10 @@ public class Experiment
             };
         });
 
+        if (annotations.Count > 0)
+        {
+            result.Annotations = annotations;
+        }
         return result;
     }
 
