@@ -110,6 +110,18 @@ public class AzureBlobStorageService(
         return projects;
     }
 
+    public async Task AddProject(Project project, CancellationToken cancellationToken = default)
+    {
+        var blobServiceClient = await this.Connect(cancellationToken);
+        var containerClient = blobServiceClient.GetBlobContainerClient(project.Name);
+        await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+        var metadata = new Dictionary<string, string>
+        {
+            { "exp_catalog_type", "project" }
+        };
+        await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+    }
+
     public async Task<IEnumerable<Experiment>> GetExperiments(string projectName, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.Connect(projectName, cancellationToken);

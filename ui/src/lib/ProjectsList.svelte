@@ -1,22 +1,19 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import ExperimentCard from "./ExperimentCard.svelte";
+  import ProjectCard from "./ProjectCard.svelte";
 
-  export let project: Project;
-  let experiments: Experiment[] = [];
+  let projects: Project[] = [];
   let state: "loading" | "loaded" | "error" = "loading";
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   const dispatch = createEventDispatcher();
 
-  const fetchExperiments = async () => {
+  const fetchProjects = async () => {
     try {
       state = "loading";
-      const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments`
-      );
-      experiments = await response.json();
+      const response = await fetch(`${prefix}/api/projects`);
+      projects = await response.json();
       state = "loaded";
     } catch (error) {
       console.error(error);
@@ -24,19 +21,14 @@
     }
   };
 
-  $: fetchExperiments();
+  $: fetchProjects();
 
-  const select = (event: CustomEvent<Experiment>) => {
+  const select = (event: CustomEvent<Project>) => {
     dispatch("select", event.detail);
-  };
-
-  const unselectProject = () => {
-    dispatch("unselectProject");
   };
 </script>
 
-<button class="link" on:click={unselectProject}>back</button>
-<h1>Experiments in {project.name}</h1>
+<h1>Projects</h1>
 
 {#if state === "loading"}
   <div>Loading...</div>
@@ -47,8 +39,8 @@
   <div>Error loading experiments.</div>
 {:else}
   <div class="flex-container">
-    {#each experiments as experiment (experiment.name)}
-      <ExperimentCard on:select={select} {experiment} />
+    {#each projects as project (project.name)}
+      <ProjectCard on:select={select} {project} />
     {/each}
   </div>
 {/if}

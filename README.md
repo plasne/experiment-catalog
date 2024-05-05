@@ -50,6 +50,12 @@ curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000
 curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "datasources": ["test"], "iterations": 3 }' http://localhost:6030/api/queues/pelasne
 ```
 
+## Annotate
+
+```bash
+curl -i -X POST -d '{ "set": "alpha", "annotations": [ { "text": "commit 3746hf", "uri": "https://dev.azure.com/commit" } ] }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/pelasne-01/results
+```
+
 ## DONE
 
 - added datasources to enqueue
@@ -61,16 +67,12 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01
 
 ## TODO
 
-- Add proper config implementation
 - Add StyleCop
-- Add validation to the API
 - Add an endpoint for creating a project
 - Add UI to create a project
 - Add UI to create an experiment
 - Add UI to mark a baseline
-- Share styles like link-button across the ui project
 - Test cases like no baseline experiment, no experiment to compare, etc.
-- Switch to DefaultAzureCredential
 - Add a Dockerfile and test deploying
 - Get docs from Stewart
 - Bulk up documentation

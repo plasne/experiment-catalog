@@ -2,7 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
 
-  export let projectName: string;
+  export let project: Project;
   export let experiment: Experiment;
   export let setName: string;
 
@@ -26,7 +26,7 @@
     try {
       state = "loading";
       // get the comparison
-      let url = `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/sets/${setName}/compare-by-ref`;
+      let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref`;
       var response = await fetch(url);
       comparison = await response.json();
 
@@ -64,7 +64,7 @@
       state = "loading";
       showResults = !showResults;
       if (!results) {
-        let url = `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/sets/${setName}`;
+        let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}`;
         const response = await fetch(url);
         results = await response.json();
       }
@@ -79,7 +79,7 @@
 </script>
 
 <button class="link" on:click={unselectSet}>back</button>
-<h1>PROJECT: {projectName}</h1>
+<h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
   <span class="label">Hypothesis:</span>

@@ -3,7 +3,7 @@
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
 
-  export let projectName: string;
+  export let project: Project;
   export let experiment: Experiment;
 
   let state: "loading" | "loaded" | "error" = "loading";
@@ -24,7 +24,7 @@
     try {
       state = "loading";
       const response = await fetch(
-        `${prefix}/api/projects/${projectName}/experiments/${experiment.name}/compare?count=${compareCount}`
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}`
       );
       comparison = await response.json();
       const allKeys = [

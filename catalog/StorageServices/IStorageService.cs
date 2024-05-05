@@ -1,6 +1,7 @@
 public interface IStorageService
 {
     Task<IEnumerable<Project>> GetProjects(CancellationToken cancellationToken = default);
+    Task AddProject(Project project, CancellationToken cancellationToken = default);
     Task<IEnumerable<Experiment>> GetExperiments(string projectName, CancellationToken cancellationToken = default);
     Task AddExperiment(string projectName, Experiment experiment, CancellationToken cancellationToken = default);
     Task SetExperimentAsBaseline(string projectName, string experimentName, CancellationToken cancellationToken = default);

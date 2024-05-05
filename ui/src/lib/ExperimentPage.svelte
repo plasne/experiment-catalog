@@ -2,7 +2,7 @@
   import ComparisonTable from "./ComparisonTable.svelte";
   import { createEventDispatcher } from "svelte";
 
-  export let projectName: string;
+  export let project: Project;
   export let experiment: Experiment;
 
   const dispatch = createEventDispatcher();
@@ -17,7 +17,7 @@
 </script>
 
 <button class="link" on:click={unselectExperiment}>back</button>
-<h1>PROJECT: {projectName}</h1>
+<h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
   <span class="label">Hypothesis:</span>
@@ -46,7 +46,7 @@
 {/if}
 
 <div class="table">
-  <ComparisonTable {projectName} {experiment} on:selectSet={selectSet} />
+  <ComparisonTable {project} {experiment} on:selectSet={selectSet} />
 </div>
 
 <style>
