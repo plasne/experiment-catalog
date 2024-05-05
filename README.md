@@ -3,7 +3,7 @@
 ## Create a project
 
 ```bash
-TBD
+curl -i -X POST -H "Content-Type: application/json" -d '{ "name": "project-03" }' http://localhost:6010/api/projects
 ```
 
 ## Create a baseline
@@ -68,7 +68,6 @@ curl -i -X POST -d '{ "set": "alpha", "annotations": [ { "text": "commit 3746hf"
 ## TODO
 
 - Add StyleCop
-- Add an endpoint for creating a project
 - Add UI to create a project
 - Add UI to create an experiment
 - Add UI to mark a baseline
