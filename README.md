@@ -11,7 +11,7 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "name": "project-03" }
 Create the baseline experiment...
 
 ```bash
-curl -i -X POST -d '{ "name": "project-baseline", "description": "my baseline" }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments
+curl -i -X POST -d '{ "name": "project-baseline", "hypothesis": "my baseline" }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments
 ```
 
 Record one or more evaluations...
@@ -29,7 +29,7 @@ curl -i -X PATCH http://localhost:6010/api/projects/project-01/experiments/proje
 ## Create an experiment
 
 ```bash
-curl -i -X POST -d '{ "name": "experiment-000", "description": "decrease temp", "hypothesis": "I believe decreasing the temperature will give better results." }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments
+curl -i -X POST -d '{ "name": "experiment-000", "hypothesis": "I believe decreasing the temperature will give better results." }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments
 ```
 
 Record one or more evaluations...

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
+  import Annotations from "./Annotations.svelte";
 
   export let project: Project;
   export let experiment: Experiment;
@@ -182,6 +183,13 @@
               ></ComparisonTableMetric>
             </td>
           {/each}
+        </tr>
+        <tr>
+          <td colspan={2 + metrics.length}>
+            <Annotations
+              result={comparison.chosen_results_for_chosen_experiment[ref]}
+            />
+          </td>
         </tr>
         {#if showResults && results}
           {#each results.filter((x) => x.ref === ref) as result}
