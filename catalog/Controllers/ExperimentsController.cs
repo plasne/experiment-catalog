@@ -132,7 +132,7 @@ public class ExperimentsController : ControllerBase
                     policy.Evaluate(result, baseline, definitions);
                 }
             }
-            this.logger.LogWarning("policy passed? {0}", policy.IsPassed);
+            this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);
             this.logger.LogWarning(policy.Requirement);
             this.logger.LogWarning(policy.Actual);
         }

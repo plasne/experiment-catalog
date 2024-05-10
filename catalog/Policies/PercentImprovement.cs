@@ -1,15 +1,15 @@
-// EX. At least 60% of results are improved by 5% or more (metrics: x, y, z).
+// EX. At least 60% of results are improved by 2% or more (metrics: x, y, z).
 
 public class PercentImprovement
 {
     private readonly string policyName = "PercentImprovement";
-    private readonly decimal requiredImprovement = 0.05m;
+    private readonly decimal requiredImprovement = 0.02m;
     private readonly decimal requiredPercent = 0.6m;
     private readonly List<string> includeMetrics = ["ndcg", "bertscore", "groundedness"];
 
     public int NumResultsThatPassed { get; set; } = 0;
     public int NumResultsThatFailed { get; set; } = 0;
-    public decimal PercentPassed => this.NumResultsThatPassed / (this.NumResultsThatPassed + this.NumResultsThatFailed);
+    public decimal PercentPassed => (decimal)this.NumResultsThatPassed / (this.NumResultsThatPassed + this.NumResultsThatFailed);
     public bool IsPassed => this.PercentPassed >= this.requiredPercent;
     public string Requirement => $"At least {this.requiredPercent:P0} of results are improved by {this.requiredImprovement:P0} or more (metrics: {string.Join(", ", this.includeMetrics)}).";
     public string Actual => $"{this.PercentPassed:P0} of results were improved by {this.requiredImprovement:P0} or more (metrics: {string.Join(", ", this.includeMetrics)}).";
