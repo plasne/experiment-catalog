@@ -28,6 +28,10 @@ builder.Services.AddSingleLineConsoleLogger();
 
 // add services to the container
 builder.Services.AddHttpClient();
+
+builder.Services.AddHostedService<AzureBlobQueueService2>();
+builder.Services.AddTransient<IMessageHandler<PipelineRequest>, PipelineRequestMessageHandler>();
+
 builder.Services.AddSingleton<AzureStorageDetails>();
 builder.Services.AddSingleton<IQueueService, AzureStorageQueueService>();
 builder.Services.AddSingleton<IBlobStorageService, AzureBlobStorageService>();
