@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using dotenv.net;
@@ -6,6 +7,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NetBricks;
+using Polly;
+using Polly.Extensions.Http;
 
 // load environment variables from .env file
 DotEnv.Load();
@@ -26,9 +29,13 @@ builder.Services.AddDefaultAzureCredential();
 builder.Logging.ClearProviders();
 builder.Services.AddSingleLineConsoleLogger();
 
-// add services to the container
-builder.Services.AddHttpClient();
+// add http client with retry
+builder.Services.AddHttpClient("retry")
+    .AddPolicyHandler(HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(config.MAX_RETRY_ATTEMPTS, retryAttempt => TimeSpan.FromSeconds(config.SECONDS_BETWEEN_RETRIES)));
 
+// add services to the container
 builder.Services.AddHostedService<AzureBlobQueueService2>();
 builder.Services.AddTransient<IMessageHandler<PipelineRequest>, PipelineRequestMessageHandler>();
 

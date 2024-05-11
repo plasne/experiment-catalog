@@ -1,7 +1,5 @@
 using System;
 using Iso8601DurationHelper;
-using Newtonsoft.Json;
-using YamlDotNet.Serialization;
 
 public static class Ext
 {
@@ -14,24 +12,22 @@ public static class Ext
         return dflt();
     }
 
-    public static T Deserialize<T>(this string value, string filepath)
+    public static (string container, string blob) GetBlobRefForStage(this PipelineRequest req, Stages stage)
     {
-        if (filepath.EndsWith(".json", StringComparison.InvariantCultureIgnoreCase))
+        var uri = stage switch
         {
-            var obj = JsonConvert.DeserializeObject<T>(value)
-                ?? throw new Exception($"deserialization of '{filepath}' using JSON failed.");
-            return obj;
-        }
-        else if (filepath.EndsWith(".yaml", StringComparison.InvariantCultureIgnoreCase))
+            Stages.GroundTruth => req.GroundTruthUri,
+            Stages.Inference => req.InferenceUri,
+            Stages.Evaluation => req.EvaluationUri,
+            _ => throw new Exception($"unknown stage: {stage}"),
+        };
+
+        var parts = uri.Split("/", 2);
+        if (parts.Length != 2)
         {
-            var yamlDeserializer = new DeserializerBuilder().IgnoreUnmatchedProperties().Build();
-            var obj = yamlDeserializer.Deserialize<T>(value)
-                ?? throw new Exception($"deserialization of '{filepath}' using YAML failed.");
-            return obj;
+            throw new Exception($"expected a container and blob name separated by a /");
         }
-        else
-        {
-            throw new Exception($"deserialization of '{filepath}' failed because the file type was not supported.");
-        }
+
+        return (parts[0], parts[1]);
     }
 }

@@ -14,6 +14,13 @@ public interface IConfig
     string OUTBOUND_QUEUE { get; }
     int MS_TO_PAUSE_WHEN_EMPTY { get; }
     int DEQUEUE_FOR_X_SECONDS { get; }
+    Stages INBOUND_STAGE { get; }
+    Stages OUTBOUND_STAGE { get; }
+    string PROCESSING_URL { get; }
+    string PATH_TO_TRANSFORM_QUERY { get; }
+    string TRANSFORM_QUERY { get; }
+    int MAX_RETRY_ATTEMPTS { get; }
+    int SECONDS_BETWEEN_RETRIES { get; }
 
     void Validate();
 }

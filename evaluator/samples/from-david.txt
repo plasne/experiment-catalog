@@ -1,0 +1,10 @@
+{
+    "ref": EntrySource,
+    "history": [
+        {
+            "role": "user",
+            "msg": Question
+        }
+    ],
+    "ground_truth": Answer
+}
