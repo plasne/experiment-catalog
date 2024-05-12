@@ -2,14 +2,11 @@ using Newtonsoft.Json;
 
 public class PipelineRequest
 {
+    [JsonProperty("id", Required = Required.Always)]
+    public required string Id { get; set; }
+
     [JsonProperty("ground_truth_uri", Required = Required.Always)]
     public required string GroundTruthUri { get; set; }
-
-    [JsonProperty("inference_uri", Required = Required.Always)]
-    public required string InferenceUri { get; set; }
-
-    [JsonProperty("evaluation_uri", Required = Required.Always)]
-    public required string EvaluationUri { get; set; }
 
     [JsonProperty("project", Required = Required.Always)]
     public required string Project { get; set; }

@@ -1,23 +1,23 @@
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 public class EnqueueRequest
 {
-    [JsonPropertyName("project")]
-    public string? Project { get; set; }
+    [JsonProperty("project", Required = Required.Always)]
+    public required string Project { get; set; }
 
-    [JsonPropertyName("experiment")]
-    public string? Experiment { get; set; }
+    [JsonProperty("experiment", Required = Required.Always)]
+    public required string Experiment { get; set; }
 
-    [JsonPropertyName("set")]
-    public string? Set { get; set; }
+    [JsonProperty("set", Required = Required.Always)]
+    public required string Set { get; set; }
 
-    [JsonPropertyName("datasources")]
-    public List<string>? Datasources { get; set; }
+    [JsonProperty("datasources", Required = Required.Always)]
+    public required List<string> Datasources { get; set; }
 
-    [JsonPropertyName("is_baseline")]
+    [JsonProperty("is_baseline", Required = Required.Always)]
     public bool IsBaseline { get; set; }
 
-    [JsonPropertyName("iterations")]
+    [JsonProperty("iterations")]
     public int Iterations { get; set; } = 1;
 }

@@ -3,26 +3,29 @@ using Iso8601DurationHelper;
 public interface IConfig
 {
     int PORT { get; }
-    string AZURE_STORAGE_ACCOUNT_ID { get; }
-    string AZURE_STORAGE_INFERENCE_CONTAINER_NAME { get; }
-    string AZURE_STORAGE_EVALUATION_CONTAINER_NAME { get; }
-    Duration MAX_DURATION_TO_RUN_EVALUATIONS { get; }
-    Duration MAX_DURATION_TO_VIEW_RESULTS { get; }
     int CONCURRENCY { get; }
-
-    Modes MODE { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
-    string[] INBOUND_QUEUES { get; }
-    string OUTBOUND_QUEUE { get; }
+    string INFERENCE_CONTAINER { get; }
+    string EVALUATION_CONTAINER { get; }
+    string[] INBOUND_INFERENCE_QUEUES { get; }
+    string[] INBOUND_EVALUATION_QUEUES { get; }
+    string OUTBOUND_GROUNDTRUTH_QUEUE { get; }
+    string OUTBOUND_INFERENCE_QUEUE { get; }
     int MS_TO_PAUSE_WHEN_EMPTY { get; }
     int DEQUEUE_FOR_X_SECONDS { get; }
-    Stages INBOUND_STAGE { get; }
-    Stages OUTBOUND_STAGE { get; }
-    string PROCESSING_URL { get; }
-    string PATH_TO_TRANSFORM_QUERY { get; }
-    string TRANSFORM_QUERY { get; }
+    string INFERENCE_URL { get; }
+    string EVALUATION_URL { get; }
+    string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
+    string INBOUND_INFERENCE_TRANSFORM_FILE { get; }
+    string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
+    string INBOUND_GROUNDTRUTH_TRANSFORM_QUERY { get; }
+    string INBOUND_INFERENCE_TRANSFORM_QUERY { get; }
+    string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
     int MAX_RETRY_ATTEMPTS { get; }
     int SECONDS_BETWEEN_RETRIES { get; }
+    bool IS_API { get; }
+    bool IS_INFERENCE_PROXY { get; }
+    bool IS_EVALUATION_PROXY { get; }
 
     void Validate();
 }

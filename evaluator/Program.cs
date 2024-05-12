@@ -35,13 +35,17 @@ builder.Services.AddHttpClient("retry")
         .HandleTransientHttpError()
         .WaitAndRetryAsync(config.MAX_RETRY_ATTEMPTS, retryAttempt => TimeSpan.FromSeconds(config.SECONDS_BETWEEN_RETRIES)));
 
-// add services to the container
-builder.Services.AddHostedService<AzureStorageQueueReader>();
-builder.Services.AddHostedService<AzureStorageQueueWriter>();
-builder.Services.AddTransient<IMessageHandler<PipelineRequest>, PipelineRequestMessageHandler>();
+// add services depending on mode
+if (config.IS_API)
+{
+    builder.Services.AddHostedService<AzureStorageQueueWriter>();
+}
+else if (config.IS_INFERENCE_PROXY || config.IS_EVALUATION_PROXY)
+{
+    builder.Services.AddHostedService<AzureStorageQueueReader>();
+}
 
-builder.Services.AddSingleton<AzureStorageDetails>();
-builder.Services.AddSingleton<IBlobStorageService, AzureBlobStorageService>();
+// TODO: change to Newtonsoft.Json
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;

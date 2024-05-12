@@ -1,8 +1,7 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 public class GroundTruthFile
 {
-    [JsonPropertyName("ref")]
-    [YamlDotNet.Serialization.YamlMember(Alias = "ref")]
-    public string? Ref { get; set; }
+    [JsonProperty("ref", Required = Required.Always)]
+    public required string Ref { get; set; }
 }
