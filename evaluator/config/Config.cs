@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using NetBricks;
 
 public class Config : IConfig
@@ -10,6 +13,19 @@ public class Config : IConfig
     {
         this.config = config;
         this.PORT = this.config.Get<string>("PORT").AsInt(() => 6030);
+
+        this.ROLES = this.config.Get("ROLES", value =>
+        {
+            List<Roles> roles = [];
+            var list = value.AsArray(() => throw new Exception("ROLES must be an array of strings"));
+            foreach (var entry in list)
+            {
+                var role = entry.AsEnum<Roles>(() => throw new Exception("each ROLE must be one of API, InferenceProxy, or EvaluationProxy."));
+                roles.Add(role);
+            }
+            return roles;
+        });
+
         this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 4);
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
         this.INFERENCE_CONTAINER = this.config.Get<string>("INFERENCE_CONTAINER");
@@ -48,21 +64,11 @@ public class Config : IConfig
                 ? string.Empty
                 : File.ReadAllText(this.INBOUND_EVALUATION_TRANSFORM_FILE);
         });
-
-        this.IS_API =
-            !string.IsNullOrEmpty(this.OUTBOUND_GROUNDTRUTH_QUEUE);
-        this.IS_INFERENCE_PROXY =
-            !string.IsNullOrEmpty(this.INFERENCE_CONTAINER)
-            && !string.IsNullOrEmpty(this.INFERENCE_URL)
-            && this.INBOUND_INFERENCE_QUEUES.Length > 0
-            && !string.IsNullOrEmpty(this.OUTBOUND_INFERENCE_QUEUE);
-        this.IS_EVALUATION_PROXY =
-            !string.IsNullOrEmpty(this.EVALUATION_CONTAINER)
-            && !string.IsNullOrEmpty(this.EVALUATION_URL)
-            && this.INBOUND_EVALUATION_QUEUES.Length > 0;
     }
 
     public int PORT { get; }
+
+    public List<Roles> ROLES { get; }
 
     public int CONCURRENCY { get; }
 
@@ -104,27 +110,58 @@ public class Config : IConfig
 
     public string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
 
-    public bool IS_API { get; }
-
-    public bool IS_INFERENCE_PROXY { get; }
-
-    public bool IS_EVALUATION_PROXY { get; }
-
     public void Validate()
     {
         this.config.Require("PORT", this.PORT.ToString());
+        this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
         this.config.Require("CONCURRENCY", this.CONCURRENCY.ToString());
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
-        this.config.Optional("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
-        this.config.Optional("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
         this.config.Optional("INBOUND_INFERENCE_QUEUES", this.INBOUND_INFERENCE_QUEUES);
         this.config.Optional("INBOUND_EVALUATION_QUEUES", this.INBOUND_EVALUATION_QUEUES);
-        this.config.Optional("OUTBOUND_GROUNDTRUTH_QUEUE", this.OUTBOUND_GROUNDTRUTH_QUEUE);
-        this.config.Optional("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
+
+        if (this.ROLES.Contains(Roles.API))
+        {
+            this.config.Require("OUTBOUND_GROUNDTRUTH_QUEUE", this.OUTBOUND_GROUNDTRUTH_QUEUE);
+        }
+        else
+        {
+            this.config.Optional("OUTBOUND_GROUNDTRUTH_QUEUE", this.OUTBOUND_GROUNDTRUTH_QUEUE);
+        }
+
+        if (this.ROLES.Contains(Roles.InferenceProxy))
+        {
+            this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
+            this.config.Require("INFERENCE_URL", this.INFERENCE_URL);
+            this.config.Require("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
+            if (this.INBOUND_INFERENCE_QUEUES.Length == 0)
+            {
+                throw new Exception("When configured for the InferenceProxy role, INBOUND_INFERENCE_QUEUES must be specified.");
+            }
+        }
+        else
+        {
+            this.config.Optional("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
+            this.config.Optional("INFERENCE_URL", this.INFERENCE_URL);
+            this.config.Optional("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
+        }
+
+        if (this.ROLES.Contains(Roles.EvaluationProxy))
+        {
+            this.config.Require("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
+            this.config.Require("EVALUATION_URL", this.EVALUATION_URL);
+            if (this.INBOUND_EVALUATION_QUEUES.Length == 0)
+            {
+                throw new Exception("When configured for the EvaluationProxy role, INBOUND_EVALUATION_QUEUES must be specified.");
+            }
+        }
+        else
+        {
+            this.config.Optional("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
+            this.config.Optional("EVALUATION_URL", this.EVALUATION_URL);
+        }
+
         this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
         this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
-        this.config.Optional("INFERENCE_URL", this.INFERENCE_URL);
-        this.config.Optional("EVALUATION_URL", this.EVALUATION_URL);
         this.config.Require("MAX_RETRY_ATTEMPTS", this.MAX_RETRY_ATTEMPTS.ToString());
         this.config.Require("SECONDS_BETWEEN_RETRIES", this.SECONDS_BETWEEN_RETRIES.ToString());
         this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE);
@@ -133,12 +170,5 @@ public class Config : IConfig
         this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
         this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);
         this.config.Optional("INBOUND_EVALUATION_TRANSFORM_QUERY", this.INBOUND_EVALUATION_TRANSFORM_QUERY, hideValue: true);
-        this.config.Optional("IS_API", this.IS_API.ToString());
-        this.config.Optional("IS_INFERENCE_PROXY", this.IS_INFERENCE_PROXY.ToString());
-        this.config.Optional("IS_EVALUATION_PROXY", this.IS_EVALUATION_PROXY.ToString());
-        if (!this.IS_API && !this.IS_INFERENCE_PROXY && !this.IS_EVALUATION_PROXY)
-        {
-            throw new Exception("The application must be configured for at least one role of API, Inference Proxy, or Evaluation Proxy.");
-        }
     }
 }

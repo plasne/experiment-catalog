@@ -36,11 +36,11 @@ builder.Services.AddHttpClient("retry")
         .WaitAndRetryAsync(config.MAX_RETRY_ATTEMPTS, retryAttempt => TimeSpan.FromSeconds(config.SECONDS_BETWEEN_RETRIES)));
 
 // add services depending on mode
-if (config.IS_API)
+if (config.ROLES.Contains(Roles.API))
 {
     builder.Services.AddHostedService<AzureStorageQueueWriter>();
 }
-else if (config.IS_INFERENCE_PROXY || config.IS_EVALUATION_PROXY)
+else if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
 {
     builder.Services.AddHostedService<AzureStorageQueueReader>();
 }

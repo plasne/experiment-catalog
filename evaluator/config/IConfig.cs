@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using Iso8601DurationHelper;
 
 public interface IConfig
 {
     int PORT { get; }
+    List<Roles> ROLES { get; }
     int CONCURRENCY { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
     string INFERENCE_CONTAINER { get; }
@@ -23,9 +25,6 @@ public interface IConfig
     string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
     int MAX_RETRY_ATTEMPTS { get; }
     int SECONDS_BETWEEN_RETRIES { get; }
-    bool IS_API { get; }
-    bool IS_INFERENCE_PROXY { get; }
-    bool IS_EVALUATION_PROXY { get; }
 
     void Validate();
 }
