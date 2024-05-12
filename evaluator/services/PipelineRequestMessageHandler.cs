@@ -78,7 +78,7 @@ public class PipelineRequestMessageHandler(
         if (!string.IsNullOrEmpty(this.config.TRANSFORM_QUERY))
         {
             this.logger.LogDebug("attempting to transform content...");
-            JsonataQuery query = new(this.config.TRANSFORM_QUERY);
+            var query = new JsonataQuery(this.config.TRANSFORM_QUERY);
             inboundContent = query.Eval(inboundContent);
             this.logger.LogDebug("successfully transformed content.");
         }

@@ -9,6 +9,8 @@ public interface IConfig
     Duration MAX_DURATION_TO_RUN_EVALUATIONS { get; }
     Duration MAX_DURATION_TO_VIEW_RESULTS { get; }
     int CONCURRENCY { get; }
+
+    Modes MODE { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
     string[] INBOUND_QUEUES { get; }
     string OUTBOUND_QUEUE { get; }

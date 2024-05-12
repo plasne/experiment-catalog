@@ -17,6 +17,8 @@ public class Config : IConfig
         this.MAX_DURATION_TO_RUN_EVALUATIONS = this.config.Get<string>("MAX_DURATION_TO_RUN_EVALUATIONS").AsDuration(() => Duration.FromHours(24));
         this.MAX_DURATION_TO_VIEW_RESULTS = this.config.Get<string>("MAX_DURATION_TO_VIEW_RESULTS").AsDuration(() => Duration.FromYears(1));
         this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 4);
+
+        this.MODE = this.config.Get<string>("MODE").AsEnum(() => Modes.Unknown);
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
         this.INBOUND_QUEUES = this.config.Get<string>("INBOUND_QUEUES").AsArray(() => []);
         this.OUTBOUND_QUEUE = this.config.Get<string>("OUTBOUND_QUEUE");
@@ -49,6 +51,8 @@ public class Config : IConfig
     public Duration MAX_DURATION_TO_VIEW_RESULTS { get; }
 
     public int CONCURRENCY { get; }
+
+    public Modes MODE { get; }
 
     public string AZURE_STORAGE_ACCOUNT_NAME { get; }
 
@@ -83,9 +87,16 @@ public class Config : IConfig
         this.config.Require("MAX_DURATION_TO_RUN_EVALUATIONS", this.MAX_DURATION_TO_RUN_EVALUATIONS.ToString());
         this.config.Require("MAX_DURATION_TO_VIEW_RESULTS", this.MAX_DURATION_TO_VIEW_RESULTS.ToString());
         this.config.Require("CONCURRENCY", this.CONCURRENCY.ToString());
+
+        this.config.Require("MODE", this.MODE.ToString());
+        if (this.MODE == Modes.Unknown)
+        {
+            throw new Exception("MODE must be set to API or Proxy.");
+        }
+
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
         this.config.Optional("INBOUND_QUEUES", this.INBOUND_QUEUES);
-        this.config.Optional("OUTBOUND_QUEUE", this.OUTBOUND_QUEUE);
+        this.config.Require("OUTBOUND_QUEUE", this.OUTBOUND_QUEUE);
         this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
         this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
 

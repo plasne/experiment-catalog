@@ -36,11 +36,11 @@ builder.Services.AddHttpClient("retry")
         .WaitAndRetryAsync(config.MAX_RETRY_ATTEMPTS, retryAttempt => TimeSpan.FromSeconds(config.SECONDS_BETWEEN_RETRIES)));
 
 // add services to the container
-builder.Services.AddHostedService<AzureBlobQueueService2>();
+builder.Services.AddHostedService<AzureStorageQueueReader>();
+builder.Services.AddHostedService<AzureStorageQueueWriter>();
 builder.Services.AddTransient<IMessageHandler<PipelineRequest>, PipelineRequestMessageHandler>();
 
 builder.Services.AddSingleton<AzureStorageDetails>();
-builder.Services.AddSingleton<IQueueService, AzureStorageQueueService>();
 builder.Services.AddSingleton<IBlobStorageService, AzureBlobStorageService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {

@@ -9,17 +9,17 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-public class AzureBlobQueueService2(
+public class AzureStorageQueueReader(
     IConfig config,
     DefaultAzureCredential defaultAzureCredential,
     IServiceProvider serviceProvider,
-    ILogger<AzureBlobQueueService2> logger)
+    ILogger<AzureStorageQueueReader> logger)
     : BackgroundService
 {
     private readonly IConfig config = config;
     private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
     private readonly IServiceProvider serviceProvider = serviceProvider;
-    private readonly ILogger<AzureBlobQueueService2> logger = logger;
+    private readonly ILogger<AzureStorageQueueReader> logger = logger;
     private readonly List<QueueClient> inboundQueues = [];
     private QueueClient? outboundQueue;
 
@@ -37,6 +37,12 @@ public class AzureBlobQueueService2(
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
+        // make sure there are inbound queues
+        if (this.inboundQueues.Count == 0)
+        {
+            return;
+        }
+
         // try and connect to all the inbound queues
         foreach (var queue in this.config.INBOUND_QUEUES)
         {
