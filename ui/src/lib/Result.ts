@@ -1,7 +1,8 @@
 interface Result {
     ref?: string;
     set?: string;
-    result_uri?: string;
+    inference_uri?: string;
+    evaluation_uri?: string;
     desc?: string;
     metrics?: Record<string, Metric>;
     annotations?: Annotation[];

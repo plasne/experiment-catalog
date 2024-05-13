@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -28,7 +30,7 @@ public class ResultsController : ControllerBase
             return BadRequest("all metrics must have a value.");
         }
 
-        await storageService.AddResult(projectName, experimentName, result);
+        await storageService.AddResultAsync(projectName, experimentName, result);
         return Ok();
     }
 }

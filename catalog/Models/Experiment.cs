@@ -1,10 +1,23 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Newtonsoft.Json;
+
 public class Experiment
 {
-    public string? Name { get; set; }
-    public string? Hypothesis { get; set; }
-    public string? WorkItemUri { get; set; }
-    public IEnumerable<Result>? Results { get; set; }
-    public IEnumerable<Annotation>? Annotations { get; set; }
+    [JsonProperty("name", Required = Required.Always)]
+    public required string Name { get; set; }
+
+    [JsonProperty("hypothesis", Required = Required.Always)]
+    public required string Hypothesis { get; set; }
+
+    [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
+    public List<Result>? Results { get; set; }
+
+    [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
+    public List<Annotation>? Annotations { get; set; }
+
+    [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
     public DateTime Created { get; set; } = DateTime.UtcNow;
 
     private static Result Aggregate(IEnumerable<Result> from, bool includeAnnotationsWithRef)
@@ -98,7 +111,7 @@ public class Experiment
         var results = new List<Result>();
         if (this.Results is null) return results;
 
-        var queue = new Queue<Result>(this.Results.Reverse());
+        var queue = new Queue<Result>(this.Results.AsEnumerable().Reverse());
         var sets = new HashSet<string>();
         while (results.Count < count && queue.Count > 0)
         {

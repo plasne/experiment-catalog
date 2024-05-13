@@ -1,5 +1,7 @@
 // EX. At least 60% of results are improved by 2% or more (metrics: x, y, z).
 
+using System.Collections.Generic;
+
 public class PercentImprovement
 {
     private readonly string policyName = "PercentImprovement";
@@ -14,7 +16,7 @@ public class PercentImprovement
     public string Requirement => $"At least {this.requiredPercent:P0} of results are improved by {this.requiredImprovement:P0} or more (metrics: {string.Join(", ", this.includeMetrics)}).";
     public string Actual => $"{this.PercentPassed:P0} of results were improved by {this.requiredImprovement:P0} or more (metrics: {string.Join(", ", this.includeMetrics)}).";
 
-    public void Evaluate(Result evaluating, Result baseline, IDictionary<string, MetricDefinition> definitions)
+    public void Evaluate(Result evaluating, Result baseline, Dictionary<string, MetricDefinition> definitions)
     {
         if (evaluating.Metrics is null || baseline.Metrics is null)
         {

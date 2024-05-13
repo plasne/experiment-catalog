@@ -1,7 +1,9 @@
 using dotenv.net;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NetBricks;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 // load environment variables from .env file
 DotEnv.Load();
@@ -26,13 +28,11 @@ builder.Services.AddSingleLineConsoleLogger();
 builder.Services.AddConfig();
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 builder.Services.AddHostedService<AzureBlobStorageMaintenanceService>();
-builder.Services.AddControllers().AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-});
+
+// add controllers with swagger
+builder.Services.AddControllers().AddNewtonsoftJson();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen().AddSwaggerGenNewtonsoftSupport();
 
 // add CORS services
 builder.Services.AddCors(options =>

@@ -1,0 +1,5 @@
+{
+    "ref": EntrySource,
+    "user_query": Question,
+    "ground_truth": Answer
+}

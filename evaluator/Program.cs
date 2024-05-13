@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using dotenv.net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -26,49 +24,56 @@ builder.Services.AddDefaultAzureCredential();
 builder.Logging.ClearProviders();
 builder.Services.AddSingleLineConsoleLogger();
 
-// add services to the container
+// add http client
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<AzureStorageDetails>();
-builder.Services.AddSingleton<IQueueService, AzureStorageQueueService>();
-builder.Services.AddSingleton<IBlobStorageService, AzureBlobStorageService>();
-builder.Services.AddControllers().AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-});
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-// add CORS services
-builder.Services.AddCors(options =>
+// add API services
+if (config.ROLES.Contains(Roles.API))
 {
-    options.AddPolicy("default-policy",
-    builder =>
+    builder.Services.AddHostedService<AzureStorageQueueWriter>();
+    builder.Services.AddControllers().AddNewtonsoftJson();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen().AddSwaggerGenNewtonsoftSupport();
+    builder.Services.AddCors(options =>
     {
-        builder.WithOrigins("http://localhost:6020")
-               .AllowAnyHeader()
-               .AllowAnyMethod();
+        options.AddPolicy("default-policy",
+        builder =>
+        {
+            builder.WithOrigins("http://localhost:6020")
+                   .AllowAnyHeader()
+                   .AllowAnyMethod();
+        });
     });
-});
+    builder.WebHost.UseKestrel(options =>
+    {
+        options.ListenAnyIP(config.PORT);
+    });
+}
 
-// listen (disable TLS)
-builder.WebHost.UseKestrel(options =>
+// add InferenceProxy and EvaluationProxy services
+if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
 {
-    options.ListenAnyIP(config.PORT);
-});
+    builder.Services.AddHostedService<AzureStorageQueueReader>();
+}
 
-// build with swagger
+// build
 var app = builder.Build();
-app.UseSwagger();
-app.UseSwaggerUI();
 
-// use CORS
-app.UseCors("default-policy");
+// add API endpoints and routing
+if (config.ROLES.Contains(Roles.API))
+{
+    // use swagger
+    app.UseSwagger();
+    app.UseSwaggerUI();
 
-// add endpoints
-app.UseRouting();
-app.UseMiddleware<HttpExceptionMiddleware>();
-app.MapControllers();
+    // use CORS
+    app.UseCors("default-policy");
+
+    // add endpoints
+    app.UseRouting();
+    app.UseMiddleware<HttpExceptionMiddleware>();
+    app.MapControllers();
+}
 
 // run
 app.Run();

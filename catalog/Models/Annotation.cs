@@ -1,5 +1,10 @@
+using Newtonsoft.Json;
+
 public class Annotation
 {
-    public string? Text { get; set; }
+    [JsonProperty("text", Required = Required.Always)]
+    public required string Text { get; set; }
+
+    [JsonProperty("uri", NullValueHandling = NullValueHandling.Ignore)]
     public string? Uri { get; set; }
 }

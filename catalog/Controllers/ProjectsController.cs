@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 [ApiController]
 [Route("api/projects")]
@@ -13,11 +18,11 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Project>>> List(
+    public async Task<ActionResult<IList<Project>>> List(
         [FromServices] IStorageService storageService,
         CancellationToken cancellationToken)
     {
-        var projects = await storageService.GetProjects(cancellationToken);
+        var projects = await storageService.GetProjectsAsync(cancellationToken);
         return Ok(projects);
     }
 
@@ -37,7 +42,7 @@ public class ProjectsController : ControllerBase
             return BadRequest("an project name is required.");
         }
 
-        await storageService.AddProject(project, cancellationToken);
+        await storageService.AddProjectAsync(project, cancellationToken);
         return Ok();
     }
 
@@ -48,7 +53,7 @@ public class ProjectsController : ControllerBase
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
-        await storageService.SetExperimentAsBaseline(projectName, experimentName, cancellationToken);
+        await storageService.SetExperimentAsBaselineAsync(projectName, experimentName, cancellationToken);
         return Ok();
     }
 
@@ -66,7 +71,7 @@ public class ProjectsController : ControllerBase
         Stopwatch stopwatch = new();
         try
         {
-            var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
+            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             comparison.LastResultForBaselineExperiment = baseline.AggregateLastSet();
         }
         catch (Exception e)
@@ -75,7 +80,7 @@ public class ProjectsController : ControllerBase
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
         comparison.BaselineResultForChosenExperiment =
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
@@ -97,7 +102,7 @@ public class ProjectsController : ControllerBase
         // get the baseline
         try
         {
-            var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
+            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             comparison.LastResultsForBaselineExperiment = baseline.AggregateLastSetByRef();
         }
         catch (Exception e)
@@ -106,7 +111,7 @@ public class ProjectsController : ControllerBase
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
         comparison.BaselineResultsForChosenExperiment =
             experiment.AggregateBaselineSetByRef()
             ?? experiment.AggregateFirstSetByRef();
@@ -123,7 +128,7 @@ public class ProjectsController : ControllerBase
     [FromRoute] string setName,
     CancellationToken cancellationToken)
     {
-        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
         var results = experiment.GetAllResultsOfSet(setName);
         return Ok(results);
     }
@@ -135,7 +140,7 @@ public class ProjectsController : ControllerBase
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
-        await storageService.OptimizeExperiment(projectName, experimentName, cancellationToken);
+        await storageService.OptimizeExperimentAsync(projectName, experimentName, cancellationToken);
         return Ok();
     }
 }
