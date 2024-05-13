@@ -114,6 +114,29 @@ public class ExperimentsController : ControllerBase
             ?? experiment.AggregateFirstSetByRef();
         comparison.ChosenResultsForChosenExperiment = experiment.AggregateSetByRef(setName);
 
+        // run policies
+        if (comparison.ChosenResultsForChosenExperiment is not null
+            && comparison.BaselineResultsForChosenExperiment is not null)
+        {
+            var definitions = new Dictionary<string, MetricDefinition>
+            {
+                { "ndcg", new MetricDefinition { Min = 0, Max = 1 } },
+                { "bertscore", new MetricDefinition { Min = 0, Max = 1 } },
+                { "groundedness", new MetricDefinition { Min = 1, Max = 5 } }
+            };
+            var policy = new PercentImprovement();
+            foreach (var (key, result) in comparison.ChosenResultsForChosenExperiment)
+            {
+                if (comparison.BaselineResultsForChosenExperiment.TryGetValue(key, out var baseline))
+                {
+                    policy.Evaluate(result, baseline, definitions);
+                }
+            }
+            this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);
+            this.logger.LogWarning(policy.Requirement);
+            this.logger.LogWarning(policy.Actual);
+        }
+
         return Ok(comparison);
     }
 

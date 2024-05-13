@@ -7,7 +7,7 @@ public class Experiment
     public IEnumerable<Annotation>? Annotations { get; set; }
     public DateTime Created { get; set; } = DateTime.UtcNow;
 
-    private Result Aggregate(IEnumerable<Result> from)
+    private static Result Aggregate(IEnumerable<Result> from, bool includeAnnotationsWithRef)
     {
         var result = new Result();
         var annotations = new List<Annotation>();
@@ -15,7 +15,11 @@ public class Experiment
         var metrics = new Dictionary<string, List<Metric>>();
         foreach (var r in from)
         {
-            if (r.Annotations is not null) annotations.AddRange(r.Annotations);
+            if (r.Annotations is not null
+                && (includeAnnotationsWithRef || string.IsNullOrEmpty(r.Ref)))
+            {
+                annotations.AddRange(r.Annotations);
+            }
             if (r.Metrics is null) continue;
             foreach (var (key, metric) in r.Metrics)
             {
@@ -46,7 +50,7 @@ public class Experiment
         if (string.IsNullOrEmpty(set)) return null;
         if (this.Results is null) return null;
         var filtered = this.Results.Where(x => x.Set == set);
-        var result = this.Aggregate(filtered);
+        var result = Aggregate(filtered, false);
         result.Set = set;
         return result;
     }
@@ -57,10 +61,10 @@ public class Experiment
         if (this.Results is null) return null;
         var results = new Dictionary<string, Result>();
 
-        var filtered = this.Results.Where(x => x.Set == set);
+        var filtered = this.Results.Where(x => x.Set == set && !string.IsNullOrEmpty(x.Ref));
         foreach (var group in filtered.GroupBy(x => x.Ref))
         {
-            var result = this.Aggregate(group);
+            var result = Aggregate(group, true);
             result.Ref = group.Key;
             result.Set = set;
             results.Add(group.Key!, result);

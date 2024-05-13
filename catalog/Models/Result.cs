@@ -5,7 +5,8 @@ public class Result
     public string? ResultUri { get; set; }
     public string? Desc { get; set; }
     public IDictionary<string, Metric>? Metrics { get; set; }
-    public IEnumerable<Annotation>? Annotations { get; set; }
+    public IList<Annotation>? Annotations { get; set; }
+    public IDictionary<string, PolicyResult>? PolicyResults { get; set; }
     public bool IsBaseline { get; set; }
     public DateTime Created { get; set; } = DateTime.UtcNow;
 }
