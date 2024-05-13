@@ -4,10 +4,11 @@ using Newtonsoft.Json;
 
 public class Result
 {
-    [JsonProperty("ref", Required = Required.Always)]
+    // TODO: it would be nice to require these on input but not on output
+    [JsonProperty("ref", NullValueHandling = NullValueHandling.Ignore)]
     public string? Ref { get; set; }
 
-    [JsonProperty("set", Required = Required.Always)]
+    [JsonProperty("set", NullValueHandling = NullValueHandling.Ignore)]
     public string? Set { get; set; }
 
     [JsonProperty("inference_uri", NullValueHandling = NullValueHandling.Ignore)]
@@ -20,7 +21,10 @@ public class Result
     public Dictionary<string, Metric>? Metrics { get; set; }
 
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
-    public IEnumerable<Annotation>? Annotations { get; set; }
+    public List<Annotation>? Annotations { get; set; }
+
+    [JsonProperty("policy_results", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, PolicyResult>? PolicyResults { get; set; }
 
     [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public bool IsBaseline { get; set; }

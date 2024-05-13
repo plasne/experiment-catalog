@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import Annotations from "./Annotations.svelte";
 
   export let title: string;
   export let result: Result;
@@ -15,19 +16,7 @@
 <div class="set">
   <button class="link" on:click={select}>set: {result?.set ?? "-"}</button>
 </div>
-{#if result?.annotations}
-  {#each result?.annotations as annotation}
-    <div class="annotation">
-      {#if annotation.uri}
-        <a class="link" href={annotation.uri} target="_blank"
-          >{annotation.text}</a
-        >
-      {:else}
-        {annotation.text}
-      {/if}
-    </div>
-  {/each}
-{/if}
+<Annotations {result} />
 
 <style>
   .title {
@@ -38,13 +27,5 @@
 
   .set {
     font-size: 1rem;
-  }
-
-  .annotation {
-    font-size: 0.8rem;
-    color: black;
-    background-color: yellow;
-    margin: 0.2rem;
-    padding: 0.2rem;
   }
 </style>

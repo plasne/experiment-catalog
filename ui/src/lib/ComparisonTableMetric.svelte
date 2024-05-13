@@ -8,13 +8,18 @@
   let diff: number;
 
   $: diff =
-    result && baseline && result.metrics[metric] && baseline.metrics[metric]
+    result &&
+    baseline &&
+    result.metrics &&
+    baseline.metrics &&
+    result.metrics[metric] &&
+    baseline.metrics[metric]
       ? result.metrics[metric].value - baseline.metrics[metric].value
       : 0;
 </script>
 
 <nobr>
-  {#if result && result.metrics[metric]}
+  {#if result && result.metrics && result.metrics[metric]}
     <span>{result.metrics[metric].value.toFixed(2)}</span>
     {#if showStdDev}
       <span>({result.metrics[metric].std_dev.toFixed(2)})</span>
