@@ -216,9 +216,6 @@ public class AzureBlobStorageService(
         // the first line is of type Experiment
         var experimentLine = await streamReader.ReadLineAsync(cancellationToken)
             ?? throw new Exception("no experiment info was found in the file.");
-
-        this.logger.LogWarning(experimentLine);
-
         var experiment = JsonConvert.DeserializeObject<Experiment>(experimentLine)
             ?? throw new Exception("the experiment info was corrupt.");
 

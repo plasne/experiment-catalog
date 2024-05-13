@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Iso8601DurationHelper;
 
 public interface IConfig
 {
@@ -17,11 +16,11 @@ public interface IConfig
     string EVALUATION_URL { get; }
     string EXPERIMENT_CATALOG_BASE_URL { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
-    string INBOUND_INFERENCE_TRANSFORM_FILE { get; }
-    string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_QUERY { get; }
+    string INBOUND_INFERENCE_TRANSFORM_FILE { get; }
     string INBOUND_INFERENCE_TRANSFORM_QUERY { get; }
     string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
+    string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
 
     void Validate();
 }

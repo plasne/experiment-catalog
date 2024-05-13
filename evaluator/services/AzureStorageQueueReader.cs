@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -112,25 +113,39 @@ public class AzureStorageQueueReader(
         {
             if (header.Key.StartsWith("x-metric-", StringComparison.InvariantCultureIgnoreCase))
             {
-                var key = header.Key["x-metric-".Length..];
-                if (decimal.TryParse(header.Value.ToString(), out var value))
+                var key = header.Key[9..];
+                if (decimal.TryParse(header.Value.First(), out var value))
                 {
-                    metrics[key] = new Metric { Value = value };
+                    metrics.Add(key, new Metric { Value = value });
                 }
             }
         }
+        this.logger.LogDebug(
+            "metrics returned from execution: {m}",
+            string.Join(", ", metrics.Select(x => $"{x.Key}={x.Value.Value}")));
 
         this.logger.LogInformation("successfully called '{u}' for processing.", url);
         return (responseBody, metrics);
     }
 
-    private async Task RecordMetrics(PipelineRequest request, string? inferenceUri, string? evaluationUri, Dictionary<string, Metric> metrics)
+    private async Task RecordMetricsAsync(
+        PipelineRequest request,
+        string? inferenceUri,
+        string? evaluationUri,
+        Dictionary<string, Metric> metrics,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(this.config.EXPERIMENT_CATALOG_BASE_URL) || metrics.Count == 0)
+        if (metrics.Count == 0)
         {
             return;
         }
+        if (string.IsNullOrEmpty(this.config.EXPERIMENT_CATALOG_BASE_URL))
+        {
+            this.logger.LogWarning("there is no EXPERIMENT_CATALOG_BASE_URL provided, so no metrics will be logged.");
+            return;
+        }
 
+        this.logger.LogDebug("attempting to record {x} metrics...", metrics.Count);
         using var httpClient = this.httpClientFactory.CreateClient();
         var result = new Result
         {
@@ -144,7 +159,14 @@ public class AzureStorageQueueReader(
         var resultJson = JsonConvert.SerializeObject(result);
         var response = await httpClient.PostAsync(
             $"{this.config.EXPERIMENT_CATALOG_BASE_URL}/api/projects/{request.Project}/experiments/{request.Experiment}/results",
-            new StringContent(resultJson, Encoding.UTF8, "application/json"));
+            new StringContent(resultJson, Encoding.UTF8, "application/json"),
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            this.logger.LogError("when trying to record metrics, got HTTP {c}: {s}.", response.StatusCode, content);
+        }
+        this.logger.LogInformation("successfully recorded {x} metrics.", metrics.Count);
     }
 
     private async Task<bool> ProcessInferenceRequestAsync(QueueClient inboundQueue, CancellationToken cancellationToken)
@@ -187,7 +209,7 @@ public class AzureStorageQueueReader(
             var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
 
             // record metrics
-            await this.RecordMetrics(request, inferenceUri, null, metrics);
+            await this.RecordMetricsAsync(request, inferenceUri, null, metrics, cancellationToken);
 
             // enqueue for the next stage
             await this.outboundInferenceQueue!.SendMessageAsync(body, cancellationToken);
@@ -239,7 +261,7 @@ public class AzureStorageQueueReader(
                 : this.GetBlobUri(this.config.INFERENCE_CONTAINER, request.Id + ".json");
 
             // record metrics
-            await this.RecordMetrics(request, inferenceUri, evaluationUri, metrics);
+            await this.RecordMetricsAsync(request, inferenceUri, evaluationUri, metrics, cancellationToken);
 
             // delete the message
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);

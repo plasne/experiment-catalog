@@ -2,7 +2,7 @@
   export let result: Result;
 </script>
 
-{#if result.annotations}
+{#if result && result.annotations}
   {#each result.annotations as annotation}
     <div class="annotation">
       {#if annotation.uri}

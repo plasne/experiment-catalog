@@ -44,20 +44,24 @@ public class AzureStorageQueueWriter(
             var groundTruthFile = JsonConvert.DeserializeObject<GroundTruthFile>(content)
                 ?? throw new Exception($"failed to deserialize to GroundTruthFile.");
 
-            // build the pipeline request
-            var pipelineRequest = new PipelineRequest
+            // handle multiple iterations
+            for (int i = 0; i < enqueueRequest.Iterations; i++)
             {
-                Id = Guid.NewGuid().ToString(),
-                GroundTruthUri = containerClient.Name + "/" + blob.Name,
-                Project = enqueueRequest.Project,
-                Experiment = enqueueRequest.Experiment,
-                Ref = groundTruthFile.Ref,
-                Set = enqueueRequest.Set,
-                IsBaseline = enqueueRequest.IsBaseline,
-            };
+                // build the pipeline request
+                var pipelineRequest = new PipelineRequest
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    GroundTruthUri = containerClient.Name + "/" + blob.Name,
+                    Project = enqueueRequest.Project,
+                    Experiment = enqueueRequest.Experiment,
+                    Ref = groundTruthFile.Ref,
+                    Set = enqueueRequest.Set,
+                    IsBaseline = enqueueRequest.IsBaseline,
+                };
 
-            // enqueue in blob
-            await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
+                // enqueue in blob
+                await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
+            }
         }
         catch (OperationCanceledException)
         {
