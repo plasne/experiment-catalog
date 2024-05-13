@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
@@ -19,40 +19,25 @@ public class AzureStorageQueueWriter(
     private readonly IConfig config = config;
     private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
     private readonly ILogger<AzureStorageQueueWriter> logger = logger;
-    private readonly BlockingCollection<EnqueueRequest> enqueueRequests = [];
-    private BlobContainerClient? containerClient;
-    private QueueClient? outboundQueue;
+    private readonly Channel<EnqueueRequest> enqueueRequests = Channel.CreateUnbounded<EnqueueRequest>();
 
-    public void StartEnqueueRequest(EnqueueRequest req)
+    public ValueTask StartEnqueueRequestAsync(EnqueueRequest req)
     {
-        this.enqueueRequests.Add(req);
+        return this.enqueueRequests.Writer.WriteAsync(req);
     }
 
-    public override async Task StartAsync(CancellationToken cancellationToken)
-    {
-        // try and get to the blob container
-        var uri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-        var blobClient = new BlobServiceClient(new Uri(uri), this.defaultAzureCredential);
-        // TODO: containers come from datasources
-        this.containerClient = blobClient.GetBlobContainerClient();
-        await containerClient.ExistsAsync(cancellationToken);
-
-        // try and connect to the outbound queue
-        var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{this.config.OUTBOUND_GROUNDTRUTH_QUEUE}";
-        var queueClient = new QueueClient(new Uri(url), this.defaultAzureCredential);
-        await queueClient.ConnectAsync(this.logger, cancellationToken);
-        this.outboundQueue = queueClient;
-
-        await base.StartAsync(cancellationToken);
-    }
-
-    private async Task EnqueueBlob(BlobItem blob, EnqueueRequest enqueueRequest, CancellationToken cancellationToken)
+    private async Task EnqueueBlobAsync(
+        BlobContainerClient containerClient,
+        BlobItem blob,
+        EnqueueRequest enqueueRequest,
+        QueueClient queueClient,
+        CancellationToken cancellationToken)
     {
         try
         {
             // load the blob file
-            var blobClient = this.containerClient!.GetBlobClient(blob.Name);
-            string content = await blobClient.DownloadAndTransform(
+            var blobClient = containerClient.GetBlobClient(blob.Name);
+            string content = await blobClient.DownloadAndTransformAsync(
                 this.config.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
@@ -63,7 +48,7 @@ public class AzureStorageQueueWriter(
             var pipelineRequest = new PipelineRequest
             {
                 Id = Guid.NewGuid().ToString(),
-                GroundTruthUri = this.containerClient.Name + "/" + blob.Name,
+                GroundTruthUri = containerClient.Name + "/" + blob.Name,
                 Project = enqueueRequest.Project,
                 Experiment = enqueueRequest.Experiment,
                 Ref = groundTruthFile.Ref,
@@ -72,7 +57,7 @@ public class AzureStorageQueueWriter(
             };
 
             // enqueue in blob
-            await this.outboundQueue!.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
+            await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -86,14 +71,31 @@ public class AzureStorageQueueWriter(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        this.logger.LogInformation("starting to listen for enqueue requests in AzureStorageQueueWriter...");
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var enqueueRequest = this.enqueueRequests.Take(stoppingToken);
-                await foreach (var blob in this.containerClient!.GetBlobsAsync(cancellationToken: stoppingToken))
+                var enqueueRequest = await this.enqueueRequests.Reader.ReadAsync(stoppingToken);
+
+                // try and connect to the output queue
+                var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{enqueueRequest.Queue}";
+                var queueClient = new QueueClient(new Uri(url), this.defaultAzureCredential);
+                await queueClient.ConnectAsync(this.logger, stoppingToken);
+
+                // enqueue everything from each specified container
+                foreach (var container in enqueueRequest.Containers)
                 {
-                    await this.EnqueueBlob(blob, enqueueRequest, stoppingToken);
+                    // connect to the blob container
+                    var uri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+                    var blobClient = new BlobServiceClient(new Uri(uri), this.defaultAzureCredential);
+                    var containerClient = blobClient.GetBlobContainerClient(container);
+
+                    // enqueue blobs from that container
+                    await foreach (var blob in containerClient.GetBlobsAsync(cancellationToken: stoppingToken))
+                    {
+                        await this.EnqueueBlobAsync(containerClient, blob, enqueueRequest, queueClient, stoppingToken);
+                    }
                 }
             }
             catch (OperationCanceledException)

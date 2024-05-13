@@ -5,13 +5,11 @@ public interface IConfig
 {
     int PORT { get; }
     List<Roles> ROLES { get; }
-    int CONCURRENCY { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
     string INFERENCE_CONTAINER { get; }
     string EVALUATION_CONTAINER { get; }
     string[] INBOUND_INFERENCE_QUEUES { get; }
     string[] INBOUND_EVALUATION_QUEUES { get; }
-    string OUTBOUND_GROUNDTRUTH_QUEUE { get; }
     string OUTBOUND_INFERENCE_QUEUE { get; }
     int MS_TO_PAUSE_WHEN_EMPTY { get; }
     int DEQUEUE_FOR_X_SECONDS { get; }

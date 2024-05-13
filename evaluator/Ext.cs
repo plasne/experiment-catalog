@@ -32,7 +32,7 @@ public static class Ext
             properties.Value.ApproximateMessagesCount);
     }
 
-    public static async Task<string> DownloadAndTransform(
+    public static async Task<string> DownloadAndTransformAsync(
         this BlobClient blobClient,
         string? transformQuery,
         ILogger logger,

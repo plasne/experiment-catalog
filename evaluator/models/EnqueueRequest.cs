@@ -12,11 +12,14 @@ public class EnqueueRequest
     [JsonProperty("set", Required = Required.Always)]
     public required string Set { get; set; }
 
-    [JsonProperty("datasources", Required = Required.Always)]
-    public required List<string> Datasources { get; set; }
-
     [JsonProperty("is_baseline", Required = Required.Always)]
     public bool IsBaseline { get; set; }
+
+    [JsonProperty("containers", Required = Required.Always)]
+    public required List<string> Containers { get; set; }
+
+    [JsonProperty("queue", Required = Required.Always)]
+    public required string Queue { get; set; }
 
     [JsonProperty("iterations")]
     public int Iterations { get; set; } = 1;

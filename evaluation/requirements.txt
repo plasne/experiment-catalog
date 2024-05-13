@@ -1,3 +1,4 @@
-azure.storage.queue
 python-dotenv
 openai
+flask
+pydantic

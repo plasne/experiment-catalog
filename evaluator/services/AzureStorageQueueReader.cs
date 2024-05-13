@@ -67,7 +67,7 @@ public class AzureStorageQueueReader(
         return blobContainerClient.GetBlobClient(blobName);
     }
 
-    private async Task UploadBlob(string containerName, string blobName, string content, CancellationToken cancellationToken)
+    private async Task UploadBlobAsync(string containerName, string blobName, string content, CancellationToken cancellationToken)
     {
         this.logger.LogDebug("attempting to upload {c}/{b}...", containerName, blobName);
         var blobClient = this.GetBlobClient(containerName, blobName);
@@ -76,12 +76,12 @@ public class AzureStorageQueueReader(
         this.logger.LogInformation("successfully uploaded {c}/{b}.", containerName, blobName);
     }
 
-    private async Task<string> SendForProcessing(string url, string content, CancellationToken cancellationToken)
+    private async Task<string> SendForProcessingAsync(string url, string content, CancellationToken cancellationToken)
     {
         this.logger.LogDebug("attempting to call '{u}' for processing...", url);
         using var httpClient = this.httpClientFactory.CreateClient("retry");
         var requestBody = new StringContent(content, Encoding.UTF8, "application/json");
-        var response = await httpClient.PostAsync(this.config.INFERENCE_URL, requestBody, cancellationToken);
+        var response = await httpClient.PostAsync(url, requestBody, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -95,7 +95,7 @@ public class AzureStorageQueueReader(
         return responseBody;
     }
 
-    private async Task<bool> ProcessInferenceRequest(QueueClient inboundQueue, CancellationToken cancellationToken)
+    private async Task<bool> ProcessInferenceRequestAsync(QueueClient inboundQueue, CancellationToken cancellationToken)
     {
         try
         {
@@ -115,16 +115,24 @@ public class AzureStorageQueueReader(
             // download and transform the ground truth file
             var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
             var groundTruthBlobClient = this.GetBlobClient(groundTruthBlobRef.Container, groundTruthBlobRef.BlobName);
-            var groundTruthContent = await groundTruthBlobClient.DownloadAndTransform(
+            var groundTruthContent = await groundTruthBlobClient.DownloadAndTransformAsync(
                 this.config.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
+            var groundTruthFile = JsonConvert.DeserializeObject<GroundTruthFile>(groundTruthContent)
+                ?? throw new Exception("could not deserialize ground truth file.");
 
             // call processing URL
-            var responseContent = await this.SendForProcessing(this.config.INFERENCE_URL, groundTruthContent, cancellationToken);
+            var responseContent = await this.SendForProcessingAsync(this.config.INFERENCE_URL, groundTruthContent, cancellationToken);
+
+            // enrich
+            var responseDynamic = JsonConvert.DeserializeObject<dynamic>(responseContent)
+                ?? throw new Exception("could not deserialize inference response.");
+            responseDynamic["ground_truth"] = groundTruthFile.GroundTruth;
+            responseContent = JsonConvert.SerializeObject(responseDynamic);
 
             // upload the result
-            await this.UploadBlob(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+            await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
 
             // enqueue for the next stage
             await this.outboundInferenceQueue!.SendMessageAsync(body, cancellationToken);
@@ -140,7 +148,7 @@ public class AzureStorageQueueReader(
         }
     }
 
-    private async Task<bool> ProcessEvaluationRequest(QueueClient inboundQueue, CancellationToken cancellationToken)
+    private async Task<bool> ProcessEvaluationRequestAsync(QueueClient inboundQueue, CancellationToken cancellationToken)
     {
         try
         {
@@ -159,16 +167,16 @@ public class AzureStorageQueueReader(
 
             // download and transform the inference file
             var inferenceBlobClient = this.GetBlobClient(this.config.INFERENCE_CONTAINER, request.Id + ".json");
-            var inferenceContent = await inferenceBlobClient.DownloadAndTransform(
+            var inferenceContent = await inferenceBlobClient.DownloadAndTransformAsync(
                 this.config.INBOUND_INFERENCE_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
 
             // call processing URL
-            var responseContent = await this.SendForProcessing(this.config.EVALUATION_URL, inferenceContent, cancellationToken);
+            var responseContent = await this.SendForProcessingAsync(this.config.EVALUATION_URL, inferenceContent, cancellationToken);
 
             // upload the result
-            await this.UploadBlob(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+            await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
 
             // delete the message
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
@@ -181,25 +189,29 @@ public class AzureStorageQueueReader(
         }
     }
 
-    private async Task<int> GetMessagesFromInboundQueues(CancellationToken cancellationToken)
+    private async Task<int> GetMessagesFromInboundQueuesAsync(CancellationToken cancellationToken)
     {
         var count = 0;
         try
         {
             foreach (var queue in this.inboundInferenceQueues)
             {
-                if (await this.ProcessInferenceRequest(queue, cancellationToken))
+                if (await this.ProcessInferenceRequestAsync(queue, cancellationToken))
                 {
                     count++;
                 }
             }
             foreach (var queue in this.inboundEvaluationQueues)
             {
-                if (await this.ProcessEvaluationRequest(queue, cancellationToken))
+                if (await this.ProcessEvaluationRequestAsync(queue, cancellationToken))
                 {
                     count++;
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // ignore; this is expected when stopping
         }
         catch (Exception e)
         {
@@ -210,10 +222,10 @@ public class AzureStorageQueueReader(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // look for messages in the inbound queues
+        this.logger.LogInformation("starting to listen for pipeline requests in AzureStorageQueueReader...");
         while (!stoppingToken.IsCancellationRequested)
         {
-            var messagesFound = await this.GetMessagesFromInboundQueues(stoppingToken);
+            var messagesFound = await this.GetMessagesFromInboundQueuesAsync(stoppingToken);
             if (messagesFound == 0)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(this.config.MS_TO_PAUSE_WHEN_EMPTY), stoppingToken);

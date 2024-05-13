@@ -1,6 +1,4 @@
 using System;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using dotenv.net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -35,55 +33,53 @@ builder.Services.AddHttpClient("retry")
         .HandleTransientHttpError()
         .WaitAndRetryAsync(config.MAX_RETRY_ATTEMPTS, retryAttempt => TimeSpan.FromSeconds(config.SECONDS_BETWEEN_RETRIES)));
 
-// add services depending on mode
+// add API services
 if (config.ROLES.Contains(Roles.API))
 {
     builder.Services.AddHostedService<AzureStorageQueueWriter>();
+    builder.Services.AddControllers().AddNewtonsoftJson();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen().AddSwaggerGenNewtonsoftSupport();
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("default-policy",
+        builder =>
+        {
+            builder.WithOrigins("http://localhost:6020")
+                   .AllowAnyHeader()
+                   .AllowAnyMethod();
+        });
+    });
+    builder.WebHost.UseKestrel(options =>
+    {
+        options.ListenAnyIP(config.PORT);
+    });
 }
-else if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
+
+// add InferenceProxy and EvaluationProxy services
+if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
 {
     builder.Services.AddHostedService<AzureStorageQueueReader>();
 }
 
-// TODO: change to Newtonsoft.Json
-builder.Services.AddControllers().AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-});
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// add CORS services
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("default-policy",
-    builder =>
-    {
-        builder.WithOrigins("http://localhost:6020")
-               .AllowAnyHeader()
-               .AllowAnyMethod();
-    });
-});
-
-// listen (disable TLS)
-builder.WebHost.UseKestrel(options =>
-{
-    options.ListenAnyIP(config.PORT);
-});
-
-// build with swagger
+// build
 var app = builder.Build();
-app.UseSwagger();
-app.UseSwaggerUI();
 
-// use CORS
-app.UseCors("default-policy");
+// add API endpoints and routing
+if (config.ROLES.Contains(Roles.API))
+{
+    // use swagger
+    app.UseSwagger();
+    app.UseSwaggerUI();
 
-// add endpoints
-app.UseRouting();
-app.UseMiddleware<HttpExceptionMiddleware>();
-app.MapControllers();
+    // use CORS
+    app.UseCors("default-policy");
+
+    // add endpoints
+    app.UseRouting();
+    app.UseMiddleware<HttpExceptionMiddleware>();
+    app.MapControllers();
+}
 
 // run
 app.Run();
