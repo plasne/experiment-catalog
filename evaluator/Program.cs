@@ -1,12 +1,9 @@
-using System;
 using dotenv.net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NetBricks;
-using Polly;
-using Polly.Extensions.Http;
 
 // load environment variables from .env file
 DotEnv.Load();
@@ -27,11 +24,8 @@ builder.Services.AddDefaultAzureCredential();
 builder.Logging.ClearProviders();
 builder.Services.AddSingleLineConsoleLogger();
 
-// add http client with retry
-builder.Services.AddHttpClient("retry")
-    .AddPolicyHandler(HttpPolicyExtensions
-        .HandleTransientHttpError()
-        .WaitAndRetryAsync(config.MAX_RETRY_ATTEMPTS, retryAttempt => TimeSpan.FromSeconds(config.SECONDS_BETWEEN_RETRIES)));
+// add http client
+builder.Services.AddHttpClient();
 
 // add API services
 if (config.ROLES.Contains(Roles.API))

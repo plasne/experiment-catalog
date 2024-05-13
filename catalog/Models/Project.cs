@@ -1,4 +1,7 @@
+using Newtonsoft.Json;
+
 public class Project
 {
-    public string? Name { get; set; }
+    [JsonProperty("name", Required = Required.Always)]
+    public required string Name { get; set; }
 }

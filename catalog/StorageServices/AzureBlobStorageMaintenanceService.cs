@@ -1,3 +1,9 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
 public class AzureBlobStorageMaintenanceService : BackgroundService
 {
     private readonly IConfig config;
@@ -25,7 +31,7 @@ public class AzureBlobStorageMaintenanceService : BackgroundService
             await Task.Delay(TimeSpan.FromMinutes(this.config.OPTIMIZE_EVERY_X_MINUTES), stoppingToken);
             try
             {
-                await this.storageService.Optimize(stoppingToken);
+                await this.storageService.OptimizeAsync(stoppingToken);
             }
             catch (Exception ex)
             {

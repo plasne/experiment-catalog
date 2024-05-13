@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 [ApiController]
 [Route("api/projects/{projectName}/experiments")]
@@ -13,12 +18,12 @@ public class ExperimentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Experiment>>> List(
+    public async Task<ActionResult<IList<Experiment>>> List(
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         CancellationToken cancellationToken)
     {
-        var experiments = await storageService.GetExperiments(projectName, cancellationToken);
+        var experiments = await storageService.GetExperimentsAsync(projectName, cancellationToken);
         return Ok(experiments);
     }
 
@@ -39,7 +44,7 @@ public class ExperimentsController : ControllerBase
             return BadRequest("an experiment name and hypothesis are required.");
         }
 
-        await storageService.AddExperiment(projectName, experiment, cancellationToken);
+        await storageService.AddExperimentAsync(projectName, experiment, cancellationToken);
         return Ok();
     }
 
@@ -50,7 +55,7 @@ public class ExperimentsController : ControllerBase
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
-        await storageService.SetExperimentAsBaseline(projectName, experimentName, cancellationToken);
+        await storageService.SetExperimentAsBaselineAsync(projectName, experimentName, cancellationToken);
         return Ok();
     }
 
@@ -68,7 +73,7 @@ public class ExperimentsController : ControllerBase
         Stopwatch stopwatch = new();
         try
         {
-            var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
+            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             comparison.LastResultForBaselineExperiment = baseline.AggregateLastSet();
         }
         catch (Exception e)
@@ -77,7 +82,7 @@ public class ExperimentsController : ControllerBase
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
         comparison.BaselineResultForChosenExperiment =
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
@@ -99,7 +104,7 @@ public class ExperimentsController : ControllerBase
         // get the baseline
         try
         {
-            var baseline = await storageService.GetProjectBaseline(projectName, cancellationToken);
+            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             comparison.LastResultsForBaselineExperiment = baseline.AggregateLastSetByRef();
         }
         catch (Exception e)
@@ -108,7 +113,7 @@ public class ExperimentsController : ControllerBase
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
         comparison.BaselineResultsForChosenExperiment =
             experiment.AggregateBaselineSetByRef()
             ?? experiment.AggregateFirstSetByRef();
@@ -125,7 +130,7 @@ public class ExperimentsController : ControllerBase
     [FromRoute] string setName,
     CancellationToken cancellationToken)
     {
-        var experiment = await storageService.GetExperiment(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
         var results = experiment.GetAllResultsOfSet(setName);
         return Ok(results);
     }
@@ -137,7 +142,7 @@ public class ExperimentsController : ControllerBase
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
-        await storageService.OptimizeExperiment(projectName, experimentName, cancellationToken);
+        await storageService.OptimizeExperimentAsync(projectName, experimentName, cancellationToken);
         return Ok();
     }
 }

@@ -1,7 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 public static class Ext
 {
     public static decimal StdDev<TSource>(
-        this IEnumerable<TSource> values,
+        this IList<TSource> values,
         Func<TSource, decimal?> selector)
     {
         var selectedValues = values.Select(v => selector(v)).OfType<decimal>().ToList();

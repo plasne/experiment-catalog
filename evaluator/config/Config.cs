@@ -35,8 +35,7 @@ public class Config : IConfig
         this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
         this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
         this.EVALUATION_URL = this.config.Get<string>("EVALUATION_URL");
-        this.MAX_RETRY_ATTEMPTS = config.Get<string>("MAX_RETRY_ATTEMPTS").AsInt(() => 0);
-        this.SECONDS_BETWEEN_RETRIES = config.Get<string>("SECONDS_BETWEEN_RETRIES").AsInt(() => 0);
+        this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
 
         this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
         this.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
@@ -87,9 +86,7 @@ public class Config : IConfig
 
     public string EVALUATION_URL { get; }
 
-    public int MAX_RETRY_ATTEMPTS { get; }
-
-    public int SECONDS_BETWEEN_RETRIES { get; }
+    public string EXPERIMENT_CATALOG_BASE_URL { get; }
 
     public string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
 
@@ -111,8 +108,6 @@ public class Config : IConfig
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
         this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
         this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
-        this.config.Require("MAX_RETRY_ATTEMPTS", this.MAX_RETRY_ATTEMPTS.ToString());
-        this.config.Require("SECONDS_BETWEEN_RETRIES", this.SECONDS_BETWEEN_RETRIES.ToString());
 
         // API-specific
         if (this.ROLES.Contains(Roles.API))
@@ -137,6 +132,7 @@ public class Config : IConfig
         // EvaluationProxy-specific
         if (this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Optional("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
             this.config.Require("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
             this.config.Require("EVALUATION_URL", this.EVALUATION_URL);
             this.config.Require("INBOUND_EVALUATION_QUEUES", this.INBOUND_EVALUATION_QUEUES);
@@ -146,9 +142,10 @@ public class Config : IConfig
             }
         }
 
-        // optional
+        // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Optional("EXPERIMENT_CATALOG_BASE_URL", this.EXPERIMENT_CATALOG_BASE_URL);
             this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
             this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
             this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);

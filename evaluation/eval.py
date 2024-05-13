@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from pydantic import BaseModel
@@ -238,11 +238,17 @@ def evaluate():
         relevance_score = relevance["score"]
         print(f"successfully calculated relevance score as {relevance_score}.")
 
-        return {
+        # return the scores (putting scores in the header will record to exp-catalog)
+        response = Response(json.dumps({
             "coherence": coherence,
             "groundedness": groundedness,
             "relevance": relevance,
-        }
+        }), content_type="application/json")
+        response.headers.add("x-metric-coherence", coherence_score)
+        response.headers.add("x-metric-groundedness", groundedness_score)
+        response.headers.add("x-metric-relevance", relevance_score)
+        return response
+
     except Exception as e:
         print("Exception occurred:\n", traceback.format_exc())
         return {"error": str(e)}, 500

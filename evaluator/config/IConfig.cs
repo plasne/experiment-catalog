@@ -15,14 +15,13 @@ public interface IConfig
     int DEQUEUE_FOR_X_SECONDS { get; }
     string INFERENCE_URL { get; }
     string EVALUATION_URL { get; }
+    string EXPERIMENT_CATALOG_BASE_URL { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
     string INBOUND_INFERENCE_TRANSFORM_FILE { get; }
     string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_QUERY { get; }
     string INBOUND_INFERENCE_TRANSFORM_QUERY { get; }
     string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
-    int MAX_RETRY_ATTEMPTS { get; }
-    int SECONDS_BETWEEN_RETRIES { get; }
 
     void Validate();
 }

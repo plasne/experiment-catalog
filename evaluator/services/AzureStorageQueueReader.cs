@@ -67,21 +67,35 @@ public class AzureStorageQueueReader(
         return blobContainerClient.GetBlobClient(blobName);
     }
 
-    private async Task UploadBlobAsync(string containerName, string blobName, string content, CancellationToken cancellationToken)
+    private async Task<string> UploadBlobAsync(string containerName, string blobName, string content, CancellationToken cancellationToken)
     {
         this.logger.LogDebug("attempting to upload {c}/{b}...", containerName, blobName);
         var blobClient = this.GetBlobClient(containerName, blobName);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
         var response = await blobClient.UploadAsync(stream, cancellationToken);
         this.logger.LogInformation("successfully uploaded {c}/{b}.", containerName, blobName);
+        return blobClient.Uri.ToString();
     }
 
-    private async Task<string> SendForProcessingAsync(string url, string content, CancellationToken cancellationToken)
+    private string GetBlobUri(string containerName, string blobName)
+    {
+        var blobClient = this.GetBlobClient(containerName, blobName);
+        return blobClient.Uri.ToString();
+    }
+
+    private async Task<(string body, Dictionary<string, Metric> metrics)> SendForProcessingAsync(
+        string url,
+        string content,
+        CancellationToken cancellationToken)
     {
         this.logger.LogDebug("attempting to call '{u}' for processing...", url);
-        using var httpClient = this.httpClientFactory.CreateClient("retry");
+
+        // call the processing endpoint
+        using var httpClient = this.httpClientFactory.CreateClient();
         var requestBody = new StringContent(content, Encoding.UTF8, "application/json");
         var response = await httpClient.PostAsync(url, requestBody, cancellationToken);
+
+        // validate the response
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -91,8 +105,46 @@ public class AzureStorageQueueReader(
         {
             throw new Exception("response body is empty.");
         }
+
+        // extract any metrics from response headers
+        var metrics = new Dictionary<string, Metric>();
+        foreach (var header in response.Headers)
+        {
+            if (header.Key.StartsWith("x-metric-", StringComparison.InvariantCultureIgnoreCase))
+            {
+                var key = header.Key["x-metric-".Length..];
+                if (decimal.TryParse(header.Value.ToString(), out var value))
+                {
+                    metrics[key] = new Metric { Value = value };
+                }
+            }
+        }
+
         this.logger.LogInformation("successfully called '{u}' for processing.", url);
-        return responseBody;
+        return (responseBody, metrics);
+    }
+
+    private async Task RecordMetrics(PipelineRequest request, string? inferenceUri, string? evaluationUri, Dictionary<string, Metric> metrics)
+    {
+        if (string.IsNullOrEmpty(this.config.EXPERIMENT_CATALOG_BASE_URL) || metrics.Count == 0)
+        {
+            return;
+        }
+
+        using var httpClient = this.httpClientFactory.CreateClient();
+        var result = new Result
+        {
+            Ref = request.Ref,
+            Set = request.Set,
+            InferenceUri = inferenceUri,
+            EvaluationUri = evaluationUri,
+            Metrics = metrics,
+            IsBaseline = false
+        };
+        var resultJson = JsonConvert.SerializeObject(result);
+        var response = await httpClient.PostAsync(
+            $"{this.config.EXPERIMENT_CATALOG_BASE_URL}/api/projects/{request.Project}/experiments/{request.Experiment}/results",
+            new StringContent(resultJson, Encoding.UTF8, "application/json"));
     }
 
     private async Task<bool> ProcessInferenceRequestAsync(QueueClient inboundQueue, CancellationToken cancellationToken)
@@ -123,7 +175,7 @@ public class AzureStorageQueueReader(
                 ?? throw new Exception("could not deserialize ground truth file.");
 
             // call processing URL
-            var responseContent = await this.SendForProcessingAsync(this.config.INFERENCE_URL, groundTruthContent, cancellationToken);
+            var (responseContent, metrics) = await this.SendForProcessingAsync(this.config.INFERENCE_URL, groundTruthContent, cancellationToken);
 
             // enrich
             var responseDynamic = JsonConvert.DeserializeObject<dynamic>(responseContent)
@@ -132,7 +184,10 @@ public class AzureStorageQueueReader(
             responseContent = JsonConvert.SerializeObject(responseDynamic);
 
             // upload the result
-            await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+            var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+
+            // record metrics
+            await this.RecordMetrics(request, inferenceUri, null, metrics);
 
             // enqueue for the next stage
             await this.outboundInferenceQueue!.SendMessageAsync(body, cancellationToken);
@@ -173,10 +228,18 @@ public class AzureStorageQueueReader(
                 cancellationToken);
 
             // call processing URL
-            var responseContent = await this.SendForProcessingAsync(this.config.EVALUATION_URL, inferenceContent, cancellationToken);
+            var (responseContent, metrics) = await this.SendForProcessingAsync(this.config.EVALUATION_URL, inferenceContent, cancellationToken);
 
             // upload the result
-            await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+            var evaluationUri = await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+
+            // get reference to the inferenceUri
+            var inferenceUri = string.IsNullOrEmpty(this.config.INFERENCE_CONTAINER)
+                ? null
+                : this.GetBlobUri(this.config.INFERENCE_CONTAINER, request.Id + ".json");
+
+            // record metrics
+            await this.RecordMetrics(request, inferenceUri, evaluationUri, metrics);
 
             // delete the message
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
