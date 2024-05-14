@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+namespace Catalog;
+
 public static class Ext
 {
     public static decimal StdDev<TSource>(

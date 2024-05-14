@@ -86,7 +86,7 @@ public class AzureStorageQueueReader(
         return blobClient.Uri.ToString();
     }
 
-    private async Task<(string body, Dictionary<string, Metric> metrics)> SendForProcessingAsync(
+    private async Task<(string body, Dictionary<string, decimal> metrics)> SendForProcessingAsync(
         string url,
         string content,
         CancellationToken cancellationToken)
@@ -110,7 +110,7 @@ public class AzureStorageQueueReader(
         }
 
         // extract any metrics from response headers
-        var metrics = new Dictionary<string, Metric>();
+        var metrics = new Dictionary<string, decimal>();
         foreach (var header in response.Headers)
         {
             if (header.Key.StartsWith("x-metric-", StringComparison.InvariantCultureIgnoreCase))
@@ -118,13 +118,13 @@ public class AzureStorageQueueReader(
                 var key = header.Key[9..];
                 if (decimal.TryParse(header.Value.First(), out var value))
                 {
-                    metrics.Add(key, new Metric { Value = value });
+                    metrics.Add(key, value);
                 }
             }
         }
         this.logger.LogDebug(
             "metrics returned from execution: {m}",
-            string.Join(", ", metrics.Select(x => $"{x.Key}={x.Value.Value}")));
+            string.Join(", ", metrics.Select(x => $"{x.Key}={x.Value}")));
 
         this.logger.LogInformation("successfully called '{u}' for processing.", url);
         return (responseBody, metrics);
@@ -134,7 +134,7 @@ public class AzureStorageQueueReader(
         PipelineRequest request,
         string? inferenceUri,
         string? evaluationUri,
-        Dictionary<string, Metric> metrics,
+        Dictionary<string, decimal> metrics,
         CancellationToken cancellationToken)
     {
         if (metrics.Count == 0)

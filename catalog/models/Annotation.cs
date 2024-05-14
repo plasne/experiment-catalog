@@ -1,5 +1,7 @@
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class Annotation
 {
     [JsonProperty("text", Required = Required.Always)]

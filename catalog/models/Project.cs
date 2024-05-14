@@ -1,5 +1,7 @@
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class Project
 {
     [JsonProperty("name", Required = Required.Always)]

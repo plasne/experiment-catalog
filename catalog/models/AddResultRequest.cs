@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Evaluator;
+namespace Catalog;
 
-public class Result
+public class AddResultRequest
 {
     [JsonProperty("ref", Required = Required.Always)]
     public required string Ref { get; set; }
@@ -19,6 +19,9 @@ public class Result
 
     [JsonProperty("metrics", NullValueHandling = NullValueHandling.Ignore)]
     public Dictionary<string, decimal>? Metrics { get; set; }
+
+    [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
+    public List<Annotation>? Annotations { get; set; }
 
     [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public bool IsBaseline { get; set; }

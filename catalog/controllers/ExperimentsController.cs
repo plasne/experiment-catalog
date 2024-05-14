@@ -72,7 +72,6 @@ public class ExperimentsController : ControllerBase
         var comparison = new Comparison();
 
         // get the baseline
-        Stopwatch stopwatch = new();
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);

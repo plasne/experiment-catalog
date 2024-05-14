@@ -1,3 +1,5 @@
+namespace Catalog;
+
 public class PolicyResult
 {
     public int Pass { get; set; }

@@ -35,7 +35,7 @@ curl -i -X POST -d '{ "name": "experiment-000", "hypothesis": "I believe decreas
 Record one or more evaluations...
 
 ```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "alpha", "metrics": { "gpt-coherance": { "value": 3 }, "gpt-relevance": { "value": 2 }, "gpt-correctness": { "value": 3 } } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/experiment-000/results
+curl -i -X POST -d '{ "ref": "q1", "set": "beta", "metrics": { "gpt-coherance": 3, "gpt-relevance": 2, "gpt-correctness": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-03/experiments/project-baseline/results
 ```
 
 ## Compare
