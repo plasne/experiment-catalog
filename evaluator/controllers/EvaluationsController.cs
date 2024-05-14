@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+namespace Evaluator;
+
 [ApiController]
 [Route("api/evaluations")]
 public class EvaluationsController() : ControllerBase
@@ -22,5 +24,9 @@ public class EvaluationsController() : ControllerBase
         return this.Created();
     }
 
-    // TODO: need to add a way to get status
+    [HttpGet("status")]
+    public IActionResult Status()
+    {
+        throw new HttpException(501, "not implemented");
+    }
 }

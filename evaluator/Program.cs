@@ -1,4 +1,5 @@
 using dotenv.net;
+using Evaluator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,9 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 // add config
 var netConfig = new NetBricks.Config();
 await netConfig.Apply();
-var config = new Config(netConfig);
+var config = new Evaluator.Config(netConfig);
 config.Validate();
-builder.Services.AddSingleton<IConfig>(config);
+builder.Services.AddSingleton<Evaluator.IConfig>(config);
 builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
 builder.Services.AddDefaultAzureCredential();
 

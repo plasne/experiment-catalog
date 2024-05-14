@@ -13,6 +13,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+namespace Evaluator;
+
 public class AzureStorageQueueReader(
     IConfig config,
     DefaultAzureCredential defaultAzureCredential,
@@ -73,7 +75,7 @@ public class AzureStorageQueueReader(
         this.logger.LogDebug("attempting to upload {c}/{b}...", containerName, blobName);
         var blobClient = this.GetBlobClient(containerName, blobName);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
-        var response = await blobClient.UploadAsync(stream, cancellationToken);
+        await blobClient.UploadAsync(stream, cancellationToken);
         this.logger.LogInformation("successfully uploaded {c}/{b}.", containerName, blobName);
         return blobClient.Uri.ToString();
     }

@@ -1,5 +1,7 @@
 using NetBricks;
 
+namespace Catalog;
+
 public class Config : IConfig
 {
     private readonly NetBricks.IConfig config;

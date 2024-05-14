@@ -195,10 +195,10 @@
           {#each results.filter((x) => x.ref === ref) as result}
             <tr>
               <td>
-                {#if result.result_uri}
+                {#if result.evaluation_uri}
                   <button
                     class="link"
-                    on:click={() => window.open(result.result_uri, "_blank")}
+                    on:click={() => window.open(result.evaluation_uri, "_blank")}
                     ><nobr>Set / {result.set}</nobr></button
                   >
                 {:else}

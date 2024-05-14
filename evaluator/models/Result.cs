@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+namespace Evaluator;
+
 public class Result
 {
     [JsonProperty("ref", Required = Required.Always)]

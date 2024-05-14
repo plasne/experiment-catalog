@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
+namespace Catalog;
+
 [ApiController]
 [Route("api/projects/{projectName}/experiments")]
 public class ExperimentsController : ControllerBase

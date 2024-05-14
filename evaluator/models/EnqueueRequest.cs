@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+namespace Evaluator;
+
 public class EnqueueRequest
 {
     [JsonProperty("project", Required = Required.Always)]

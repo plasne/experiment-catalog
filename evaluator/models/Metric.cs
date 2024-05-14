@@ -1,5 +1,7 @@
 using Newtonsoft.Json;
 
+namespace Evaluator;
+
 public class Metric
 {
     [JsonProperty("value", Required = Required.Always)]

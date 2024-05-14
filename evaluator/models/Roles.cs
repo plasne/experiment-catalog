@@ -1,3 +1,5 @@
+namespace Evaluator;
+
 public enum Roles
 {
     API,

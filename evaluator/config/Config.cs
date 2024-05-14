@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using NetBricks;
 
+namespace Evaluator;
+
 public class Config : IConfig
 {
     private readonly NetBricks.IConfig config;

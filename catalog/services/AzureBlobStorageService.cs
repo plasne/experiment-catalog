@@ -12,6 +12,8 @@ using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class AzureBlobStorageService(
     IConfig config,
     DefaultAzureCredential defaultAzureCredential,

@@ -1,5 +1,7 @@
 using Newtonsoft.Json;
 
+namespace Evaluator;
+
 public class PipelineRequest
 {
     [JsonProperty("id", Required = Required.Always)]
