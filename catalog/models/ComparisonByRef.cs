@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class ComparisonByRef
 {
     [JsonProperty("last_results_for_baseline_experiment", NullValueHandling = NullValueHandling.Ignore)]

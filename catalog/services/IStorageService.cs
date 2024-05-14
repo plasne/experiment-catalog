@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+namespace Catalog;
+
 public interface IStorageService
 {
     Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default);

@@ -1,3 +1,5 @@
+namespace Catalog;
+
 public interface IConfig
 {
     int PORT { get; }

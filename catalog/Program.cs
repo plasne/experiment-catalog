@@ -1,3 +1,4 @@
+using Catalog;
 using dotenv.net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -14,9 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 // add config
 var netConfig = new NetBricks.Config();
 await netConfig.Apply();
-var config = new Config(netConfig);
+var config = new Catalog.Config(netConfig);
 config.Validate();
-builder.Services.AddSingleton<IConfig>(config);
+builder.Services.AddSingleton<Catalog.IConfig>(config);
 builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
 builder.Services.AddDefaultAzureCredential();
 

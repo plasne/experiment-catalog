@@ -1,3 +1,5 @@
+namespace Catalog;
+
 public class MetricDefinition
 {
     public required decimal Min { get; set; }

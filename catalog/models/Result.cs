@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class Result
 {
-    // TODO: it would be nice to require these on input but not on output
     [JsonProperty("ref", NullValueHandling = NullValueHandling.Ignore)]
     public string? Ref { get; set; }
 

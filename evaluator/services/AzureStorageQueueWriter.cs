@@ -10,6 +10,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+namespace Evaluator;
+
 public class AzureStorageQueueWriter(
     IConfig config,
     DefaultAzureCredential defaultAzureCredential,

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class Experiment
 {
     [JsonProperty("name", Required = Required.Always)]

@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using YamlDotNet.Serialization;
 
+namespace Evaluator;
+
 public static class Ext
 {
     public static Duration AsDuration(this string value, Func<Duration> dflt)
@@ -23,7 +25,7 @@ public static class Ext
     public static async Task ConnectAsync(this QueueClient queueClient, ILogger logger, CancellationToken cancellationToken)
     {
         logger.LogDebug("attempting to connect to queue {q}...", queueClient.Name);
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(30));
         var properties = await queueClient.GetPropertiesAsync(cts.Token);
         logger.LogInformation(

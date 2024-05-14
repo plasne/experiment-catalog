@@ -1,5 +1,7 @@
 using System;
 
+namespace Evaluator;
+
 public class BlobRef
 {
     public BlobRef(string uri)

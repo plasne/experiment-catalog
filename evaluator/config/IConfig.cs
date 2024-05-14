@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 
+namespace Evaluator;
+
 public interface IConfig
 {
     int PORT { get; }

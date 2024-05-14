@@ -23,11 +23,11 @@ print(f"AZURE_OPENAI_DEPLOYMENT: {AZURE_OPENAI_DEPLOYMENT}")
 
 # check if the required environment variables are set
 if not AZURE_OPENAI_API_KEY:
-    raise Exception("AZURE_OPENAI_API_KEY environment variable is not set.")
+    raise ValueError("AZURE_OPENAI_API_KEY environment variable is not set.")
 if not AZURE_OPENAI_ENDPOINT:
-    raise Exception("AZURE_OPENAI_ENDPOINT environment variable is not set.")
+    raise ValueError("AZURE_OPENAI_ENDPOINT environment variable is not set.")
 if not AZURE_OPENAI_DEPLOYMENT:
-    raise Exception("AZURE_OPENAI_DEPLOYMENT environment variable is not set.")
+    raise ValueError("AZURE_OPENAI_DEPLOYMENT environment variable is not set.")
 
 # create the AzureOpenAI object
 client = AzureOpenAI(
@@ -221,19 +221,19 @@ def evaluate():
         inference = Inference.model_validate(inference_json)
 
         # calculate coherence score
-        print(f"calculating coherence score...")
+        print("calculating coherence score...")
         coherence = calc_gpt_coherence(inference)
         coherence_score = coherence["score"]
         print(f"successfully calculated coherence score as {coherence_score}.")
 
         # calculate groundedness score
-        print(f"calculating groundedness score...")
+        print("calculating groundedness score...")
         groundedness = calc_gpt_groundedness(inference)
         groundedness_score = groundedness["score"]
         print(f"successfully calculated groundedness score as {groundedness_score}.")
 
         # calculate relevance score
-        print(f"calculating relevance score...")
+        print("calculating relevance score...")
         relevance = calc_gpt_relevance(inference)
         relevance_score = relevance["score"]
         print(f"successfully calculated relevance score as {relevance_score}.")

@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
+namespace Catalog;
+
 [ApiController]
 [Route("api/projects/{projectName}/experiments")]
 public class ExperimentsController : ControllerBase
@@ -70,7 +72,6 @@ public class ExperimentsController : ControllerBase
         var comparison = new Comparison();
 
         // get the baseline
-        Stopwatch stopwatch = new();
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);

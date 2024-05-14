@@ -12,6 +12,8 @@ using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+namespace Catalog;
+
 public class AzureBlobStorageService(
     IConfig config,
     DefaultAzureCredential defaultAzureCredential,
@@ -24,23 +26,6 @@ public class AzureBlobStorageService(
     private readonly SemaphoreSlim concurrency = new(config.CONCURRENCY, config.CONCURRENCY);
 
     private BlobServiceClient? blobServiceClient;
-
-    /*
-    private class MetricConverter : JsonConverter<Metric>
-    {
-        public override Metric Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override void Write(Utf8JsonWriter writer, Metric value, JsonSerializerOptions options)
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("value", value.Value);
-            writer.WriteEndObject();
-        }
-    }
-    */
 
     private async Task<BlobServiceClient> ConnectAsync(CancellationToken cancellationToken = default)
     {
@@ -90,10 +75,9 @@ public class AzureBlobStorageService(
 
     public async Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default)
     {
-        var blobServiceClient = await this.ConnectAsync(cancellationToken);
-
+        var client = await this.ConnectAsync(cancellationToken);
         var projects = new List<Project>();
-        await foreach (var blobContainerItem in blobServiceClient.GetBlobContainersAsync(
+        await foreach (var blobContainerItem in client.GetBlobContainersAsync(
             BlobContainerTraits.Metadata,
             cancellationToken: cancellationToken))
         {
@@ -102,14 +86,13 @@ public class AzureBlobStorageService(
                 projects.Add(new Project { Name = blobContainerItem.Name });
             }
         }
-
         return projects;
     }
 
     public async Task AddProjectAsync(Project project, CancellationToken cancellationToken = default)
     {
-        var blobServiceClient = await this.ConnectAsync(cancellationToken);
-        var containerClient = blobServiceClient.GetBlobContainerClient(project.Name);
+        var client = await this.ConnectAsync(cancellationToken);
+        var containerClient = client.GetBlobContainerClient(project.Name);
         await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
         var metadata = new Dictionary<string, string>
         {
@@ -157,7 +140,7 @@ public class AzureBlobStorageService(
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experiment.Name}.jsonl");
-        var response = await appendBlobClient.ExistsAsync();
+        var response = await appendBlobClient.ExistsAsync(cancellationToken);
         if (response.Value) throw new HttpException(409, "experiment already exists.");
         await appendBlobClient.CreateAsync(new AppendBlobCreateOptions
         {
@@ -329,7 +312,9 @@ public class AzureBlobStorageService(
             await sourceBlobClient.CreateAsync(cancellationToken: cancellationToken);
 
             // copy from the target to source
+#pragma warning disable S2234 // Parameters should be passed in the correct order
             await this.CopyAsync(targetBlobClient, sourceBlobClient, cancellationToken);
+#pragma warning restore S2234 // intended to support copying back
 
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
@@ -341,6 +326,24 @@ public class AzureBlobStorageService(
             this.logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
             throw;
         }
+    }
+
+    private async Task<bool> ShouldBlobBeOptimizedAsync(AppendBlobClient appendBlobClient, string experimentName, CancellationToken cancellationToken)
+    {
+        var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        var blockCount = properties.Value.BlobCommittedBlockCount;
+        var blobSize = properties.Value.ContentLength;
+        var minSinceLastModified = (DateTimeOffset.UtcNow - properties.Value.LastModified).TotalMinutes;
+        this.logger.LogDebug(
+            "experiment {e} had a block count of {x}, size of {y}, and was last modified {z} min ago.",
+            experimentName,
+            blockCount,
+            blobSize,
+            minSinceLastModified);
+        if (blockCount < 2) return false;
+        if (minSinceLastModified < this.config.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE) return false;
+        if ((blobSize / blockCount) >= this.config.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE * 1024 * 1024) return false;
+        return true;
     }
 
     public async Task OptimizeAsync(CancellationToken cancellationToken = default)
@@ -365,19 +368,8 @@ public class AzureBlobStorageService(
 
                 // we want to optimize blobs that have more blocks than they should
                 var appendBlobClient = containerClient.GetAppendBlobClient(blobItem.Name);
-                var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-                var blockCount = properties.Value.BlobCommittedBlockCount;
-                var blobSize = properties.Value.ContentLength;
-                var minSinceLastModified = (DateTimeOffset.UtcNow - properties.Value.LastModified).TotalMinutes;
-                this.logger.LogDebug(
-                    "experiment {e} had a block count of {x}, size of {y}, and was last modified {z} min ago.",
-                    experimentName,
-                    blockCount,
-                    blobSize,
-                    minSinceLastModified);
-                if (blockCount < 2) continue;
-                if (minSinceLastModified < this.config.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE) continue;
-                if ((blobSize / blockCount) >= this.config.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE * 1024 * 1024) continue;
+                var shouldOptimize = await this.ShouldBlobBeOptimizedAsync(appendBlobClient, experimentName, cancellationToken);
+                if (!shouldOptimize) continue;
 
                 // optimize the experiment
                 try

@@ -2,6 +2,8 @@
 
 using System.Collections.Generic;
 
+namespace Catalog;
+
 public class PercentImprovement
 {
     private readonly string policyName = "PercentImprovement";
