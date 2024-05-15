@@ -14,6 +14,10 @@ public interface IConfig
     string OUTBOUND_INFERENCE_QUEUE { get; }
     int MS_TO_PAUSE_WHEN_EMPTY { get; }
     int DEQUEUE_FOR_X_SECONDS { get; }
+    int MS_BETWEEN_DEQUEUE { get; }
+    int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
+    int MS_TO_ADD_ON_BUSY { get; }
+    int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
     string INFERENCE_URL { get; }
     string EVALUATION_URL { get; }
     string EXPERIMENT_CATALOG_BASE_URL { get; }

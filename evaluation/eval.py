@@ -1,6 +1,6 @@
 from flask import Flask, request, Response
 from dotenv import load_dotenv
-from openai import AzureOpenAI
+from openai import AzureOpenAI, RateLimitError, APIError
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import os
@@ -248,6 +248,21 @@ def evaluate():
         response.headers.add("x-metric-groundedness", groundedness_score)
         response.headers.add("x-metric-relevance", relevance_score)
         return response
+
+    except RateLimitError as e:
+        response = Response(status=429)
+        if hasattr(e, 'retry_after'):
+            response.headers.add("Retry-After", e.retry_after)
+        return response
+
+    except APIError as e:
+        if hasattr(e, 'retry_after'):
+            response = Response(status=429)
+            response.headers.add("Retry-After", e.retry_after)
+            return response
+
+        print("Exception occurred:\n", traceback.format_exc())
+        return {"error": str(e)}, 500
 
     except Exception as e:
         print("Exception occurred:\n", traceback.format_exc())

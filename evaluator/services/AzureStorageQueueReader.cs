@@ -100,6 +100,20 @@ public class AzureStorageQueueReader(
 
         // validate the response
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            var ms = response.Headers.RetryAfter?.Delta is not null
+                ? (int)response.Headers.RetryAfter.Delta.Value.TotalMilliseconds
+                : this.config.MS_TO_ADD_ON_BUSY;
+            if (ms > 0)
+            {
+                this.config.MS_BETWEEN_DEQUEUE_CURRENT += ms;
+                this.logger.LogWarning(
+                    "received 429; delaying {ms} ms for a MS_BETWEEN_DEQUEUE of {total} ms.",
+                    ms,
+                    this.config.MS_BETWEEN_DEQUEUE_CURRENT);
+            }
+        }
         if (!response.IsSuccessStatusCode)
         {
             throw new Exception($"calling {url} resulted in {response.StatusCode}: {responseBody}.");
@@ -276,6 +290,18 @@ public class AzureStorageQueueReader(
         }
     }
 
+    private async Task DelayAfterDequeue()
+    {
+        if (this.config.MS_BETWEEN_DEQUEUE_CURRENT < 1) return;
+        await Task.Delay(TimeSpan.FromMilliseconds(this.config.MS_BETWEEN_DEQUEUE_CURRENT));
+    }
+
+    private async Task DelayAfterEmpty()
+    {
+        if (this.config.MS_TO_PAUSE_WHEN_EMPTY < 1) return;
+        await Task.Delay(TimeSpan.FromMilliseconds(this.config.MS_TO_PAUSE_WHEN_EMPTY));
+    }
+
     private async Task<int> GetMessagesFromInboundQueuesAsync(CancellationToken cancellationToken)
     {
         var count = 0;
@@ -286,6 +312,7 @@ public class AzureStorageQueueReader(
                 if (await this.ProcessInferenceRequestAsync(queue, cancellationToken))
                 {
                     count++;
+                    await this.DelayAfterDequeue();
                 }
             }
             foreach (var queue in this.inboundEvaluationQueues)
@@ -293,6 +320,7 @@ public class AzureStorageQueueReader(
                 if (await this.ProcessEvaluationRequestAsync(queue, cancellationToken))
                 {
                     count++;
+                    await this.DelayAfterDequeue();
                 }
             }
         }
@@ -315,7 +343,7 @@ public class AzureStorageQueueReader(
             var messagesFound = await this.GetMessagesFromInboundQueuesAsync(stoppingToken);
             if (messagesFound == 0)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(this.config.MS_TO_PAUSE_WHEN_EMPTY), stoppingToken);
+                await this.DelayAfterEmpty();
             }
         }
     }
