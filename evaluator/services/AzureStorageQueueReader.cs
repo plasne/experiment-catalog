@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
@@ -195,12 +197,15 @@ public class AzureStorageQueueReader(
             var body = message?.Value?.Body?.ToString();
             if (string.IsNullOrEmpty(body))
             {
+                Activity.Current?.SetTag("queue.state", "empty");
                 return false;
             }
 
             // deserialize the pipeline request
             var request = JsonConvert.DeserializeObject<PipelineRequest>(body)
                 ?? throw new Exception("could not deserialize inference request.");
+            using var activity = DiagnosticService.Source.StartActivity("process-inference", ActivityKind.Internal, request.Id);
+            activity?.AddTagsFromPipelineRequest(request);
 
             // download and transform the ground truth file
             var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
@@ -209,17 +214,9 @@ public class AzureStorageQueueReader(
                 this.config.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
-            var groundTruthFile = JsonConvert.DeserializeObject<GroundTruthFile>(groundTruthContent)
-                ?? throw new Exception("could not deserialize ground truth file.");
 
             // call processing URL
             var (responseContent, metrics) = await this.SendForProcessingAsync(this.config.INFERENCE_URL, groundTruthContent, cancellationToken);
-
-            // enrich
-            var responseDynamic = JsonConvert.DeserializeObject<dynamic>(responseContent)
-                ?? throw new Exception("could not deserialize inference response.");
-            responseDynamic["ground_truth"] = groundTruthFile.GroundTruth;
-            responseContent = JsonConvert.SerializeObject(responseDynamic);
 
             // upload the result
             var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
@@ -251,12 +248,23 @@ public class AzureStorageQueueReader(
             var body = message?.Value?.Body?.ToString();
             if (string.IsNullOrEmpty(body))
             {
+                Activity.Current?.SetTag("queue.state", "empty");
                 return false;
             }
 
             // deserialize the pipeline request
             var request = JsonConvert.DeserializeObject<PipelineRequest>(body)
                 ?? throw new Exception("could not deserialize inference request.");
+            using var activity = DiagnosticService.Source.StartActivity("process-evaluation", ActivityKind.Internal, request.Id);
+            activity?.AddTagsFromPipelineRequest(request);
+
+            // download and transform the ground truth file
+            var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
+            var groundTruthBlobClient = this.GetBlobClient(groundTruthBlobRef.Container, groundTruthBlobRef.BlobName);
+            var groundTruthContent = await groundTruthBlobClient.DownloadAndTransformAsync(
+                this.config.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY,
+                this.logger,
+                cancellationToken);
 
             // download and transform the inference file
             var inferenceBlobClient = this.GetBlobClient(this.config.INFERENCE_CONTAINER, request.Id + ".json");
@@ -265,8 +273,15 @@ public class AzureStorageQueueReader(
                 this.logger,
                 cancellationToken);
 
+            // generate consolidated payload
+            string payload = JsonConvert.SerializeObject(new
+            {
+                ground_truth = JsonConvert.DeserializeObject(groundTruthContent),
+                inference = JsonConvert.DeserializeObject(inferenceContent)
+            });
+
             // call processing URL
-            var (responseContent, metrics) = await this.SendForProcessingAsync(this.config.EVALUATION_URL, inferenceContent, cancellationToken);
+            var (responseContent, metrics) = await this.SendForProcessingAsync(this.config.EVALUATION_URL, payload, cancellationToken);
 
             // upload the result
             var evaluationUri = await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);

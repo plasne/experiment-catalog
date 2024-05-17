@@ -11,7 +11,7 @@ namespace Evaluator;
 [Route("api/evaluations")]
 public class EvaluationsController() : ControllerBase
 {
-    [HttpPost("start")]
+    [HttpPost]
     public async Task<IActionResult> Start(
         [FromServices] IServiceProvider serviceProvider,
         [FromBody] EnqueueRequest request)

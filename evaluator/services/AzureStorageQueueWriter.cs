@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -49,10 +50,12 @@ public class AzureStorageQueueWriter(
             // handle multiple iterations
             for (int i = 0; i < enqueueRequest.Iterations; i++)
             {
+                using var activity = DiagnosticService.Source.StartActivity("enqueue-evaluation-ref", ActivityKind.Internal);
+
                 // build the pipeline request
                 var pipelineRequest = new PipelineRequest
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    Id = activity!.Id!.ToString(),
                     GroundTruthUri = containerClient.Name + "/" + blob.Name,
                     Project = enqueueRequest.Project,
                     Experiment = enqueueRequest.Experiment,
@@ -62,6 +65,7 @@ public class AzureStorageQueueWriter(
                 };
 
                 // enqueue in blob
+                activity!.AddTagsFromPipelineRequest(pipelineRequest);
                 await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
             }
         }
@@ -83,6 +87,13 @@ public class AzureStorageQueueWriter(
             try
             {
                 var enqueueRequest = await this.enqueueRequests.Reader.ReadAsync(stoppingToken);
+
+                // create an activity
+                using var activity = DiagnosticService.Source.StartActivity("enqueue-evaluation-run");
+                activity?.AddTag("project", enqueueRequest.Project);
+                activity?.AddTag("experiment", enqueueRequest.Experiment);
+                activity?.AddTag("set", enqueueRequest.Set);
+                activity?.AddTag("is_baseline", enqueueRequest.IsBaseline.ToString());
 
                 // try and connect to the output queue
                 var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{enqueueRequest.Queue}";

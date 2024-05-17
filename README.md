@@ -47,7 +47,7 @@ curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000
 ## Enqueue Inference
 
 ```bash
-curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "datasources": ["test"], "iterations": 3 }' http://localhost:6030/api/queues/pelasne
+curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "containers": ["test"], "queue": "pelasne-inference", "iterations": 3 }' http://localhost:6030/api/evaluations
 ```
 
 ## Annotate

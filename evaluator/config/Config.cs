@@ -27,6 +27,7 @@ public class Config : IConfig
             return roles;
         });
 
+        this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
         this.INFERENCE_CONTAINER = this.config.Get<string>("INFERENCE_CONTAINER");
         this.EVALUATION_CONTAINER = this.config.Get<string>("EVALUATION_CONTAINER");
@@ -71,6 +72,8 @@ public class Config : IConfig
     public int PORT { get; }
 
     public List<Roles> ROLES { get; }
+
+    public string OPEN_TELEMETRY_CONNECTION_STRING { get; }
 
     public string AZURE_STORAGE_ACCOUNT_NAME { get; }
 
@@ -119,6 +122,7 @@ public class Config : IConfig
         // required
         this.config.Require("PORT", this.PORT.ToString());
         this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
+        this.config.Require("OPEN_TELEMETRY_CONNECTION_STRING", OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
 
         // API-specific

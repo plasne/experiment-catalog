@@ -1,25 +1,62 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
-using Iso8601DurationHelper;
 using Jsonata.Net.Native;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using YamlDotNet.Serialization;
 
 namespace Evaluator;
 
 public static class Ext
 {
-    public static Duration AsDuration(this string value, Func<Duration> dflt)
+    public static void AddOpenTelemetry(
+        this ILoggingBuilder builder,
+        string openTelemetryConnectionString)
     {
-        if (Duration.TryParse(value, out var duration))
+        builder.AddOpenTelemetry(logging =>
         {
-            return duration;
-        }
-        return dflt();
+            logging.AddAzureMonitorLogExporter(o => o.ConnectionString = openTelemetryConnectionString);
+        });
+    }
+
+    public static void AddOpenTelemetry(
+        this IServiceCollection serviceCollection,
+        string sourceName,
+        string applicationName,
+        string openTelemetryConnectionString)
+    {
+        serviceCollection.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(serviceName: applicationName))
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation();
+                metrics.AddHttpClientInstrumentation();
+                metrics.AddMeter(sourceName);
+                metrics.AddAzureMonitorMetricExporter(o => o.ConnectionString = openTelemetryConnectionString);
+            })
+            .WithTracing(tracing =>
+            {
+                tracing.AddAspNetCoreInstrumentation();
+                tracing.AddHttpClientInstrumentation(o =>
+                {
+                    o.FilterHttpRequestMessage = (request) =>
+                    {
+                        return request.RequestUri is not null && !request.RequestUri.ToString().Contains(".queue.core.windows.net");
+                    };
+                });
+                tracing.AddSource(sourceName);
+                tracing.AddAzureMonitorTraceExporter(o => o.ConnectionString = openTelemetryConnectionString);
+            });
     }
 
     public static async Task ConnectAsync(this QueueClient queueClient, ILogger logger, CancellationToken cancellationToken)
@@ -82,5 +119,14 @@ public static class Ext
             logger.LogError(ex, "failed to download and transform {c}/{b}...", blobClient.BlobContainerName, blobClient.Name);
             throw;
         }
+    }
+
+    public static void AddTagsFromPipelineRequest(this Activity activity, PipelineRequest request)
+    {
+        activity.AddTag("project", request.Project);
+        activity.AddTag("experiment", request.Experiment);
+        activity.AddTag("ref", request.Ref);
+        activity.AddTag("set", request.Set);
+        activity.AddTag("is_baseline", request.IsBaseline.ToString());
     }
 }

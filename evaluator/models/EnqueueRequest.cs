@@ -14,8 +14,8 @@ public class EnqueueRequest
     [JsonProperty("set", Required = Required.Always)]
     public required string Set { get; set; }
 
-    [JsonProperty("is_baseline", Required = Required.Always)]
-    public bool IsBaseline { get; set; }
+    [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
+    public bool IsBaseline { get; set; } = false;
 
     [JsonProperty("containers", Required = Required.Always)]
     public required List<string> Containers { get; set; }

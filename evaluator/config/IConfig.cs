@@ -6,6 +6,7 @@ public interface IConfig
 {
     int PORT { get; }
     List<Roles> ROLES { get; }
+    string OPEN_TELEMETRY_CONNECTION_STRING { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
     string INFERENCE_CONTAINER { get; }
     string EVALUATION_CONTAINER { get; }
