@@ -170,7 +170,6 @@ To see what that might look like, see these examples:
 - Build a UI for enqueing jobs.
 - Build an API and a UI for viewing progress.
 - Add telemetry.
-
 - Add Dockerfile.
 - Unit testing/integration testing.
 - Documentation.
