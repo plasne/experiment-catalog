@@ -35,6 +35,10 @@ public class Config : IConfig
         this.OUTBOUND_INFERENCE_QUEUE = this.config.Get<string>("OUTBOUND_INFERENCE_QUEUE");
         this.MS_TO_PAUSE_WHEN_EMPTY = this.config.Get<string>("MS_TO_PAUSE_WHEN_EMPTY").AsInt(() => 500);
         this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
+        this.MS_BETWEEN_DEQUEUE = this.config.Get<string>("MS_BETWEEN_DEQUEUE").AsInt(() => 0);
+        this.MS_BETWEEN_DEQUEUE_CURRENT = this.MS_BETWEEN_DEQUEUE;
+        this.MS_TO_ADD_ON_BUSY = this.config.Get<string>("MS_TO_ADD_ON_BUSY").AsInt(() => 0);
+        this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY = this.config.Get<string>("MINUTES_BETWEEN_RESTORE_AFTER_BUSY").AsInt(() => 0);
         this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
         this.EVALUATION_URL = this.config.Get<string>("EVALUATION_URL");
         this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
@@ -84,6 +88,14 @@ public class Config : IConfig
 
     public int DEQUEUE_FOR_X_SECONDS { get; }
 
+    public int MS_BETWEEN_DEQUEUE { get; }
+
+    public int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
+
+    public int MS_TO_ADD_ON_BUSY { get; }
+
+    public int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
+
     public string INFERENCE_URL { get; }
 
     public string EVALUATION_URL { get; }
@@ -108,8 +120,6 @@ public class Config : IConfig
         this.config.Require("PORT", this.PORT.ToString());
         this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
-        this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
-        this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
 
         // API-specific
         if (this.ROLES.Contains(Roles.API))
@@ -129,6 +139,8 @@ public class Config : IConfig
                 throw new Exception("When configured for the InferenceProxy role, INBOUND_INFERENCE_QUEUES must be specified.");
             }
             this.config.Require("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
+            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
+            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
         }
 
         // EvaluationProxy-specific
@@ -142,16 +154,19 @@ public class Config : IConfig
             {
                 throw new Exception("When configured for the EvaluationProxy role, INBOUND_EVALUATION_QUEUES must be specified.");
             }
+            this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);
+            this.config.Optional("INBOUND_EVALUATION_TRANSFORM_QUERY", this.INBOUND_EVALUATION_TRANSFORM_QUERY, hideValue: true);
         }
 
         // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
+            this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
+            this.config.Require("MS_BETWEEN_DEQUEUE", this.MS_BETWEEN_DEQUEUE.ToString());
+            this.config.Require("MS_TO_ADD_ON_BUSY", this.MS_TO_ADD_ON_BUSY.ToString());
+            this.config.Require("MINUTES_BETWEEN_RESTORE_AFTER_BUSY", this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY.ToString());
             this.config.Optional("EXPERIMENT_CATALOG_BASE_URL", this.EXPERIMENT_CATALOG_BASE_URL);
-            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
-            this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_EVALUATION_TRANSFORM_QUERY", this.INBOUND_EVALUATION_TRANSFORM_QUERY, hideValue: true);
         }
     }
 }

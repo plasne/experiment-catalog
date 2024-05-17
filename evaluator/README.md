@@ -163,3 +163,13 @@ To see what that might look like, see these examples:
 ![Compare Experiment](./images/compare-experiment.png)
 
 ![Compare Set](./images/compare-set.png)
+
+## TODO
+
+- add authentication for API.
+- Build a UI for enqueing jobs.
+- Build an API and a UI for viewing progress.
+- Add telemetry.
+- Add Dockerfile.
+- Unit testing/integration testing.
+- Documentation.

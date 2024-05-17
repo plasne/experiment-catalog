@@ -1,3 +1,4 @@
+using System;
 using dotenv.net;
 using Evaluator;
 using Microsoft.AspNetCore.Builder;
@@ -31,6 +32,7 @@ builder.Services.AddHttpClient();
 // add API services
 if (config.ROLES.Contains(Roles.API))
 {
+    Console.WriteLine("ADDING SERVICE: AzureStorageQueueWriter");
     builder.Services.AddHostedService<AzureStorageQueueWriter>();
     builder.Services.AddControllers().AddNewtonsoftJson();
     builder.Services.AddEndpointsApiExplorer();
@@ -54,7 +56,15 @@ if (config.ROLES.Contains(Roles.API))
 // add InferenceProxy and EvaluationProxy services
 if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
 {
+    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReader");
     builder.Services.AddHostedService<AzureStorageQueueReader>();
+}
+
+// add maintenance service
+if (config.MINUTES_BETWEEN_RESTORE_AFTER_BUSY > 0)
+{
+    Console.WriteLine("ADDING SERVICE: Maintenance");
+    builder.Services.AddHostedService<Maintenance>();
 }
 
 // build
