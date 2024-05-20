@@ -26,6 +26,13 @@ public class AzureStorageQueueWriter(
 
     public ValueTask StartEnqueueRequestAsync(EnqueueRequest req)
     {
+        // add RunId if there isn't one
+        if (req.RunId == Guid.Empty)
+        {
+            req.RunId = Guid.NewGuid();
+        }
+
+        // enqueue
         return this.enqueueRequests.Writer.WriteAsync(req);
     }
 
@@ -55,7 +62,8 @@ public class AzureStorageQueueWriter(
                 // build the pipeline request
                 var pipelineRequest = new PipelineRequest
                 {
-                    Id = activity!.Id!.ToString(),
+                    RunId = enqueueRequest.RunId,
+                    Id = activity?.Id ?? Guid.NewGuid().ToString(),
                     GroundTruthUri = containerClient.Name + "/" + blob.Name,
                     Project = enqueueRequest.Project,
                     Experiment = enqueueRequest.Experiment,
@@ -65,7 +73,7 @@ public class AzureStorageQueueWriter(
                 };
 
                 // enqueue in blob
-                activity!.AddTagsFromPipelineRequest(pipelineRequest);
+                activity?.AddTagsFromPipelineRequest(pipelineRequest);
                 await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
             }
         }
@@ -87,13 +95,6 @@ public class AzureStorageQueueWriter(
             try
             {
                 var enqueueRequest = await this.enqueueRequests.Reader.ReadAsync(stoppingToken);
-
-                // create an activity
-                using var activity = DiagnosticService.Source.StartActivity("enqueue-evaluation-run");
-                activity?.AddTag("project", enqueueRequest.Project);
-                activity?.AddTag("experiment", enqueueRequest.Experiment);
-                activity?.AddTag("set", enqueueRequest.Set);
-                activity?.AddTag("is_baseline", enqueueRequest.IsBaseline.ToString());
 
                 // try and connect to the output queue
                 var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{enqueueRequest.Queue}";

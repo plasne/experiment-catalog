@@ -168,7 +168,7 @@ public class AzureBlobStorageService(
 
         // ensure experiment is not being optimized
         var optimizing = containerClient.GetAppendBlobClient($"{experimentName}-optimizing.jsonl");
-        if (optimizing.Exists(cancellationToken))
+        if (await optimizing.ExistsAsync(cancellationToken))
         {
             throw new HttpException(409, "experiment is currently being optimized.");
         }

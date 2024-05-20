@@ -38,6 +38,7 @@ public class Config : IConfig
         this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
         this.MS_BETWEEN_DEQUEUE = this.config.Get<string>("MS_BETWEEN_DEQUEUE").AsInt(() => 0);
         this.MS_BETWEEN_DEQUEUE_CURRENT = this.MS_BETWEEN_DEQUEUE;
+        this.MAX_ATTEMPTS_TO_DEQUEUE = this.config.Get<string>("MAX_ATTEMPTS_TO_DEQUEUE").AsInt(() => 5);
         this.MS_TO_ADD_ON_BUSY = this.config.Get<string>("MS_TO_ADD_ON_BUSY").AsInt(() => 0);
         this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY = this.config.Get<string>("MINUTES_BETWEEN_RESTORE_AFTER_BUSY").AsInt(() => 0);
         this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
@@ -94,6 +95,8 @@ public class Config : IConfig
     public int MS_BETWEEN_DEQUEUE { get; }
 
     public int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
+
+    public int MAX_ATTEMPTS_TO_DEQUEUE { get; }
 
     public int MS_TO_ADD_ON_BUSY { get; }
 
@@ -165,6 +168,7 @@ public class Config : IConfig
         // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Require("MAX_ATTEMPTS_TO_DEQUEUE", this.MAX_ATTEMPTS_TO_DEQUEUE.ToString());
             this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
             this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
             this.config.Require("MS_BETWEEN_DEQUEUE", this.MS_BETWEEN_DEQUEUE.ToString());

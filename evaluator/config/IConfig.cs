@@ -17,6 +17,7 @@ public interface IConfig
     int DEQUEUE_FOR_X_SECONDS { get; }
     int MS_BETWEEN_DEQUEUE { get; }
     int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
+    int MAX_ATTEMPTS_TO_DEQUEUE { get; }
     int MS_TO_ADD_ON_BUSY { get; }
     int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
     string INFERENCE_URL { get; }

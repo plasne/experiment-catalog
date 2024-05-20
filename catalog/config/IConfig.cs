@@ -3,6 +3,7 @@ namespace Catalog;
 public interface IConfig
 {
     int PORT { get; }
+    string OPEN_TELEMETRY_CONNECTION_STRING { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
     int CONCURRENCY { get; }
     int REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE { get; }

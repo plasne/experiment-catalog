@@ -5,6 +5,9 @@ namespace Evaluator;
 
 public class PipelineRequest
 {
+    [JsonProperty("run_id", Required = Required.Always)]
+    public required Guid RunId { get; set; }
+
     [JsonProperty("id", Required = Required.Always)]
     public required string Id { get; set; }
 

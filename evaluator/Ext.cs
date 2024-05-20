@@ -6,7 +6,6 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
 using Jsonata.Net.Native;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -61,7 +60,7 @@ public static class Ext
 
     public static async Task ConnectAsync(this QueueClient queueClient, ILogger logger, CancellationToken cancellationToken)
     {
-        logger.LogDebug("attempting to connect to queue {q}...", queueClient.Name);
+        logger.LogInformation("attempting to connect to queue {q}...", queueClient.Name);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(30));
         var properties = await queueClient.GetPropertiesAsync(cts.Token);
@@ -123,6 +122,8 @@ public static class Ext
 
     public static void AddTagsFromPipelineRequest(this Activity activity, PipelineRequest request)
     {
+        activity.AddTag("run_id", request.RunId.ToString());
+        activity.AddTag("id", request.Id);
         activity.AddTag("project", request.Project);
         activity.AddTag("experiment", request.Experiment);
         activity.AddTag("ref", request.Ref);

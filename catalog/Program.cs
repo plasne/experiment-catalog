@@ -21,9 +21,14 @@ builder.Services.AddSingleton<Catalog.IConfig>(config);
 builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
 builder.Services.AddDefaultAzureCredential();
 
-// setup logger
+// add logging
 builder.Logging.ClearProviders();
 builder.Services.AddSingleLineConsoleLogger();
+if (!string.IsNullOrEmpty(config.OPEN_TELEMETRY_CONNECTION_STRING))
+{
+    builder.Logging.AddOpenTelemetry(config.OPEN_TELEMETRY_CONNECTION_STRING);
+    builder.Services.AddOpenTelemetry("catalog", builder.Environment.ApplicationName, config.OPEN_TELEMETRY_CONNECTION_STRING);
+}
 
 // add services to the container
 builder.Services.AddConfig();

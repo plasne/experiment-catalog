@@ -45,12 +45,24 @@ public class Experiment
 
         result.Metrics = metrics.ToDictionary(x => x.Key, x =>
         {
-            return new Metric
+            if (x.Key.EndsWith("_count", StringComparison.InvariantCultureIgnoreCase)
+                || x.Key.EndsWith("_cost", StringComparison.InvariantCultureIgnoreCase))
             {
-                Count = x.Value.Count,
-                Value = x.Value.Average(y => y.Value),
-                StdDev = x.Value.StdDev(y => y.Value)
-            };
+                return new Metric
+                {
+                    Count = x.Value.Count,
+                    Value = x.Value.Sum(y => y.Value),
+                };
+            }
+            else
+            {
+                return new Metric
+                {
+                    Count = x.Value.Count,
+                    Value = x.Value.Average(y => y.Value),
+                    StdDev = x.Value.StdDev(y => y.Value),
+                };
+            }
         });
 
         if (annotations.Count > 0)

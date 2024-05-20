@@ -10,6 +10,7 @@ public class Config : IConfig
     {
         this.config = config;
         this.PORT = this.config.Get<string>("PORT").AsInt(() => 6010);
+        this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
         this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 4);
         this.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE = this.config.Get<string>("REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE").AsInt(() => 1);
@@ -18,6 +19,8 @@ public class Config : IConfig
     }
 
     public int PORT { get; }
+
+    public string OPEN_TELEMETRY_CONNECTION_STRING { get; }
 
     public string AZURE_STORAGE_ACCOUNT_NAME { get; }
 
@@ -32,6 +35,7 @@ public class Config : IConfig
     public void Validate()
     {
         this.config.Require("PORT", this.PORT);
+        this.config.Optional("OPEN_TELEMETRY_CONNECTION_STRING", this.OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", AZURE_STORAGE_ACCOUNT_NAME);
         this.config.Require("CONCURRENCY", this.CONCURRENCY);
         this.config.Require("REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE", this.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
@@ -5,6 +6,9 @@ namespace Evaluator;
 
 public class EnqueueRequest
 {
+    [JsonProperty("run_id", NullValueHandling = NullValueHandling.Ignore)]
+    public Guid RunId { get; set; }
+
     [JsonProperty("project", Required = Required.Always)]
     public required string Project { get; set; }
 
