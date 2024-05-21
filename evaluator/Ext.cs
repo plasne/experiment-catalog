@@ -138,9 +138,10 @@ public static class Ext
     {
         if (string.IsNullOrEmpty(value)) return dflt();
         var total = new List<int>();
-        foreach (var raw in value.AsArray(() => []) {
+        foreach (var raw in value.AsArray(() => []))
+        {
             if (int.TryParse(raw, out var valid)) total.Add(valid);
         }
-        return total.ToArray();
+        return [.. total];
     }
 }

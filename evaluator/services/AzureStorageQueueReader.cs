@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
+using Azure.Storage.Queues.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -220,6 +221,8 @@ public class AzureStorageQueueReader(
         PipelineRequest pipelineRequest,
         string url,
         string content,
+        QueueMessage queueMessage,
+        string queueBody,
         CancellationToken cancellationToken)
     {
         this.logger.LogDebug("attempting to call '{u}' for processing...", url);
@@ -235,7 +238,7 @@ public class AzureStorageQueueReader(
 
         // validate the response
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        if (this.config.RETRY_ON_STATUS_CODES.Contains((int)response.StatusCode))
         {
             var ms = response.Headers.RetryAfter?.Delta is not null
                 ? (int)response.Headers.RetryAfter.Delta.Value.TotalMilliseconds
@@ -244,10 +247,15 @@ public class AzureStorageQueueReader(
             {
                 this.config.MS_BETWEEN_DEQUEUE_CURRENT += ms;
                 this.logger.LogWarning(
-                    "received 429; delaying {ms} ms for a MS_BETWEEN_DEQUEUE of {total} ms.",
+                    "received {code}; delaying {ms} ms for a MS_BETWEEN_DEQUEUE of {total} ms.",
+                    response.StatusCode,
                     ms,
                     this.config.MS_BETWEEN_DEQUEUE_CURRENT);
             }
+        }
+        if (this.config.DEADLETTER_ON_STATUS_CODES.Contains((int)response.StatusCode))
+        {
+            throw new DeadletterException($"status code {response.StatusCode} is considered fatal", queueMessage, queueBody);
         }
         if (!response.IsSuccessStatusCode)
         {
@@ -282,11 +290,7 @@ public class AzureStorageQueueReader(
             // handle deadletter
             if (message!.Value.DequeueCount > this.config.MAX_ATTEMPTS_TO_DEQUEUE)
             {
-                this.logger.LogWarning("message {m} has been dequeued {c} times; moving to dead-letter queue...", message.Value.MessageId, message.Value.DequeueCount);
-                await inboundDeadletterQueue.SendMessageAsync(body, cancellationToken);
-                await inboundQueue.DeleteMessageAsync(message.Value.MessageId, message.Value.PopReceipt, cancellationToken);
-                this.logger.LogWarning("successfully moved message {m} to dead-letter queue.", message.Value.MessageId);
-                return false;
+                throw new DeadletterException($"message {message.Value.MessageId} has been dequeued {message.Value.DequeueCount} times", message.Value, body);
             }
 
             // deserialize the pipeline request
@@ -304,7 +308,13 @@ public class AzureStorageQueueReader(
                 cancellationToken);
 
             // call processing URL
-            var (responseHeaders, responseContent) = await this.SendForProcessingAsync(request, this.config.INFERENCE_URL, groundTruthContent, cancellationToken);
+            var (responseHeaders, responseContent) = await this.SendForProcessingAsync(
+                request,
+                this.config.INFERENCE_URL,
+                groundTruthContent,
+                message.Value,
+                body,
+                cancellationToken);
 
             // upload the result
             var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
@@ -319,10 +329,18 @@ public class AzureStorageQueueReader(
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
             return true;
         }
+        catch (DeadletterException e)
+        {
+            this.logger.LogWarning("{err}; moving to dead-letter queue...", e.Message);
+            await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
+            await inboundQueue.DeleteMessageAsync(e.QueueMessage.MessageId, e.QueueMessage.PopReceipt, cancellationToken);
+            this.logger.LogWarning("successfully moved message {m} to dead-letter queue.", e.QueueMessage.MessageId);
+            return false;
+        }
         catch (Exception e)
         {
             this.logger.LogError(e, "error processing message from queue {q}...", inboundQueue.Name);
-            return false;
+            return true;
         }
     }
 
@@ -345,11 +363,7 @@ public class AzureStorageQueueReader(
             // handle deadletter
             if (message!.Value.DequeueCount > this.config.MAX_ATTEMPTS_TO_DEQUEUE)
             {
-                this.logger.LogWarning("message {m} has been dequeued {c} times; moving to dead-letter queue...", message.Value.MessageId, message.Value.DequeueCount);
-                await inboundDeadletterQueue.SendMessageAsync(body, cancellationToken);
-                await inboundQueue.DeleteMessageAsync(message.Value.MessageId, message.Value.PopReceipt, cancellationToken);
-                this.logger.LogWarning("successfully moved message {m} to dead-letter queue.", message.Value.MessageId);
-                return false;
+                throw new DeadletterException($"message {message.Value.MessageId} has been dequeued {message.Value.DequeueCount} times", message.Value, body);
             }
 
             // deserialize the pipeline request
@@ -381,7 +395,13 @@ public class AzureStorageQueueReader(
             });
 
             // call processing URL
-            var (responseHeaders, responseContent) = await this.SendForProcessingAsync(request, this.config.EVALUATION_URL, payload, cancellationToken);
+            var (responseHeaders, responseContent) = await this.SendForProcessingAsync(
+                request,
+                this.config.EVALUATION_URL,
+                payload,
+                message.Value,
+                body,
+                cancellationToken);
 
             // upload the result
             var evaluationUri = await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
@@ -398,10 +418,18 @@ public class AzureStorageQueueReader(
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
             return true;
         }
+        catch (DeadletterException e)
+        {
+            this.logger.LogWarning("{err}; moving to dead-letter queue...", e.Message);
+            await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
+            await inboundQueue.DeleteMessageAsync(e.QueueMessage.MessageId, e.QueueMessage.PopReceipt, cancellationToken);
+            this.logger.LogWarning("successfully moved message {m} to dead-letter queue.", e.QueueMessage.MessageId);
+            return false;
+        }
         catch (Exception e)
         {
             this.logger.LogError(e, "error processing message from queue {q}...", inboundQueue.Name);
-            return false;
+            return true;
         }
     }
 

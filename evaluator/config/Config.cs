@@ -43,6 +43,8 @@ public class Config : IConfig
         this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY = this.config.Get<string>("MINUTES_BETWEEN_RESTORE_AFTER_BUSY").AsInt(() => 0);
         this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
         this.EVALUATION_URL = this.config.Get<string>("EVALUATION_URL");
+        this.RETRY_ON_STATUS_CODES = this.config.Get<string>("RETRY_ON_STATUS_CODES").AsIntArray(() => [429]);
+        this.DEADLETTER_ON_STATUS_CODES = this.config.Get<string>("DEADLETTER_ON_STATUS_CODES").AsIntArray(() => [400, 401, 403, 404, 405]);
         this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
 
         this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
@@ -106,6 +108,10 @@ public class Config : IConfig
 
     public string EVALUATION_URL { get; }
 
+    public int[] RETRY_ON_STATUS_CODES { get; }
+
+    public int[] DEADLETTER_ON_STATUS_CODES { get; }
+
     public string EXPERIMENT_CATALOG_BASE_URL { get; }
 
     public string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
@@ -168,6 +174,8 @@ public class Config : IConfig
         // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Require("RETRY_ON_STATUS_CODES", this.RETRY_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
+            this.config.Require("DEADLETTER_ON_STATUS_CODES", this.DEADLETTER_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
             this.config.Require("MAX_ATTEMPTS_TO_DEQUEUE", this.MAX_ATTEMPTS_TO_DEQUEUE.ToString());
             this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
             this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
