@@ -238,7 +238,7 @@ public class AzureStorageQueueReader(
 
         // validate the response
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (this.config.RETRY_ON_STATUS_CODES.Contains((int)response.StatusCode))
+        if (this.config.BACKOFF_ON_STATUS_CODES.Contains((int)response.StatusCode))
         {
             var ms = response.Headers.RetryAfter?.Delta is not null
                 ? (int)response.Headers.RetryAfter.Delta.Value.TotalMilliseconds

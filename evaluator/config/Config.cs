@@ -43,7 +43,7 @@ public class Config : IConfig
         this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY = this.config.Get<string>("MINUTES_BETWEEN_RESTORE_AFTER_BUSY").AsInt(() => 0);
         this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
         this.EVALUATION_URL = this.config.Get<string>("EVALUATION_URL");
-        this.RETRY_ON_STATUS_CODES = this.config.Get<string>("RETRY_ON_STATUS_CODES").AsIntArray(() => [429]);
+        this.BACKOFF_ON_STATUS_CODES = this.config.Get<string>("BACKOFF_ON_STATUS_CODES").AsIntArray(() => [429]);
         this.DEADLETTER_ON_STATUS_CODES = this.config.Get<string>("DEADLETTER_ON_STATUS_CODES").AsIntArray(() => [400, 401, 403, 404, 405]);
         this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
 
@@ -108,7 +108,7 @@ public class Config : IConfig
 
     public string EVALUATION_URL { get; }
 
-    public int[] RETRY_ON_STATUS_CODES { get; }
+    public int[] BACKOFF_ON_STATUS_CODES { get; }
 
     public int[] DEADLETTER_ON_STATUS_CODES { get; }
 
@@ -174,7 +174,7 @@ public class Config : IConfig
         // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
-            this.config.Require("RETRY_ON_STATUS_CODES", this.RETRY_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
+            this.config.Require("BACKOFF_ON_STATUS_CODES", this.BACKOFF_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
             this.config.Require("DEADLETTER_ON_STATUS_CODES", this.DEADLETTER_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
             this.config.Require("MAX_ATTEMPTS_TO_DEQUEUE", this.MAX_ATTEMPTS_TO_DEQUEUE.ToString());
             this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
