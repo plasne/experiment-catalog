@@ -276,6 +276,7 @@ public class AzureStorageQueueReader(
         QueueClient inboundDeadletterQueue,
         CancellationToken cancellationToken)
     {
+        var isConsideredToHaveProcessed = false;
         try
         {
             // check for a message
@@ -284,7 +285,7 @@ public class AzureStorageQueueReader(
             var body = message?.Value?.Body?.ToString();
             if (string.IsNullOrEmpty(body))
             {
-                return false;
+                return isConsideredToHaveProcessed;
             }
 
             // handle deadletter
@@ -298,6 +299,9 @@ public class AzureStorageQueueReader(
                 ?? throw new Exception("could not deserialize inference request.");
             using var activity = DiagnosticService.Source.StartActivity("process-inference", ActivityKind.Internal, request.Id);
             activity?.AddTagsFromPipelineRequest(request);
+
+            // it is considered to have processed once it starts doing something related to the actual request
+            isConsideredToHaveProcessed = true;
 
             // download and transform the ground truth file
             var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
@@ -335,13 +339,12 @@ public class AzureStorageQueueReader(
             await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
             await inboundQueue.DeleteMessageAsync(e.QueueMessage.MessageId, e.QueueMessage.PopReceipt, cancellationToken);
             this.logger.LogWarning("successfully moved message {m} to dead-letter queue.", e.QueueMessage.MessageId);
-            return false;
         }
         catch (Exception e)
         {
             this.logger.LogError(e, "error processing message from queue {q}...", inboundQueue.Name);
-            return true;
         }
+        return isConsideredToHaveProcessed;
     }
 
     private async Task<bool> ProcessEvaluationRequestAsync(
@@ -349,6 +352,7 @@ public class AzureStorageQueueReader(
         QueueClient inboundDeadletterQueue,
         CancellationToken cancellationToken)
     {
+        var isConsideredToHaveProcessed = false;
         try
         {
             // check for a message
@@ -357,7 +361,7 @@ public class AzureStorageQueueReader(
             var body = message?.Value?.Body?.ToString();
             if (string.IsNullOrEmpty(body))
             {
-                return false;
+                return isConsideredToHaveProcessed;
             }
 
             // handle deadletter
@@ -371,6 +375,9 @@ public class AzureStorageQueueReader(
                 ?? throw new Exception("could not deserialize inference request.");
             using var activity = DiagnosticService.Source.StartActivity("process-evaluation", ActivityKind.Internal, request.Id);
             activity?.AddTagsFromPipelineRequest(request);
+
+            // it is considered to have processed once it starts doing something related to the actual request
+            isConsideredToHaveProcessed = true;
 
             // download and transform the ground truth file
             var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
@@ -424,13 +431,12 @@ public class AzureStorageQueueReader(
             await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
             await inboundQueue.DeleteMessageAsync(e.QueueMessage.MessageId, e.QueueMessage.PopReceipt, cancellationToken);
             this.logger.LogWarning("successfully moved message {m} to dead-letter queue.", e.QueueMessage.MessageId);
-            return false;
         }
         catch (Exception e)
         {
             this.logger.LogError(e, "error processing message from queue {q}...", inboundQueue.Name);
-            return true;
         }
+        return isConsideredToHaveProcessed;
     }
 
     private async Task DelayAfterDequeue()
