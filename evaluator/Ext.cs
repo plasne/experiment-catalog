@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Monitor.OpenTelemetry.Exporter;
@@ -8,6 +10,7 @@ using Azure.Storage.Queues;
 using Jsonata.Net.Native;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 using Newtonsoft.Json;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -129,5 +132,15 @@ public static class Ext
         activity.AddTag("ref", request.Ref);
         activity.AddTag("set", request.Set);
         activity.AddTag("is_baseline", request.IsBaseline.ToString());
+    }
+
+    public static int[] AsIntArray(this string? value, Func<int[]> dflt)
+    {
+        if (string.IsNullOrEmpty(value)) return dflt();
+        var total = new List<int>();
+        foreach (var raw in value.AsArray(() => []) {
+            if (int.TryParse(raw, out var valid)) total.Add(valid);
+        }
+        return total.ToArray();
     }
 }

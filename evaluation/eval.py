@@ -40,37 +40,6 @@ client = AzureOpenAI(
 app = Flask(__name__)
 
 
-class HistoryEntry(BaseModel):
-    role: str
-    msg: str
-
-class Citation(BaseModel):
-    ref: str
-
-class Context(BaseModel):
-    text: str
-    citation: Citation
-
-class DataSection(BaseModel):
-    context: Optional[List[Context]] = None
-
-class InputSection(BaseModel):
-    user_query: Optional[str] = None
-    data: Optional[DataSection] = None
-    history: Optional[List[HistoryEntry]] = None
-
-class Step(BaseModel):
-    input: InputSection
-
-class Answer(BaseModel):
-    text: Optional[str] = None
-    citations: Optional[List[Citation]] = None
-
-class Inference(BaseModel):
-    steps: List[Step]
-    answer: Optional[Answer] = None
-
-
 # define a function to extract messages from a file
 def get_messages(filename: str) -> list:
     with open(filename, 'r') as file:
@@ -103,37 +72,10 @@ def fill_variables(messages: list, variables: Dict[str, str]):
     return messages
 
 
-def get_answer(inference: Inference) -> str:
-    if not inference.answer or not inference.answer.text:
-        return ""
-    return inference.answer.text
-
-def get_context(inference: Inference) -> str:
-    context = ""
-    if not inference.answer or not inference.answer.citations:
-        return context
-    for answer_citation in inference.answer.citations:
-        if inference.steps[-1].input.data and inference.steps[-1].input.data.context:
-            for step_context in inference.steps[-1].input.data.context:
-                if answer_citation.ref == step_context.citation.ref:
-                    context += step_context.text + "\n\n"
-    return context
-
-def get_history(inference: Inference) -> str:
-    history = ""
-    if not inference.steps[0].input.history:
-        return history
-    for entry in inference.steps[0].input.history:
-        history += f"{entry.role}:\n{entry.msg}\n\n"
-    return history
-
-
 # define a function to calculate the coherence score
-def calc_gpt_coherence(inference: Inference) -> dict:
+def calc_gpt_coherence(question: str, answer: str) -> dict:
     # build the prompts
     messages = get_messages("coherence.txt")
-    question = inference.steps[0].input.user_query
-    answer = get_answer(inference)
     messages = fill_variables(
         messages,
         {
@@ -155,12 +97,9 @@ def calc_gpt_coherence(inference: Inference) -> dict:
 
 
 # define a function to calculate the groundedness score
-def calc_gpt_groundedness(inference: Inference) -> dict:
+def calc_gpt_groundedness(question: str, answer: str, context: str) -> dict:
     # build the prompts
     messages = get_messages("groundedness.txt")
-    question = inference.steps[0].input.user_query
-    answer = get_answer(inference)
-    context = get_context(inference)
     messages = fill_variables(
         messages,
         {
@@ -183,13 +122,9 @@ def calc_gpt_groundedness(inference: Inference) -> dict:
 
 
 # define a function to calculate the relevance score
-def calc_gpt_relevance(inference: Inference) -> dict:
+def calc_gpt_relevance(question: str, answer: str, context: str, history: str) -> dict:
     # build the prompts
     messages = get_messages("relevance.txt")
-    question = inference.steps[0].input.user_query
-    answer = get_answer(inference)
-    context = get_context(inference)
-    history = get_history(inference)
     messages = fill_variables(
         messages, 
         {
@@ -216,25 +151,40 @@ def calc_gpt_relevance(inference: Inference) -> dict:
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate():
     try:
-        # deserialize the inference payload
-        inference_json = request.get_json()
-        inference = Inference.model_validate(inference_json)
+        # deserialize the payload
+        payload_json = request.get_json()
+        ground_truth = payload_json["ground_truth"]
+        inference = payload_json["inference"]
+
+        # validate input
+        if "user_query" not in ground_truth:
+            raise ValueError("ground_truth must contain 'user_query'.")
+        if "answer" not in inference:
+            raise ValueError("inference must contain 'answer'.")
+        if "text" not in inference["answer"]:
+            raise ValueError("inference['answer'] must contain 'text'.")
+
+        # extract the necessary information
+        question = ground_truth["user_query"]
+        answer = inference["answer"]["text"]
+        context = "\n\n".join([obj["text"] for obj in inference["answer"].get("context", [])])
+        history = "\n\n".join([obj["role"] + ": " + obj["msg"] for obj in ground_truth.get("history", [])])
 
         # calculate coherence score
         print("calculating coherence score...")
-        coherence = calc_gpt_coherence(inference)
+        coherence = calc_gpt_coherence(question, answer)
         coherence_score = coherence["score"]
         print(f"successfully calculated coherence score as {coherence_score}.")
 
         # calculate groundedness score
         print("calculating groundedness score...")
-        groundedness = calc_gpt_groundedness(inference)
+        groundedness = calc_gpt_groundedness(question, answer, context)
         groundedness_score = groundedness["score"]
         print(f"successfully calculated groundedness score as {groundedness_score}.")
 
         # calculate relevance score
         print("calculating relevance score...")
-        relevance = calc_gpt_relevance(inference)
+        relevance = calc_gpt_relevance(question, answer, context, history)
         relevance_score = relevance["score"]
         print(f"successfully calculated relevance score as {relevance_score}.")
 
@@ -248,6 +198,9 @@ def evaluate():
         response.headers.add("x-metric-groundedness", groundedness_score)
         response.headers.add("x-metric-relevance", relevance_score)
         return response
+
+    except ValueError as e:
+        return {"error": str(e)}, 400
 
     except RateLimitError as e:
         response = Response(status=429)

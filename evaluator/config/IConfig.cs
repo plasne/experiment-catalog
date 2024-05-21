@@ -22,6 +22,8 @@ public interface IConfig
     int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
     string INFERENCE_URL { get; }
     string EVALUATION_URL { get; }
+    int[] RETRY_ON_STATUS_CODES { get; }
+    int[] ABORT_ON_STATUS_CODES { get; }
     string EXPERIMENT_CATALOG_BASE_URL { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_QUERY { get; }
