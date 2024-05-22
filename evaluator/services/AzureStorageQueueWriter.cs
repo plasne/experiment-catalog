@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -25,6 +26,13 @@ public class AzureStorageQueueWriter(
 
     public ValueTask StartEnqueueRequestAsync(EnqueueRequest req)
     {
+        // add RunId if there isn't one
+        if (req.RunId == Guid.Empty)
+        {
+            req.RunId = Guid.NewGuid();
+        }
+
+        // enqueue
         return this.enqueueRequests.Writer.WriteAsync(req);
     }
 
@@ -49,10 +57,13 @@ public class AzureStorageQueueWriter(
             // handle multiple iterations
             for (int i = 0; i < enqueueRequest.Iterations; i++)
             {
+                using var activity = DiagnosticService.Source.StartActivity("enqueue-evaluation-ref", ActivityKind.Internal);
+
                 // build the pipeline request
                 var pipelineRequest = new PipelineRequest
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    RunId = enqueueRequest.RunId,
+                    Id = activity?.Id ?? Guid.NewGuid().ToString(),
                     GroundTruthUri = containerClient.Name + "/" + blob.Name,
                     Project = enqueueRequest.Project,
                     Experiment = enqueueRequest.Experiment,
@@ -62,6 +73,7 @@ public class AzureStorageQueueWriter(
                 };
 
                 // enqueue in blob
+                activity?.AddTagsFromPipelineRequest(pipelineRequest);
                 await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
             }
         }

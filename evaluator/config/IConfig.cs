@@ -6,6 +6,7 @@ public interface IConfig
 {
     int PORT { get; }
     List<Roles> ROLES { get; }
+    string OPEN_TELEMETRY_CONNECTION_STRING { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
     string INFERENCE_CONTAINER { get; }
     string EVALUATION_CONTAINER { get; }
@@ -16,10 +17,13 @@ public interface IConfig
     int DEQUEUE_FOR_X_SECONDS { get; }
     int MS_BETWEEN_DEQUEUE { get; }
     int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
+    int MAX_ATTEMPTS_TO_DEQUEUE { get; }
     int MS_TO_ADD_ON_BUSY { get; }
     int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
     string INFERENCE_URL { get; }
     string EVALUATION_URL { get; }
+    int[] BACKOFF_ON_STATUS_CODES { get; }
+    int[] DEADLETTER_ON_STATUS_CODES { get; }
     string EXPERIMENT_CATALOG_BASE_URL { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
     string INBOUND_GROUNDTRUTH_TRANSFORM_QUERY { get; }

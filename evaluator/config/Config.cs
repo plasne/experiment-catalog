@@ -27,6 +27,7 @@ public class Config : IConfig
             return roles;
         });
 
+        this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
         this.INFERENCE_CONTAINER = this.config.Get<string>("INFERENCE_CONTAINER");
         this.EVALUATION_CONTAINER = this.config.Get<string>("EVALUATION_CONTAINER");
@@ -37,10 +38,13 @@ public class Config : IConfig
         this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
         this.MS_BETWEEN_DEQUEUE = this.config.Get<string>("MS_BETWEEN_DEQUEUE").AsInt(() => 0);
         this.MS_BETWEEN_DEQUEUE_CURRENT = this.MS_BETWEEN_DEQUEUE;
+        this.MAX_ATTEMPTS_TO_DEQUEUE = this.config.Get<string>("MAX_ATTEMPTS_TO_DEQUEUE").AsInt(() => 5);
         this.MS_TO_ADD_ON_BUSY = this.config.Get<string>("MS_TO_ADD_ON_BUSY").AsInt(() => 0);
         this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY = this.config.Get<string>("MINUTES_BETWEEN_RESTORE_AFTER_BUSY").AsInt(() => 0);
         this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
         this.EVALUATION_URL = this.config.Get<string>("EVALUATION_URL");
+        this.BACKOFF_ON_STATUS_CODES = this.config.Get<string>("BACKOFF_ON_STATUS_CODES").AsIntArray(() => [429]);
+        this.DEADLETTER_ON_STATUS_CODES = this.config.Get<string>("DEADLETTER_ON_STATUS_CODES").AsIntArray(() => [400, 401, 403, 404, 405]);
         this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
 
         this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
@@ -72,6 +76,8 @@ public class Config : IConfig
 
     public List<Roles> ROLES { get; }
 
+    public string OPEN_TELEMETRY_CONNECTION_STRING { get; }
+
     public string AZURE_STORAGE_ACCOUNT_NAME { get; }
 
     public string INFERENCE_CONTAINER { get; }
@@ -92,6 +98,8 @@ public class Config : IConfig
 
     public int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
 
+    public int MAX_ATTEMPTS_TO_DEQUEUE { get; }
+
     public int MS_TO_ADD_ON_BUSY { get; }
 
     public int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
@@ -99,6 +107,10 @@ public class Config : IConfig
     public string INFERENCE_URL { get; }
 
     public string EVALUATION_URL { get; }
+
+    public int[] BACKOFF_ON_STATUS_CODES { get; }
+
+    public int[] DEADLETTER_ON_STATUS_CODES { get; }
 
     public string EXPERIMENT_CATALOG_BASE_URL { get; }
 
@@ -119,6 +131,7 @@ public class Config : IConfig
         // required
         this.config.Require("PORT", this.PORT.ToString());
         this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
+        this.config.Require("OPEN_TELEMETRY_CONNECTION_STRING", OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
 
         // API-specific
@@ -161,6 +174,9 @@ public class Config : IConfig
         // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Require("BACKOFF_ON_STATUS_CODES", this.BACKOFF_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
+            this.config.Require("DEADLETTER_ON_STATUS_CODES", this.DEADLETTER_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
+            this.config.Require("MAX_ATTEMPTS_TO_DEQUEUE", this.MAX_ATTEMPTS_TO_DEQUEUE.ToString());
             this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
             this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
             this.config.Require("MS_BETWEEN_DEQUEUE", this.MS_BETWEEN_DEQUEUE.ToString());

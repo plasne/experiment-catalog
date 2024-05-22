@@ -5,6 +5,16 @@
   export let showStdDev: boolean = true;
   export let showCount: boolean = true;
 
+  let isCount: boolean;
+  let isCost: boolean;
+  let isAvg: boolean;
+
+  $: {
+    isCount = metric.endsWith("_count");
+    isCost = metric.endsWith("_cost");
+    isAvg = !(isCount || isCost);
+  }
+
   let diff: number;
 
   $: diff =
@@ -20,12 +30,18 @@
 
 <nobr>
   {#if result && result.metrics && result.metrics[metric]}
-    <span>{result.metrics[metric].value.toFixed(2)}</span>
-    {#if showStdDev}
+    {#if isCount}
+      <span>{result.metrics[metric].value}</span>
+    {:else if isCost}
+      <span>${result.metrics[metric].value.toFixed(2)}</span>
+    {:else}
+      <span>{result.metrics[metric].value.toFixed(2)}</span>
+    {/if}
+    {#if showStdDev && isAvg}
       <span>({result.metrics[metric].std_dev.toFixed(2)})</span>
     {/if}
 
-    {#if diff === 0}
+    {#if isAvg && diff === 0}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
           points="10,15 35,15 35,35 10,35"
@@ -33,7 +49,7 @@
         />
       </svg>
     {/if}
-    {#if diff > 0}
+    {#if isAvg && diff > 0}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
           points="25,10 10,40 40,40"
@@ -41,7 +57,7 @@
         />
       </svg>
     {/if}
-    {#if diff < 0}
+    {#if isAvg && diff < 0}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
           points="10,10 40,10 25,40"
@@ -49,7 +65,7 @@
         />
       </svg>
     {/if}
-    {#if showCount}
+    {#if showCount && isAvg}
       <span>x{result.metrics[metric].count}</span>
     {/if}
   {:else}

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
@@ -5,6 +6,9 @@ namespace Evaluator;
 
 public class EnqueueRequest
 {
+    [JsonProperty("run_id", NullValueHandling = NullValueHandling.Ignore)]
+    public Guid RunId { get; set; }
+
     [JsonProperty("project", Required = Required.Always)]
     public required string Project { get; set; }
 
@@ -14,8 +18,8 @@ public class EnqueueRequest
     [JsonProperty("set", Required = Required.Always)]
     public required string Set { get; set; }
 
-    [JsonProperty("is_baseline", Required = Required.Always)]
-    public bool IsBaseline { get; set; }
+    [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
+    public bool IsBaseline { get; set; } = false;
 
     [JsonProperty("containers", Required = Required.Always)]
     public required List<string> Containers { get; set; }

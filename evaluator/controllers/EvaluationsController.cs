@@ -11,8 +11,8 @@ namespace Evaluator;
 [Route("api/evaluations")]
 public class EvaluationsController() : ControllerBase
 {
-    [HttpPost("start")]
-    public async Task<IActionResult> Start(
+    [HttpPost]
+    public async Task<ActionResult<EnqueueResponse>> Start(
         [FromServices] IServiceProvider serviceProvider,
         [FromBody] EnqueueRequest request)
     {
@@ -21,7 +21,7 @@ public class EvaluationsController() : ControllerBase
             .OfType<AzureStorageQueueWriter>()
             .First()
             .StartEnqueueRequestAsync(request);
-        return this.Created();
+        return this.Created(null as Uri, new EnqueueResponse { RunId = request.RunId });
     }
 
     [HttpGet("status")]
