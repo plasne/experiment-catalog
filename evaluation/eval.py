@@ -1,8 +1,7 @@
 from flask import Flask, request, Response
 from dotenv import load_dotenv
 from openai import AzureOpenAI, RateLimitError, APIError
-from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import Dict
 import os
 import json
 import re
@@ -12,11 +11,13 @@ import traceback
 load_dotenv()
 
 # get variables
+PORT = os.getenv("PORT", 6040)
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 
 # print environment variables
+print(f"PORT: {PORT}")
 print(f"AZURE_OPENAI_API_KEY: {'(set)' if AZURE_OPENAI_API_KEY else '(not-set)'}")
 print(f"AZURE_OPENAI_ENDPOINT: {AZURE_OPENAI_ENDPOINT}")
 print(f"AZURE_OPENAI_DEPLOYMENT: {AZURE_OPENAI_DEPLOYMENT}")
@@ -222,4 +223,4 @@ def evaluate():
         return {"error": str(e)}, 500
 
 if __name__ == "__main__":
-    app.run(port=6040)
+    app.run(port=PORT)
