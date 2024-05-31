@@ -107,7 +107,7 @@
 {#if state === "loading"}
   <div>Loading...</div>
   <div>
-    <img class="loading" alt="loading" src="/src/assets/spinner.gif" />
+    <img class="loading" alt="loading" src="/spinner.gif" />
   </div>
 {:else if state === "error"}
   <div>Error loading data.</div>
@@ -198,7 +198,8 @@
                 {#if result.evaluation_uri}
                   <button
                     class="link"
-                    on:click={() => window.open(result.evaluation_uri, "_blank")}
+                    on:click={() =>
+                      window.open(result.evaluation_uri, "_blank")}
                     ><nobr>Set / {result.set}</nobr></button
                   >
                 {:else}

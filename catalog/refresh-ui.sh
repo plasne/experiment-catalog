@@ -1,7 +1,11 @@
 #!/bin/bash
 
+# Exit on error keeping error code
+set -e
+echo "Refreshing UI..."
+
 # Navigate to the ui directory
-cd ui
+cd ../ui
 
 # Install any dependencies
 npm install
@@ -9,9 +13,12 @@ npm install
 # Build the Svelte project
 npm run build
 
-# Navigate to the catalog
+# Navigate back to the catalog
 cd ../catalog
 
 # Copy the built files to the wwwroot directory
+rm -r wwwroot/
 mkdir -p wwwroot/
 cp -r ../ui/dist/* wwwroot/
+
+echo "UI refreshed!"

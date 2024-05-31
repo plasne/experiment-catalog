@@ -56,6 +56,16 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01
 curl -i -X POST -d '{ "set": "alpha", "annotations": [ { "text": "commit 3746hf", "uri": "https://dev.azure.com/commit" } ] }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/pelasne-01/results
 ```
 
+## Docker
+
+To build the catalog service, you must be at the root and run...
+
+```bash
+docker build --rm -t exp-catalog:latest -f catalog.Dockerfile .
+```
+
+This is necessary so that the ui can be built and injected into the catalog container in a single build command.
+
 ## TODO
 
 - Add StyleCop

@@ -56,7 +56,7 @@
 {#if state === "loading"}
   <div>Loading...</div>
   <div>
-    <img class="loading" alt="loading" src="/src/assets/spinner.gif" />
+    <img class="loading" alt="loading" src="/spinner.gif" />
   </div>
 {:else if state === "error"}
   <div>Error loading comparison.</div>
