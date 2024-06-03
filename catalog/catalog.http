@@ -1,0 +1,75 @@
+@baseURL = http://localhost:6010/api
+
+### Create a new project
+POST {{baseURL}}/projects HTTP/1.1
+Content-Type: application/json
+
+{
+    "name": "project-example"
+}
+
+### Create a baseline experiment
+POST {{baseURL}}/projects/project-example/experiments HTTP/1.1
+Content-Type: application/json
+
+{
+    "name": "project-baseline",
+    "hypothesis": "my baseline"
+}
+
+### Mark this experiment as the baseline for the project
+PATCH {{baseURL}}/projects/project-example/experiments/project-baseline/baseline HTTP/1.1
+
+### Record one or more evaluations for baseline
+POST {{baseURL}}/projects/project-example/experiments/project-baseline/results HTTP/1.1
+Content-Type: application/json
+
+{
+    "ref": "q1",
+    "set": "baseline-0",
+    "metrics": {
+        "gpt-coherance": 2,
+        "gpt-relevance": 3,
+        "gpt-correctness": 2
+    }
+}
+
+### Create an experiment
+POST {{baseURL}}/projects/project-example/experiments HTTP/1.1
+Content-Type: application/json
+
+{
+    "name": "experiment-000",
+    "hypothesis": "I believe decreasing the temperature will give better results."
+}
+
+### Record one or more evaluations for experiment
+POST {{baseURL}}/projects/project-03/experiments/experiment-000/results HTTP/1.1
+Content-Type: application/json
+
+{
+    "ref": "q1",
+    "set": "beta",
+    "metrics": {
+        "gpt-coherance": 2,
+        "gpt-relevance": 3,
+        "gpt-correctness": 2
+    }
+}
+
+### Compare experiments
+GET {{baseURL}}/projects/project-example/experiments/experiment-000/compare HTTP/1.1
+
+### Annotate experiment
+POST {{baseURL}}/projects/project-example/experiments/project-example/results HTTP/1.1
+Content-Type: application/json
+
+{
+    "set": "alpha",
+    "annotations": [
+        {
+            "text": "commit 3746hf",
+            "uri": "https://dev.azure.com/commit"
+        }
+    ]
+}

@@ -1,70 +1,22 @@
 # Experiment Catalog
 
-## Create a project
+This repository contains a collection of projects that are helpful for running experiments and then cataloging them for later comparison. These are the four projects:
 
-```bash
-curl -i -X POST -H "Content-Type: application/json" -d '{ "name": "project-03" }' http://localhost:6010/api/projects
-```
+- [Catalog](./catalog): The catalog is a C# API that allows you to create projects with experiments. It then allows you to record results on arbitrary metrics and compare them.
 
-## Create a baseline
+- [UI](./ui): The UI for the catalog is a Svelte project. The Catalog project above can host this site.
 
-Create the baseline experiment...
+- [Evaluator](./evaluator): The evaluator is a C# pipeline that allows you to run inference and evaluation jobs at high scale without those services needing to understand the catalog, storage, or queuing.
 
-```bash
-curl -i -X POST -d '{ "name": "project-baseline", "hypothesis": "my baseline" }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments
-```
+- [Evaluation](./evaluation): The evaluation project is a Python script that serves as an example of using an LLM as a judge to evaluate the quality of a model.
 
-Record one or more evaluations...
-
-```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "metrics": { "gpt-coherance": { "value": 2 }, "gpt-relevance": { "value": 3 }, "gpt-correctness": { "value": 2 } } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/pelasne-baseline/results
-```
-
-Mark this experiment as the baseline for the project...
-
-```bash
-curl -i -X PATCH http://localhost:6010/api/projects/project-01/experiments/project-baseline/baseline
-```
-
-## Create an experiment
-
-```bash
-curl -i -X POST -d '{ "name": "experiment-000", "hypothesis": "I believe decreasing the temperature will give better results." }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments
-```
-
-Record one or more evaluations...
-
-```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "beta", "metrics": { "gpt-coherance": 3, "gpt-relevance": 2, "gpt-correctness": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-03/experiments/project-baseline/results
-```
-
-## Compare
-
-```bash
-curl -i http://localhost:6010/api/projects/project-01/experiments/experiment-000/compare
-```
+Click on each of those services above to learn more.
 
 ## Enqueue Inference
 
 ```bash
 curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "containers": ["test"], "queue": "pelasne-inference", "iterations": 3 }' http://localhost:6030/api/evaluations
 ```
-
-## Annotate
-
-```bash
-curl -i -X POST -d '{ "set": "alpha", "annotations": [ { "text": "commit 3746hf", "uri": "https://dev.azure.com/commit" } ] }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-01/experiments/pelasne-01/results
-```
-
-## Docker
-
-To build the catalog service, you must be at the root and run...
-
-```bash
-docker build --rm -t exp-catalog:latest -f catalog.Dockerfile .
-```
-
-This is necessary so that the ui can be built and injected into the catalog container in a single build command.
 
 ## TODO
 
