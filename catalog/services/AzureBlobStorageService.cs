@@ -342,7 +342,7 @@ public class AzureBlobStorageService(
             minSinceLastModified);
         if (blockCount < 2) return false;
         if (minSinceLastModified < this.config.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE) return false;
-        if ((blobSize / blockCount) >= this.config.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE * 1024 * 1024) return false;
+        if ((blobSize / blockCount) >= this.config.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE * 1024) return false;
         return true;
     }
 

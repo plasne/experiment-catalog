@@ -13,7 +13,7 @@ public class Config : IConfig
         this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
         this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 4);
-        this.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE = this.config.Get<string>("REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE").AsInt(() => 1);
+        this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE = this.config.Get<string>("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE").AsInt(() => 1024);
         this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE = this.config.Get<string>("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE").AsInt(() => 10);
         this.OPTIMIZE_EVERY_X_MINUTES = this.config.Get<string>("OPTIMIZE_EVERY_X_MINUTES").AsInt(() => 5);
     }
@@ -26,7 +26,7 @@ public class Config : IConfig
 
     public int CONCURRENCY { get; }
 
-    public int REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE { get; }
+    public int REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE { get; }
 
     public int REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE { get; }
 
@@ -38,7 +38,7 @@ public class Config : IConfig
         this.config.Optional("OPEN_TELEMETRY_CONNECTION_STRING", this.OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", AZURE_STORAGE_ACCOUNT_NAME);
         this.config.Require("CONCURRENCY", this.CONCURRENCY);
-        this.config.Require("REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE", this.REQUIRED_BLOCK_SIZE_IN_MB_FOR_OPTIMIZE);
+        this.config.Require("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE", this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE);
         this.config.Require("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE", this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE);
         this.config.Require("OPTIMIZE_EVERY_X_MINUTES", this.OPTIMIZE_EVERY_X_MINUTES);
     }
