@@ -44,16 +44,16 @@ Content-Type: application/json
 }
 
 ### Record one or more evaluations for experiment
-POST {{baseURL}}/projects/project-03/experiments/experiment-000/results HTTP/1.1
+POST {{baseURL}}/projects/project-03/experiments/pelasne-ex-in-prompts/results HTTP/1.1
 Content-Type: application/json
 
 {
     "ref": "q1",
-    "set": "beta",
+    "set": "giraffe",
     "metrics": {
-        "gpt-coherance": 2,
-        "gpt-relevance": 3,
-        "gpt-correctness": 2
+        "bert-accuracy": "f-",
+        "bert-recall": "f-",
+        "bert-precision": "f-"
     }
 }
 

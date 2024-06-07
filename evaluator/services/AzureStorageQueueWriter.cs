@@ -74,7 +74,9 @@ public class AzureStorageQueueWriter(
 
                 // enqueue in blob
                 activity?.AddTagsFromPipelineRequest(pipelineRequest);
-                await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), cancellationToken);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(30));
+                await queueClient.SendMessageAsync(JsonConvert.SerializeObject(pipelineRequest), timeout.Token);
             }
         }
         catch (OperationCanceledException)
@@ -102,17 +104,21 @@ public class AzureStorageQueueWriter(
                 await queueClient.ConnectAsync(this.logger, stoppingToken);
 
                 // enqueue everything from each specified container
-                foreach (var container in enqueueRequest.Containers)
+                foreach (var containerPlusPath in enqueueRequest.Containers)
                 {
+                    var containerAndPath = containerPlusPath.Split('/', 2);
+
                     // connect to the blob container
                     var uri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
                     var blobClient = new BlobServiceClient(new Uri(uri), this.defaultAzureCredential);
-                    var containerClient = blobClient.GetBlobContainerClient(container);
+                    var containerClient = blobClient.GetBlobContainerClient(containerAndPath[0]);
 
                     // enqueue blobs from that container
-                    await foreach (var blob in containerClient.GetBlobsAsync(cancellationToken: stoppingToken))
+                    var prefix = containerAndPath.Length == 2 ? containerAndPath[1] : null;
+                    await foreach (var blob in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: stoppingToken))
                     {
                         await this.EnqueueBlobAsync(containerClient, blob, enqueueRequest, queueClient, stoppingToken);
+                        break;
                     }
                 }
             }

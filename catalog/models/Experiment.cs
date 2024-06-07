@@ -7,6 +7,9 @@ namespace Catalog;
 
 public class Experiment
 {
+    public static readonly string[] namesIndicatingCount = ["count", "cost"];
+    public static readonly string[] namesIndicatingClassification = ["accuracy", "precision", "recall"];
+
     [JsonProperty("name", Required = Required.Always)]
     public required string Name { get; set; }
 
@@ -21,6 +24,57 @@ public class Experiment
 
     [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
     public DateTime Created { get; set; } = DateTime.UtcNow;
+
+    private static Metric Reduce(string key, List<Metric> metrics)
+    {
+        if (Array.Exists(namesIndicatingCount, x => key.Contains(x, StringComparison.InvariantCultureIgnoreCase)))
+        {
+            return new Metric
+            {
+                Count = metrics.Count,
+                Value = metrics.Sum(x => x.Value),
+            };
+        }
+        else if (key.Contains("accuracy", StringComparison.InvariantCultureIgnoreCase))
+        {
+            var t = metrics.Count(x => x.Classification is not null && x.Classification.StartsWith('t'));
+            var a = metrics.Count(x => x.Classification is not null);
+            return new Metric
+            {
+                Count = metrics.Count,
+                Value = t.DivBy(a),
+            };
+        }
+        else if (key.Contains("precision", StringComparison.InvariantCultureIgnoreCase))
+        {
+            var tp = metrics.Count(x => x.Classification is not null && x.Classification == "t+");
+            var p = metrics.Count(x => x.Classification is not null && x.Classification.EndsWith('+'));
+            return new Metric
+            {
+                Count = metrics.Count,
+                Value = tp.DivBy(p),
+            };
+        }
+        else if (key.Contains("recall", StringComparison.InvariantCultureIgnoreCase))
+        {
+            var tp = metrics.Count(x => x.Classification is not null && x.Classification == "t+");
+            var fn = metrics.Count(x => x.Classification is not null && x.Classification == "f-");
+            return new Metric
+            {
+                Count = metrics.Count,
+                Value = tp.DivBy(tp + fn),
+            };
+        }
+        else
+        {
+            return new Metric
+            {
+                Count = metrics.Count,
+                Value = metrics.Average(x => x.Value),
+                StdDev = metrics.StdDev(x => x.Value),
+            };
+        }
+    }
 
     private static Result Aggregate(IEnumerable<Result> from, bool includeAnnotationsWithRef)
     {
@@ -43,27 +97,7 @@ public class Experiment
             }
         }
 
-        result.Metrics = metrics.ToDictionary(x => x.Key, x =>
-        {
-            if (x.Key.EndsWith("_count", StringComparison.InvariantCultureIgnoreCase)
-                || x.Key.EndsWith("_cost", StringComparison.InvariantCultureIgnoreCase))
-            {
-                return new Metric
-                {
-                    Count = x.Value.Count,
-                    Value = x.Value.Sum(y => y.Value),
-                };
-            }
-            else
-            {
-                return new Metric
-                {
-                    Count = x.Value.Count,
-                    Value = x.Value.Average(y => y.Value),
-                    StdDev = x.Value.StdDev(y => y.Value),
-                };
-            }
-        });
+        result.Metrics = metrics.ToDictionary(x => x.Key, x => Reduce(x.Key, x.Value));
 
         if (annotations.Count > 0)
         {

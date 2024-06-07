@@ -1,0 +1,5 @@
+{
+    "ref": id,
+    "user_query": question,
+    "ground_truth": answer
+}

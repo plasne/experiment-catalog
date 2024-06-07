@@ -61,4 +61,9 @@ public static class Ext
         double stddev = Math.Sqrt(selectedValues.Average(v => Math.Pow(Convert.ToDouble(v) - avg, 2)));
         return Convert.ToDecimal(stddev);
     }
+
+    public static decimal DivBy(this int dividend, int divisor)
+    {
+        return divisor == 0 ? 0 : (decimal)dividend / (decimal)divisor;
+    }
 }
