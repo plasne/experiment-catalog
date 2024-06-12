@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Microsoft.Extensions.Hosting;
@@ -39,35 +40,41 @@ public class AzureStorageQueueReader(
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         // try and connect to all the inbound inference queues
-        foreach (var queue in this.config.INBOUND_INFERENCE_QUEUES)
+        if (this.config.ROLES.Contains(Roles.InferenceProxy))
         {
-            var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
-            var queueClient = new QueueClient(new Uri(queueUrl), this.defaultAzureCredential);
-            await queueClient.ConnectAsync(this.logger, cancellationToken);
-            this.inboundInferenceQueues.Add(queueClient);
+            foreach (var queue in this.config.INBOUND_INFERENCE_QUEUES)
+            {
+                var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
+                var queueClient = new QueueClient(new Uri(queueUrl), this.defaultAzureCredential);
+                await queueClient.ConnectAsync(this.logger, cancellationToken);
+                this.inboundInferenceQueues.Add(queueClient);
 
-            var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
-            var deadletterClient = new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential);
-            await deadletterClient.ConnectAsync(this.logger, cancellationToken);
-            this.inboundInferenceDeadletterQueues.Add(deadletterClient);
+                var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
+                var deadletterClient = new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential);
+                await deadletterClient.ConnectAsync(this.logger, cancellationToken);
+                this.inboundInferenceDeadletterQueues.Add(deadletterClient);
+            }
         }
 
         // try and connect to all the inbound evaluation queues
-        foreach (var queue in this.config.INBOUND_EVALUATION_QUEUES)
+        if (this.config.ROLES.Contains(Roles.EvaluationProxy))
         {
-            var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
-            var queueClient = new QueueClient(new Uri(queueUrl), this.defaultAzureCredential);
-            await queueClient.ConnectAsync(this.logger, cancellationToken);
-            this.inboundEvaluationQueues.Add(queueClient);
+            foreach (var queue in this.config.INBOUND_EVALUATION_QUEUES)
+            {
+                var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
+                var queueClient = new QueueClient(new Uri(queueUrl), this.defaultAzureCredential);
+                await queueClient.ConnectAsync(this.logger, cancellationToken);
+                this.inboundEvaluationQueues.Add(queueClient);
 
-            var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
-            var deadletterClient = new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential);
-            await deadletterClient.ConnectAsync(this.logger, cancellationToken);
-            this.inboundEvaluationDeadletterQueues.Add(deadletterClient);
+                var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
+                var deadletterClient = new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential);
+                await deadletterClient.ConnectAsync(this.logger, cancellationToken);
+                this.inboundEvaluationDeadletterQueues.Add(deadletterClient);
+            }
         }
 
         // try and connect to the outbound inference queue
-        if (!string.IsNullOrEmpty(this.config.OUTBOUND_INFERENCE_QUEUE))
+        if (this.config.ROLES.Contains(Roles.InferenceProxy) && !string.IsNullOrEmpty(this.config.OUTBOUND_INFERENCE_QUEUE))
         {
             var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{this.config.OUTBOUND_INFERENCE_QUEUE}";
             var queueClient = new QueueClient(new Uri(url), this.defaultAzureCredential);
@@ -91,7 +98,7 @@ public class AzureStorageQueueReader(
         this.logger.LogDebug("attempting to upload {c}/{b}...", containerName, blobName);
         var blobClient = this.GetBlobClient(containerName, blobName);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
-        await blobClient.UploadAsync(stream, cancellationToken);
+        await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
         this.logger.LogInformation("successfully uploaded {c}/{b}.", containerName, blobName);
         return blobClient.Uri.ToString();
     }
@@ -281,7 +288,7 @@ public class AzureStorageQueueReader(
         {
             // check for a message
             this.logger.LogDebug("checking for a message in queue {q}...", inboundQueue.Name);
-            var message = inboundQueue.ReceiveMessage(TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS), cancellationToken);
+            var message = await inboundQueue.ReceiveMessageAsync(TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS), cancellationToken);
             var body = message?.Value?.Body?.ToString();
             if (string.IsNullOrEmpty(body))
             {
@@ -357,7 +364,7 @@ public class AzureStorageQueueReader(
         {
             // check for a message
             this.logger.LogDebug("checking for a message in queue {q}...", inboundQueue.Name);
-            var message = inboundQueue.ReceiveMessage(TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS), cancellationToken);
+            var message = await inboundQueue.ReceiveMessageAsync(TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS), cancellationToken);
             var body = message?.Value?.Body?.ToString();
             if (string.IsNullOrEmpty(body))
             {
@@ -414,9 +421,7 @@ public class AzureStorageQueueReader(
             var evaluationUri = await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
 
             // get reference to the inferenceUri
-            var inferenceUri = string.IsNullOrEmpty(this.config.INFERENCE_CONTAINER)
-                ? null
-                : this.GetBlobUri(this.config.INFERENCE_CONTAINER, request.Id + ".json");
+            var inferenceUri = this.GetBlobUri(this.config.INFERENCE_CONTAINER, request.Id + ".json");
 
             // handle the response headers (metrics, histograms, etc.)
             await HandleResponseHeadersAsync(request, responseHeaders, inferenceUri, evaluationUri, cancellationToken);

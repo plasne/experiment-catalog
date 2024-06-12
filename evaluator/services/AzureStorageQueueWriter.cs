@@ -118,7 +118,6 @@ public class AzureStorageQueueWriter(
                     await foreach (var blob in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: stoppingToken))
                     {
                         await this.EnqueueBlobAsync(containerClient, blob, enqueueRequest, queueClient, stoppingToken);
-                        break;
                     }
                 }
             }
