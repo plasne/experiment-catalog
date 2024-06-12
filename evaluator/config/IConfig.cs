@@ -8,11 +8,14 @@ public interface IConfig
     List<Roles> ROLES { get; }
     string OPEN_TELEMETRY_CONNECTION_STRING { get; }
     string AZURE_STORAGE_ACCOUNT_NAME { get; }
+    string AZURE_STORAGE_CONNECTION_STRING { get; }
     string INFERENCE_CONTAINER { get; }
     string EVALUATION_CONTAINER { get; }
     string[] INBOUND_INFERENCE_QUEUES { get; }
     string[] INBOUND_EVALUATION_QUEUES { get; }
     string OUTBOUND_INFERENCE_QUEUE { get; }
+    int INFERENCE_MESSAGES_PER_BATCH { get; }
+    int EVALUATION_MESSAGES_PER_BATCH { get; }
     int MS_TO_PAUSE_WHEN_EMPTY { get; }
     int DEQUEUE_FOR_X_SECONDS { get; }
     int MS_BETWEEN_DEQUEUE { get; }

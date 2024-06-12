@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Microsoft.Extensions.Hosting;
@@ -22,13 +21,13 @@ namespace Evaluator;
 
 public class AzureStorageQueueReader(
     IConfig config,
-    DefaultAzureCredential defaultAzureCredential,
     IHttpClientFactory httpClientFactory,
-    ILogger<AzureStorageQueueReader> logger)
+    ILogger<AzureStorageQueueReader> logger,
+    DefaultAzureCredential? defaultAzureCredential = null)
     : BackgroundService
 {
     private readonly IConfig config = config;
-    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
+    private readonly DefaultAzureCredential? defaultAzureCredential = defaultAzureCredential;
     private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
     private readonly ILogger<AzureStorageQueueReader> logger = logger;
     private readonly List<QueueClient> inboundInferenceQueues = [];
@@ -37,49 +36,74 @@ public class AzureStorageQueueReader(
     private readonly List<QueueClient> inboundEvaluationDeadletterQueues = [];
     private QueueClient? outboundInferenceQueue;
 
+    private async Task StartInboundInferenceQueuesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var queue in this.config.INBOUND_INFERENCE_QUEUES)
+        {
+            var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
+            var queueClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+                ? new QueueClient(new Uri(queueUrl), this.defaultAzureCredential)
+                : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, queue);
+            await queueClient.ConnectAsync(this.logger, cancellationToken);
+            this.inboundInferenceQueues.Add(queueClient);
+
+            var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
+            var deadletterClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+                ? new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential)
+                : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, queue + "-deadletter");
+            await deadletterClient.ConnectAsync(this.logger, cancellationToken);
+            this.inboundInferenceDeadletterQueues.Add(deadletterClient);
+        }
+    }
+
+    private async Task StartInboundEvaluationQueuesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var queue in this.config.INBOUND_EVALUATION_QUEUES)
+        {
+            var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
+            var queueClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+                ? new QueueClient(new Uri(queueUrl), this.defaultAzureCredential)
+                : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, queue);
+            await queueClient.ConnectAsync(this.logger, cancellationToken);
+            this.inboundEvaluationQueues.Add(queueClient);
+
+            var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
+            var deadletterClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+                ? new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential)
+                : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, queue + "-deadletter");
+            await deadletterClient.ConnectAsync(this.logger, cancellationToken);
+            this.inboundEvaluationDeadletterQueues.Add(deadletterClient);
+        }
+    }
+
+    private async Task StartOutboundInferenceQueueAsync(CancellationToken cancellationToken)
+    {
+        var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{this.config.OUTBOUND_INFERENCE_QUEUE}";
+        var queueClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+            ? new QueueClient(new Uri(queueUrl), this.defaultAzureCredential)
+            : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, this.config.OUTBOUND_INFERENCE_QUEUE);
+        await queueClient.ConnectAsync(this.logger, cancellationToken);
+        this.outboundInferenceQueue = queueClient;
+    }
+
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         // try and connect to all the inbound inference queues
         if (this.config.ROLES.Contains(Roles.InferenceProxy))
         {
-            foreach (var queue in this.config.INBOUND_INFERENCE_QUEUES)
-            {
-                var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
-                var queueClient = new QueueClient(new Uri(queueUrl), this.defaultAzureCredential);
-                await queueClient.ConnectAsync(this.logger, cancellationToken);
-                this.inboundInferenceQueues.Add(queueClient);
-
-                var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
-                var deadletterClient = new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential);
-                await deadletterClient.ConnectAsync(this.logger, cancellationToken);
-                this.inboundInferenceDeadletterQueues.Add(deadletterClient);
-            }
+            await this.StartInboundInferenceQueuesAsync(cancellationToken);
         }
 
         // try and connect to all the inbound evaluation queues
         if (this.config.ROLES.Contains(Roles.EvaluationProxy))
         {
-            foreach (var queue in this.config.INBOUND_EVALUATION_QUEUES)
-            {
-                var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
-                var queueClient = new QueueClient(new Uri(queueUrl), this.defaultAzureCredential);
-                await queueClient.ConnectAsync(this.logger, cancellationToken);
-                this.inboundEvaluationQueues.Add(queueClient);
-
-                var deadletterUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
-                var deadletterClient = new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential);
-                await deadletterClient.ConnectAsync(this.logger, cancellationToken);
-                this.inboundEvaluationDeadletterQueues.Add(deadletterClient);
-            }
+            await this.StartInboundEvaluationQueuesAsync(cancellationToken);
         }
 
         // try and connect to the outbound inference queue
         if (this.config.ROLES.Contains(Roles.InferenceProxy) && !string.IsNullOrEmpty(this.config.OUTBOUND_INFERENCE_QUEUE))
         {
-            var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{this.config.OUTBOUND_INFERENCE_QUEUE}";
-            var queueClient = new QueueClient(new Uri(url), this.defaultAzureCredential);
-            await queueClient.ConnectAsync(this.logger, cancellationToken);
-            this.outboundInferenceQueue = queueClient;
+            await this.StartOutboundInferenceQueueAsync(cancellationToken);
         }
 
         await base.StartAsync(cancellationToken);
@@ -87,10 +111,12 @@ public class AzureStorageQueueReader(
 
     private BlobClient GetBlobClient(string containerName, string blobName)
     {
-        string blobServiceUri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-        BlobServiceClient blobServiceClient = new(new Uri(blobServiceUri), this.defaultAzureCredential);
-        BlobContainerClient blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
-        return blobContainerClient.GetBlobClient(blobName);
+        var blobUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+        var blobClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+            ? new BlobServiceClient(new Uri(blobUrl), this.defaultAzureCredential)
+            : new BlobServiceClient(this.config.AZURE_STORAGE_CONNECTION_STRING);
+        var containerClient = blobClient.GetBlobContainerClient(containerName);
+        return containerClient.GetBlobClient(blobName);
     }
 
     private async Task<string> UploadBlobAsync(string containerName, string blobName, string content, CancellationToken cancellationToken)
@@ -281,24 +307,18 @@ public class AzureStorageQueueReader(
     private async Task<bool> ProcessInferenceRequestAsync(
         QueueClient inboundQueue,
         QueueClient inboundDeadletterQueue,
+        QueueMessage message,
         CancellationToken cancellationToken)
     {
-        var isConsideredToHaveProcessed = false;
+        bool isConsideredToHaveProcessed = false;
         try
         {
-            // check for a message
-            this.logger.LogDebug("checking for a message in queue {q}...", inboundQueue.Name);
-            var message = await inboundQueue.ReceiveMessageAsync(TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS), cancellationToken);
-            var body = message?.Value?.Body?.ToString();
-            if (string.IsNullOrEmpty(body))
-            {
-                return isConsideredToHaveProcessed;
-            }
+            var body = message.Body.ToString();
 
             // handle deadletter
-            if (message!.Value.DequeueCount > this.config.MAX_ATTEMPTS_TO_DEQUEUE)
+            if (message.DequeueCount > this.config.MAX_ATTEMPTS_TO_DEQUEUE)
             {
-                throw new DeadletterException($"message {message.Value.MessageId} has been dequeued {message.Value.DequeueCount} times", message.Value, body);
+                throw new DeadletterException($"message {message.MessageId} has been dequeued {message.DequeueCount} times", message, body);
             }
 
             // deserialize the pipeline request
@@ -323,7 +343,7 @@ public class AzureStorageQueueReader(
                 request,
                 this.config.INFERENCE_URL,
                 groundTruthContent,
-                message.Value,
+                message,
                 body,
                 cancellationToken);
 
@@ -337,8 +357,7 @@ public class AzureStorageQueueReader(
             await this.outboundInferenceQueue!.SendMessageAsync(body, cancellationToken);
 
             // delete the message
-            await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
-            return true;
+            await inboundQueue.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
         }
         catch (DeadletterException e)
         {
@@ -354,7 +373,7 @@ public class AzureStorageQueueReader(
         return isConsideredToHaveProcessed;
     }
 
-    private async Task<bool> ProcessEvaluationRequestAsync(
+    private async Task<bool> ProcessInferenceRequestsAsync(
         QueueClient inboundQueue,
         QueueClient inboundDeadletterQueue,
         CancellationToken cancellationToken)
@@ -362,19 +381,55 @@ public class AzureStorageQueueReader(
         var isConsideredToHaveProcessed = false;
         try
         {
-            // check for a message
-            this.logger.LogDebug("checking for a message in queue {q}...", inboundQueue.Name);
-            var message = await inboundQueue.ReceiveMessageAsync(TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS), cancellationToken);
-            var body = message?.Value?.Body?.ToString();
-            if (string.IsNullOrEmpty(body))
+            // check for messages
+            this.logger.LogDebug(
+                "checking for {n} message(s) in queue {q}...",
+                this.config.INFERENCE_MESSAGES_PER_BATCH,
+                inboundQueue.Name);
+            var response = await inboundQueue.ReceiveMessagesAsync(
+                this.config.INFERENCE_MESSAGES_PER_BATCH,
+                TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS),
+                cancellationToken);
+            if (response.Value.Length < 1)
             {
                 return isConsideredToHaveProcessed;
             }
 
-            // handle deadletter
-            if (message!.Value.DequeueCount > this.config.MAX_ATTEMPTS_TO_DEQUEUE)
+            // process each message at the same time
+            var tasks = new List<Task<bool>>();
+            foreach (var message in response.Value)
             {
-                throw new DeadletterException($"message {message.Value.MessageId} has been dequeued {message.Value.DequeueCount} times", message.Value, body);
+                var task = Task.Run(() => this.ProcessInferenceRequestAsync(inboundQueue, inboundDeadletterQueue, message, cancellationToken));
+                tasks.Add(task);
+            }
+            await Task.WhenAll(tasks);
+            foreach (var task in tasks)
+            {
+                if (task.Result) isConsideredToHaveProcessed = true;
+            }
+        }
+        catch (Exception e)
+        {
+            this.logger.LogError(e, "error processing messages from queue {q}...", inboundQueue.Name);
+        }
+        return isConsideredToHaveProcessed;
+    }
+
+    private async Task<bool> ProcessEvaluationRequestAsync(
+        QueueClient inboundQueue,
+        QueueClient inboundDeadletterQueue,
+        QueueMessage message,
+        CancellationToken cancellationToken)
+    {
+        var isConsideredToHaveProcessed = false;
+        try
+        {
+            var body = message.Body.ToString();
+
+            // handle deadletter
+            if (message!.DequeueCount > this.config.MAX_ATTEMPTS_TO_DEQUEUE)
+            {
+                throw new DeadletterException($"message {message.MessageId} has been dequeued {message.DequeueCount} times", message, body);
             }
 
             // deserialize the pipeline request
@@ -413,7 +468,7 @@ public class AzureStorageQueueReader(
                 request,
                 this.config.EVALUATION_URL,
                 payload,
-                message.Value,
+                message,
                 body,
                 cancellationToken);
 
@@ -427,7 +482,7 @@ public class AzureStorageQueueReader(
             await HandleResponseHeadersAsync(request, responseHeaders, inferenceUri, evaluationUri, cancellationToken);
 
             // delete the message
-            await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
+            await inboundQueue.DeleteMessageAsync(message!.MessageId, message.PopReceipt, cancellationToken);
             return true;
         }
         catch (DeadletterException e)
@@ -440,6 +495,44 @@ public class AzureStorageQueueReader(
         catch (Exception e)
         {
             this.logger.LogError(e, "error processing message from queue {q}...", inboundQueue.Name);
+        }
+        return isConsideredToHaveProcessed;
+    }
+
+    private async Task<bool> ProcessEvaluationRequestsAsync(
+        QueueClient inboundQueue,
+        QueueClient inboundDeadletterQueue,
+        CancellationToken cancellationToken)
+    {
+        var isConsideredToHaveProcessed = false;
+        try
+        {
+            // check for messages
+            this.logger.LogDebug(
+                "checking for {n} message(s) in queue {q}...",
+                this.config.EVALUATION_MESSAGES_PER_BATCH,
+                inboundQueue.Name);
+            var response = await inboundQueue.ReceiveMessagesAsync(
+                this.config.EVALUATION_MESSAGES_PER_BATCH,
+                TimeSpan.FromSeconds(this.config.DEQUEUE_FOR_X_SECONDS),
+                cancellationToken);
+            if (response.Value.Length < 1)
+            {
+                return isConsideredToHaveProcessed;
+            }
+
+            // process each message
+            foreach (var message in response.Value)
+            {
+                if (await this.ProcessEvaluationRequestAsync(inboundQueue, inboundDeadletterQueue, message, cancellationToken))
+                {
+                    isConsideredToHaveProcessed = true;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            this.logger.LogError(e, "error processing messages from queue {q}...", inboundQueue.Name);
         }
         return isConsideredToHaveProcessed;
     }
@@ -463,7 +556,7 @@ public class AzureStorageQueueReader(
         {
             for (int i = 0; i < this.inboundInferenceQueues.Count; i++)
             {
-                if (await this.ProcessInferenceRequestAsync(
+                if (await this.ProcessInferenceRequestsAsync(
                     this.inboundInferenceQueues[i],
                     this.inboundInferenceDeadletterQueues[i],
                     cancellationToken))
@@ -474,7 +567,7 @@ public class AzureStorageQueueReader(
             }
             for (int i = 0; i < this.inboundEvaluationQueues.Count; i++)
             {
-                if (await this.ProcessEvaluationRequestAsync(
+                if (await this.ProcessEvaluationRequestsAsync(
                     this.inboundEvaluationQueues[i],
                     this.inboundEvaluationDeadletterQueues[i],
                     cancellationToken))

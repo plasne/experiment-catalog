@@ -15,12 +15,12 @@ namespace Evaluator;
 
 public class AzureStorageQueueWriter(
     IConfig config,
-    DefaultAzureCredential defaultAzureCredential,
-    ILogger<AzureStorageQueueWriter> logger)
+    ILogger<AzureStorageQueueWriter> logger,
+    DefaultAzureCredential? defaultAzureCredential = null)
     : BackgroundService
 {
     private readonly IConfig config = config;
-    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
+    private readonly DefaultAzureCredential? defaultAzureCredential = defaultAzureCredential;
     private readonly ILogger<AzureStorageQueueWriter> logger = logger;
     private readonly Channel<EnqueueRequest> enqueueRequests = Channel.CreateUnbounded<EnqueueRequest>();
 
@@ -89,6 +89,24 @@ public class AzureStorageQueueWriter(
         }
     }
 
+    private QueueClient GetQueueClient(string queue)
+    {
+        var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
+        var queueClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+            ? new QueueClient(new Uri(queueUrl), this.defaultAzureCredential)
+            : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, queue);
+        return queueClient;
+    }
+
+    private BlobContainerClient GetBlobContainerClient(string container)
+    {
+        var blobUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+        var blobClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+            ? new BlobServiceClient(new Uri(blobUrl), this.defaultAzureCredential)
+            : new BlobServiceClient(this.config.AZURE_STORAGE_CONNECTION_STRING);
+        return blobClient.GetBlobContainerClient(container);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         this.logger.LogInformation("starting to listen for enqueue requests in AzureStorageQueueWriter...");
@@ -99,19 +117,15 @@ public class AzureStorageQueueWriter(
                 var enqueueRequest = await this.enqueueRequests.Reader.ReadAsync(stoppingToken);
 
                 // try and connect to the output queue
-                var url = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{enqueueRequest.Queue}";
-                var queueClient = new QueueClient(new Uri(url), this.defaultAzureCredential);
+                var queueClient = this.GetQueueClient(enqueueRequest.Queue);
                 await queueClient.ConnectAsync(this.logger, stoppingToken);
 
                 // enqueue everything from each specified container
                 foreach (var containerPlusPath in enqueueRequest.Containers)
                 {
-                    var containerAndPath = containerPlusPath.Split('/', 2);
-
                     // connect to the blob container
-                    var uri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-                    var blobClient = new BlobServiceClient(new Uri(uri), this.defaultAzureCredential);
-                    var containerClient = blobClient.GetBlobContainerClient(containerAndPath[0]);
+                    var containerAndPath = containerPlusPath.Split('/', 2);
+                    var containerClient = this.GetBlobContainerClient(containerAndPath[0]);
 
                     // enqueue blobs from that container
                     var prefix = containerAndPath.Length == 2 ? containerAndPath[1] : null;

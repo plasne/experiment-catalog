@@ -20,7 +20,12 @@ var config = new Evaluator.Config(netConfig);
 config.Validate();
 builder.Services.AddSingleton<Evaluator.IConfig>(config);
 builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
-builder.Services.AddDefaultAzureCredential();
+
+// add credentials if connection string is not provided
+if (string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING))
+{
+    builder.Services.AddDefaultAzureCredential();
+}
 
 // add logging
 builder.Logging.ClearProviders();
@@ -89,4 +94,4 @@ if (config.ROLES.Contains(Roles.API))
 }
 
 // run
-app.Run();
+await app.RunAsync();
