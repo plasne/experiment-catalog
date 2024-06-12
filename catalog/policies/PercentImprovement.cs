@@ -13,7 +13,9 @@ public class PercentImprovement
 
     public int NumResultsThatPassed { get; set; } = 0;
     public int NumResultsThatFailed { get; set; } = 0;
-    public decimal PercentPassed => (decimal)this.NumResultsThatPassed / (this.NumResultsThatPassed + this.NumResultsThatFailed);
+    public decimal PercentPassed => this.NumResultsThatPassed + this.NumResultsThatFailed == 0
+        ? 0
+        : (decimal)this.NumResultsThatPassed / (this.NumResultsThatPassed + this.NumResultsThatFailed);
     public bool IsPassed => this.PercentPassed >= this.requiredPercent;
     public string Requirement => $"At least {this.requiredPercent:P0} of results are improved by {this.requiredImprovement:P0} or more (metrics: {string.Join(", ", this.includeMetrics)}).";
     public string Actual => $"{this.PercentPassed:P0} of results were improved by {this.requiredImprovement:P0} or more (metrics: {string.Join(", ", this.includeMetrics)}).";

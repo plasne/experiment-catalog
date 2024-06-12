@@ -10,8 +10,8 @@
   let isAvg: boolean;
 
   $: {
-    isCount = metric.endsWith("_count");
-    isCost = metric.endsWith("_cost");
+    isCount = metric.indexOf("count") > -1;
+    isCost = metric.indexOf("cost") > -1;
     isAvg = !(isCount || isCost);
   }
 
@@ -31,17 +31,19 @@
 <nobr>
   {#if result && result.metrics && result.metrics[metric]}
     {#if isCount}
-      <span>{result.metrics[metric].value}</span>
+      <span>{result.metrics[metric].value.toLocaleString()}</span>
     {:else if isCost}
-      <span>${result.metrics[metric].value.toFixed(2)}</span>
+      <span>${result.metrics[metric].value.toFixed(2).toLocaleString()}</span>
+    {:else if result.metrics[metric].value == undefined}
+      <span>-</span>
     {:else}
       <span>{result.metrics[metric].value.toFixed(2)}</span>
     {/if}
-    {#if showStdDev && isAvg}
+    {#if showStdDev && isAvg && result.metrics[metric].std_dev !== undefined}
       <span>({result.metrics[metric].std_dev.toFixed(2)})</span>
     {/if}
 
-    {#if isAvg && diff === 0}
+    {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
           points="10,15 35,15 35,35 10,35"

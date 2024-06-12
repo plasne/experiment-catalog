@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,7 +32,7 @@ public class ResultsController : ControllerBase
             Set = request.Set,
             InferenceUri = request.InferenceUri,
             EvaluationUri = request.EvaluationUri,
-            Metrics = request.Metrics?.ToDictionary(x => x.Key, y => new Metric { IsValueOnly = true, Value = y.Value }),
+            Metrics = request.ToMetrics(),
             Annotations = request.Annotations,
             IsBaseline = request.IsBaseline,
         };

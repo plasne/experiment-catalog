@@ -133,13 +133,8 @@ public class Config : IConfig
         this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
         this.config.Require("OPEN_TELEMETRY_CONNECTION_STRING", OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
         this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
-
-        // API-specific
-        if (this.ROLES.Contains(Roles.API))
-        {
-            this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY, hideValue: true);
-        }
+        this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE);
+        this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY, hideValue: true);
 
         // InferenceProxy-specific
         if (this.ROLES.Contains(Roles.InferenceProxy))
@@ -159,7 +154,7 @@ public class Config : IConfig
         // EvaluationProxy-specific
         if (this.ROLES.Contains(Roles.EvaluationProxy))
         {
-            this.config.Optional("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
+            this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
             this.config.Require("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
             this.config.Require("EVALUATION_URL", this.EVALUATION_URL);
             this.config.Require("INBOUND_EVALUATION_QUEUES", this.INBOUND_EVALUATION_QUEUES);

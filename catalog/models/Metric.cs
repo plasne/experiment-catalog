@@ -4,25 +4,15 @@ namespace Catalog;
 
 public class Metric
 {
-    [JsonIgnore]
-    public bool IsValueOnly = false;
+    [JsonProperty("count", NullValueHandling = NullValueHandling.Ignore)]
+    public int? Count { get; set; }
 
-    [JsonProperty("count")]
-    public int Count { get; set; } = 1;
+    [JsonProperty("value", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? Value { get; set; }
 
-    [JsonProperty("value", Required = Required.Always)]
-    public required decimal Value { get; set; }
+    [JsonProperty("std_dev", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? StdDev { get; set; }
 
-    [JsonProperty("std_dev")]
-    public decimal StdDev { get; set; }
-
-    public bool ShouldSerializeCount()
-    {
-        return !this.IsValueOnly;
-    }
-
-    public bool ShouldSerializeStdDev()
-    {
-        return !this.IsValueOnly;
-    }
+    [JsonProperty("classification", NullValueHandling = NullValueHandling.Ignore)]
+    public string? Classification { get; set; }
 }
