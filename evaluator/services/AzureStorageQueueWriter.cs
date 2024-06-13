@@ -48,7 +48,7 @@ public class AzureStorageQueueWriter(
             // load the blob file
             var blobClient = containerClient.GetBlobClient(blob.Name);
             string content = await blobClient.DownloadAndTransformAsync(
-                this.config.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY,
+                this.config.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
             var groundTruthFile = JsonConvert.DeserializeObject<GroundTruthFile>(content)

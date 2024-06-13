@@ -18,7 +18,7 @@ public class Result
     public string? EvaluationUri { get; set; }
 
     [JsonProperty("metrics", NullValueHandling = NullValueHandling.Ignore)]
-    public Dictionary<string, decimal>? Metrics { get; set; }
+    public Dictionary<string, string>? Metrics { get; set; }
 
     [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public bool IsBaseline { get; set; }

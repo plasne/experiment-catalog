@@ -64,6 +64,7 @@ if (config.ROLES.Contains(Roles.API))
 if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
 {
     Console.WriteLine("ADDING SERVICE: AzureStorageQueueReader");
+    builder.Services.AddSingleton<TaskRunnerFactory>();
     builder.Services.AddHostedService<AzureStorageQueueReader>();
 }
 
