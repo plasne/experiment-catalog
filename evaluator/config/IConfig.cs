@@ -14,7 +14,8 @@ public interface IConfig
     string[] INBOUND_INFERENCE_QUEUES { get; }
     string[] INBOUND_EVALUATION_QUEUES { get; }
     string OUTBOUND_INFERENCE_QUEUE { get; }
-    int CONCURRENCY { get; }
+    int INFERENCE_CONCURRENCY { get; }
+    int EVALUATION_CONCURRENCY { get; }
     int MS_TO_PAUSE_WHEN_EMPTY { get; }
     int DEQUEUE_FOR_X_SECONDS { get; }
     int MS_BETWEEN_DEQUEUE { get; }

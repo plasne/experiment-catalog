@@ -35,7 +35,8 @@ public class Config : IConfig
         this.INBOUND_INFERENCE_QUEUES = this.config.Get<string>("INBOUND_INFERENCE_QUEUES").AsArray(() => []);
         this.INBOUND_EVALUATION_QUEUES = this.config.Get<string>("INBOUND_EVALUATION_QUEUES").AsArray(() => []);
         this.OUTBOUND_INFERENCE_QUEUE = this.config.Get<string>("OUTBOUND_INFERENCE_QUEUE");
-        this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 1);
+        this.INFERENCE_CONCURRENCY = this.config.Get<string>("INFERENCE_CONCURRENCY, CONCURRENCY").AsInt(() => 1);
+        this.EVALUATION_CONCURRENCY = this.config.Get<string>("EVALUATION_CONCURRENCY, CONCURRENCY").AsInt(() => 1);
         this.MS_TO_PAUSE_WHEN_EMPTY = this.config.Get<string>("MS_TO_PAUSE_WHEN_EMPTY").AsInt(() => 500);
         this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
         this.MS_BETWEEN_DEQUEUE = this.config.Get<string>("MS_BETWEEN_DEQUEUE").AsInt(() => 0);
@@ -110,7 +111,9 @@ public class Config : IConfig
 
     public string OUTBOUND_INFERENCE_QUEUE { get; }
 
-    public int CONCURRENCY { get; }
+    public int INFERENCE_CONCURRENCY { get; }
+
+    public int EVALUATION_CONCURRENCY { get; }
 
     public int MS_TO_PAUSE_WHEN_EMPTY { get; }
 
@@ -180,6 +183,7 @@ public class Config : IConfig
         // InferenceProxy-specific
         if (this.ROLES.Contains(Roles.InferenceProxy))
         {
+            this.config.Require("INFERENCE_CONCURRENCY", this.INFERENCE_CONCURRENCY);
             this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
             this.config.Require("INFERENCE_URL", this.INFERENCE_URL);
             this.config.Require("INBOUND_INFERENCE_QUEUES", this.INBOUND_INFERENCE_QUEUES);
@@ -197,6 +201,7 @@ public class Config : IConfig
         // EvaluationProxy-specific
         if (this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Require("EVALUATION_CONCURRENCY", this.EVALUATION_CONCURRENCY);
             this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
             this.config.Require("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
             this.config.Require("EVALUATION_URL", this.EVALUATION_URL);
@@ -214,7 +219,6 @@ public class Config : IConfig
         // any proxy
         if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
         {
-            this.config.Require("CONCURRENCY", this.CONCURRENCY);
             this.config.Require("BACKOFF_ON_STATUS_CODES", this.BACKOFF_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
             this.config.Require("DEADLETTER_ON_STATUS_CODES", this.DEADLETTER_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
             this.config.Require("MAX_ATTEMPTS_TO_DEQUEUE", this.MAX_ATTEMPTS_TO_DEQUEUE.ToString());

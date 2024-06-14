@@ -60,12 +60,18 @@ if (config.ROLES.Contains(Roles.API))
     });
 }
 
-// add InferenceProxy and EvaluationProxy services
-if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
+// add InferenceProxy services
+if (config.ROLES.Contains(Roles.InferenceProxy))
 {
-    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReader");
-    builder.Services.AddSingleton<TaskRunnerFactory>();
-    builder.Services.AddHostedService<AzureStorageQueueReader>();
+    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReaderForInference");
+    builder.Services.AddHostedService<AzureStorageQueueReaderForInference>();
+}
+
+// add EvaluationProxy services
+if (config.ROLES.Contains(Roles.EvaluationProxy))
+{
+    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReaderForEvaluation");
+    builder.Services.AddHostedService<AzureStorageQueueReaderForEvaluation>();
 }
 
 // add maintenance service
