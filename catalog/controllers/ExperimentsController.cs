@@ -4,19 +4,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 
 namespace Catalog;
 
 [ApiController]
 [Route("api/projects/{projectName}/experiments")]
-public class ExperimentsController : ControllerBase
+public class ExperimentsController(ILogger<ExperimentsController> logger) : ControllerBase
 {
-    private readonly ILogger<ExperimentsController> logger;
-
-    public ExperimentsController(ILogger<ExperimentsController> logger)
-    {
-        this.logger = logger;
-    }
+    private readonly ILogger<ExperimentsController> logger = logger;
 
     [HttpGet]
     public async Task<ActionResult<IList<Experiment>>> List(
@@ -60,20 +56,36 @@ public class ExperimentsController : ControllerBase
         return Ok();
     }
 
+    private static async Task<(IList<Tag> includeTags, IList<Tag> excludeTags)> LoadTags(
+        IStorageService storageService,
+        string projectName,
+        string includeTagsStr,
+        string excludeTagsStr,
+        CancellationToken cancellationToken)
+    {
+        var includeTags = await storageService.GetTagsAsync(projectName, includeTagsStr.AsArray(() => []), cancellationToken);
+        var excludeTags = await storageService.GetTagsAsync(projectName, excludeTagsStr.AsArray(() => []), cancellationToken);
+        return (includeTags, excludeTags);
+    }
+
     [HttpGet("{experimentName}/compare")]
     public async Task<ActionResult<Comparison>> Compare(
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
         CancellationToken cancellationToken,
-        [FromQuery] int count = 0)
+        [FromQuery] int count = 0,
+        [FromQuery(Name = "include-tags")] string includeTagsStr = "",
+        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
         var comparison = new Comparison();
+        var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
 
         // get the baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
+            baseline.Filter(includeTags, excludeTags);
             comparison.LastResultForBaselineExperiment = baseline.AggregateLastSet();
         }
         catch (Exception e)
@@ -83,6 +95,7 @@ public class ExperimentsController : ControllerBase
 
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultForChosenExperiment =
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
@@ -97,14 +110,18 @@ public class ExperimentsController : ControllerBase
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
         [FromRoute] string setName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery(Name = "include-tags")] string includeTagsStr = "",
+        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
         var comparison = new ComparisonByRef();
+        var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
 
         // get the baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
+            baseline.Filter(includeTags, excludeTags);
             comparison.LastResultsForBaselineExperiment = baseline.AggregateLastSetByRef();
         }
         catch (Exception e)
@@ -114,6 +131,7 @@ public class ExperimentsController : ControllerBase
 
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultsForChosenExperiment =
             experiment.AggregateBaselineSetByRef()
             ?? experiment.AggregateFirstSetByRef();
@@ -147,13 +165,17 @@ public class ExperimentsController : ControllerBase
 
     [HttpGet("{experimentName}/sets/{setName}")]
     public async Task<ActionResult<Comparison>> GetNamedSet(
-    [FromServices] IStorageService storageService,
-    [FromRoute] string projectName,
-    [FromRoute] string experimentName,
-    [FromRoute] string setName,
-    CancellationToken cancellationToken)
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        [FromRoute] string experimentName,
+        [FromRoute] string setName,
+        CancellationToken cancellationToken,
+        [FromQuery(Name = "include-tags")] string includeTagsStr = "",
+        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
+        experiment.Filter(includeTags, excludeTags);
         var results = experiment.GetAllResultsOfSet(setName);
         return Ok(results);
     }

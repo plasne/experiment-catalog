@@ -10,7 +10,7 @@ namespace Catalog;
 public class ProjectsController : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IList<Project>>> List(
+    public async Task<ActionResult<IList<Project>>> ListProjects(
         [FromServices] IStorageService storageService,
         CancellationToken cancellationToken)
     {
@@ -19,7 +19,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Add(
+    public async Task<IActionResult> AddProject(
         [FromServices] IStorageService storageService,
         [FromBody] Project project,
         CancellationToken cancellationToken)
@@ -35,6 +35,37 @@ public class ProjectsController : ControllerBase
         }
 
         await storageService.AddProjectAsync(project, cancellationToken);
+        return Ok();
+    }
+
+    [HttpGet("{projectName}/tags")]
+    public async Task<ActionResult<IList<Tag>>> ListTagsInProject(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        CancellationToken cancellationToken)
+    {
+        var tags = await storageService.ListTagsAsync(projectName, cancellationToken);
+        return Ok(tags);
+    }
+
+    [HttpPut("{projectName}/tags")]
+    public async Task<IActionResult> AddTagToProject(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        [FromBody] Tag tag,
+        CancellationToken cancellationToken)
+    {
+        if (tag is null)
+        {
+            return BadRequest("a tag (as body) is required.");
+        }
+
+        if (string.IsNullOrEmpty(tag.Name))
+        {
+            return BadRequest("a tag name is required.");
+        }
+
+        await storageService.AddTagAsync(projectName, tag, cancellationToken);
         return Ok();
     }
 }
