@@ -29,11 +29,14 @@ public class Config : IConfig
 
         this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
+        this.AZURE_STORAGE_CONNECTION_STRING = this.config.GetSecret<string>("AZURE_STORAGE_CONNECTION_STRING").Result;
         this.INFERENCE_CONTAINER = this.config.Get<string>("INFERENCE_CONTAINER");
         this.EVALUATION_CONTAINER = this.config.Get<string>("EVALUATION_CONTAINER");
         this.INBOUND_INFERENCE_QUEUES = this.config.Get<string>("INBOUND_INFERENCE_QUEUES").AsArray(() => []);
         this.INBOUND_EVALUATION_QUEUES = this.config.Get<string>("INBOUND_EVALUATION_QUEUES").AsArray(() => []);
         this.OUTBOUND_INFERENCE_QUEUE = this.config.Get<string>("OUTBOUND_INFERENCE_QUEUE");
+        this.INFERENCE_CONCURRENCY = this.config.Get<string>("INFERENCE_CONCURRENCY, CONCURRENCY").AsInt(() => 1);
+        this.EVALUATION_CONCURRENCY = this.config.Get<string>("EVALUATION_CONCURRENCY, CONCURRENCY").AsInt(() => 1);
         this.MS_TO_PAUSE_WHEN_EMPTY = this.config.Get<string>("MS_TO_PAUSE_WHEN_EMPTY").AsInt(() => 500);
         this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
         this.MS_BETWEEN_DEQUEUE = this.config.Get<string>("MS_BETWEEN_DEQUEUE").AsInt(() => 0);
@@ -47,12 +50,28 @@ public class Config : IConfig
         this.DEADLETTER_ON_STATUS_CODES = this.config.Get<string>("DEADLETTER_ON_STATUS_CODES").AsIntArray(() => [400, 401, 403, 404, 405]);
         this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
 
-        this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
-        this.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
+        this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE, INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
+        this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY, INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
         {
-            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE)
+            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE)
                 ? string.Empty
-                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE);
+                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE);
+        });
+
+        this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE, INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
+        this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY, INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
+        {
+            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE)
+                ? string.Empty
+                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE);
+        });
+
+        this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE, INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
+        this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY, INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
+        {
+            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE)
+                ? string.Empty
+                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE);
         });
 
         this.INBOUND_INFERENCE_TRANSFORM_FILE = this.config.Get<string>("INBOUND_INFERENCE_TRANSFORM_FILE");
@@ -80,6 +99,8 @@ public class Config : IConfig
 
     public string AZURE_STORAGE_ACCOUNT_NAME { get; }
 
+    public string AZURE_STORAGE_CONNECTION_STRING { get; }
+
     public string INFERENCE_CONTAINER { get; }
 
     public string EVALUATION_CONTAINER { get; }
@@ -89,6 +110,10 @@ public class Config : IConfig
     public string[] INBOUND_EVALUATION_QUEUES { get; }
 
     public string OUTBOUND_INFERENCE_QUEUE { get; }
+
+    public int INFERENCE_CONCURRENCY { get; }
+
+    public int EVALUATION_CONCURRENCY { get; }
 
     public int MS_TO_PAUSE_WHEN_EMPTY { get; }
 
@@ -114,31 +139,51 @@ public class Config : IConfig
 
     public string EXPERIMENT_CATALOG_BASE_URL { get; }
 
-    public string INBOUND_GROUNDTRUTH_TRANSFORM_FILE { get; }
+    public string INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE { get; }
+
+    public string INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY { get; }
+
+    public string INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE { get; }
+
+    public string INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY { get; }
+
+    public string INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE { get; }
+
+    public string INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY { get; }
 
     public string INBOUND_INFERENCE_TRANSFORM_FILE { get; }
 
-    public string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
-
-    public string INBOUND_GROUNDTRUTH_TRANSFORM_QUERY { get; }
-
     public string INBOUND_INFERENCE_TRANSFORM_QUERY { get; }
+
+    public string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
 
     public string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
 
     public void Validate()
     {
-        // required
+        // applies regardless of role
         this.config.Require("PORT", this.PORT.ToString());
         this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
         this.config.Require("OPEN_TELEMETRY_CONNECTION_STRING", OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
-        this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
-        this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_TRANSFORM_FILE);
-        this.config.Optional("INBOUND_GROUNDTRUTH_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_TRANSFORM_QUERY, hideValue: true);
+
+        this.config.Optional("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
+        this.config.Optional("AZURE_STORAGE_CONNECTION_STRING", this.AZURE_STORAGE_CONNECTION_STRING, hideValue: true);
+        if (string.IsNullOrEmpty(this.AZURE_STORAGE_ACCOUNT_NAME) && string.IsNullOrEmpty(this.AZURE_STORAGE_CONNECTION_STRING))
+        {
+            throw new Exception("Either AZURE_STORAGE_ACCOUNT_NAME or AZURE_STORAGE_CONNECTION_STRING must be specified.");
+        }
+
+        // API-specific
+        if (this.ROLES.Contains(Roles.API))
+        {
+            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE);
+            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY, hideValue: true);
+        }
 
         // InferenceProxy-specific
         if (this.ROLES.Contains(Roles.InferenceProxy))
         {
+            this.config.Require("INFERENCE_CONCURRENCY", this.INFERENCE_CONCURRENCY);
             this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
             this.config.Require("INFERENCE_URL", this.INFERENCE_URL);
             this.config.Require("INBOUND_INFERENCE_QUEUES", this.INBOUND_INFERENCE_QUEUES);
@@ -147,6 +192,8 @@ public class Config : IConfig
                 throw new Exception("When configured for the InferenceProxy role, INBOUND_INFERENCE_QUEUES must be specified.");
             }
             this.config.Require("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
+            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE);
+            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY, hideValue: true);
             this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
             this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
         }
@@ -154,6 +201,7 @@ public class Config : IConfig
         // EvaluationProxy-specific
         if (this.ROLES.Contains(Roles.EvaluationProxy))
         {
+            this.config.Require("EVALUATION_CONCURRENCY", this.EVALUATION_CONCURRENCY);
             this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
             this.config.Require("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
             this.config.Require("EVALUATION_URL", this.EVALUATION_URL);
@@ -162,6 +210,8 @@ public class Config : IConfig
             {
                 throw new Exception("When configured for the EvaluationProxy role, INBOUND_EVALUATION_QUEUES must be specified.");
             }
+            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE);
+            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY, hideValue: true);
             this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);
             this.config.Optional("INBOUND_EVALUATION_TRANSFORM_QUERY", this.INBOUND_EVALUATION_TRANSFORM_QUERY, hideValue: true);
         }

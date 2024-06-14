@@ -20,7 +20,12 @@ var config = new Evaluator.Config(netConfig);
 config.Validate();
 builder.Services.AddSingleton<Evaluator.IConfig>(config);
 builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
-builder.Services.AddDefaultAzureCredential();
+
+// add credentials if connection string is not provided
+if (string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING))
+{
+    builder.Services.AddDefaultAzureCredential();
+}
 
 // add logging
 builder.Logging.ClearProviders();
@@ -55,11 +60,18 @@ if (config.ROLES.Contains(Roles.API))
     });
 }
 
-// add InferenceProxy and EvaluationProxy services
-if (config.ROLES.Contains(Roles.InferenceProxy) || config.ROLES.Contains(Roles.EvaluationProxy))
+// add InferenceProxy services
+if (config.ROLES.Contains(Roles.InferenceProxy))
 {
-    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReader");
-    builder.Services.AddHostedService<AzureStorageQueueReader>();
+    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReaderForInference");
+    builder.Services.AddHostedService<AzureStorageQueueReaderForInference>();
+}
+
+// add EvaluationProxy services
+if (config.ROLES.Contains(Roles.EvaluationProxy))
+{
+    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReaderForEvaluation");
+    builder.Services.AddHostedService<AzureStorageQueueReaderForEvaluation>();
 }
 
 // add maintenance service
@@ -89,4 +101,4 @@ if (config.ROLES.Contains(Roles.API))
 }
 
 // run
-app.Run();
+await app.RunAsync();
