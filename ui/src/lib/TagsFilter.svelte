@@ -44,5 +44,6 @@
   }
   button {
     margin-left: 1.2em;
+    cursor: pointer;
   }
 </style>

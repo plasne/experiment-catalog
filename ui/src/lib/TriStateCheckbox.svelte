@@ -48,4 +48,7 @@
   .neither {
     background-color: transparent;
   }
+  button {
+    cursor: pointer;
+  }
 </style>
