@@ -2,6 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
+  import TagsFilter from "./TagsFilter.svelte";
 
   export let project: Project;
   export let experiment: Experiment;
@@ -22,12 +23,13 @@
   let comparison: ComparisonByRef;
   let refs: string[] = [];
   let metrics: string[] = [];
+  let tagFilters: string;
 
   const fetchComparison = async () => {
     try {
       state = "loading";
       // get the comparison
-      let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref`;
+      let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref?${tagFilters}`;
       var response = await fetch(url);
       comparison = await response.json();
 
@@ -76,7 +78,7 @@
     }
   };
 
-  $: fetchComparison();
+  $: fetchComparison(), showResults, tagFilters;
 </script>
 
 <button class="link" on:click={unselectSet}>back</button>
@@ -103,6 +105,12 @@
   <span>SET: {setName}</span>
   <button class="link" on:click={fetchDetails}>(toggle details)</button>
 </h3>
+
+{#if comparison}
+  <div class="selection">
+    <TagsFilter {project} bind:querystring={tagFilters} />
+  </div>
+{/if}
 
 {#if state === "loading"}
   <div>Loading...</div>
@@ -243,12 +251,19 @@
     border-collapse: collapse;
   }
 
+  table thead {
+    position: sticky;
+    top: 0;
+    background-color: #373;
+    z-index: 1;
+    border-bottom: 1px solid #ddd;
+  }
+
   th {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
     text-align: left;
     vertical-align: bottom;
-    border-bottom: 1px solid #ddd;
   }
 
   tr.experiment-baseline {
@@ -264,13 +279,19 @@
   }
 
   td {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    padding-left: 1.5em;
+    padding-right: 1.5em;
     text-align: left;
   }
 
   td.label {
     text-align: left;
     font-weight: bold;
+  }
+
+  .selection {
+    width: 80rem;
+    text-align: right;
+    margin-bottom: 1em;
   }
 </style>

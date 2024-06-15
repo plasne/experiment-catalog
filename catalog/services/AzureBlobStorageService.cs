@@ -101,6 +101,72 @@ public class AzureBlobStorageService(
         await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
+    public async Task<IList<string>> ListTagsAsync(string projectName, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var tags = new List<string>();
+        await foreach (var blobItem in containerClient.GetBlobsAsync(cancellationToken: cancellationToken))
+        {
+            var tag = blobItem.Name;
+            if (!tag.StartsWith("tag_")) continue;
+            if (!tag.EndsWith(".json")) continue;
+            tags.Add(tag[4..^5]);
+        }
+        return tags;
+    }
+
+    public async Task AddTagAsync(string projectName, Tag tag, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var blobClient = containerClient.GetBlobClient($"tag_{tag.Name}.json");
+        var serializedJson = JsonConvert.SerializeObject(tag);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson));
+        await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: cancellationToken);
+        var metadata = new Dictionary<string, string>
+        {
+            { "exp_catalog_type", "tag" }
+        };
+        await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+    }
+
+    private async Task<Tag> LoadTagAsync(BlobContainerClient containerClient, string tagName, CancellationToken cancellationToken = default)
+    {
+        var blobClient = containerClient.GetBlobClient($"tag_{tagName}.json");
+        var response = await blobClient.DownloadAsync(cancellationToken: cancellationToken);
+        using var memoryStream = new MemoryStream();
+        await response.Value.Content.CopyToAsync(memoryStream, cancellationToken);
+        memoryStream.Position = 0;
+        using var streamReader = new StreamReader(memoryStream);
+        var serializedJson = await streamReader.ReadToEndAsync(cancellationToken);
+        var tag = JsonConvert.DeserializeObject<Tag>(serializedJson)
+            ?? throw new Exception("the tag contents were not valid.");
+        return tag;
+    }
+
+    public async Task<IList<Tag>> GetTagsAsync(string projectName, IEnumerable<string> tags, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+
+        var tasks = new List<Task<Tag>>();
+        foreach (var tag in tags)
+        {
+            await this.concurrency.WaitAsync(cancellationToken);
+            tasks.Add(Task.Run(() =>
+            {
+                try
+                {
+                    return this.LoadTagAsync(containerClient, tag, cancellationToken);
+                }
+                finally
+                {
+                    this.concurrency.Release();
+                }
+            }));
+        }
+
+        return await Task.WhenAll(tasks);
+    }
+
     public async Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
@@ -149,6 +215,11 @@ public class AzureBlobStorageService(
         var serializedJson = JsonConvert.SerializeObject(experiment);
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
         await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
+        var metadata = new Dictionary<string, string>
+        {
+            { "exp_catalog_type", "experiment" }
+        };
+        await appendBlobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
     public async Task SetExperimentAsBaselineAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)

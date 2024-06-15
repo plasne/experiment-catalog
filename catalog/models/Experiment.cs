@@ -27,6 +27,7 @@ public class Experiment
 
     private static Metric Reduce(string key, List<Metric> metrics)
     {
+        var hasClassification = metrics.Exists(x => x.Classification is not null);
         if (Array.Exists(namesIndicatingCount, x => key.Contains(x, StringComparison.InvariantCultureIgnoreCase)))
         {
             return new Metric
@@ -35,7 +36,7 @@ public class Experiment
                 Value = metrics.Sum(x => x.Value),
             };
         }
-        else if (key.Contains("accuracy", StringComparison.InvariantCultureIgnoreCase))
+        else if (key.Contains("accuracy", StringComparison.InvariantCultureIgnoreCase) && hasClassification)
         {
             var t = metrics.Count(x => x.Classification is not null && x.Classification.StartsWith('t'));
             var a = metrics.Count(x => x.Classification is not null);
@@ -45,7 +46,7 @@ public class Experiment
                 Value = t.DivBy(a),
             };
         }
-        else if (key.Contains("precision", StringComparison.InvariantCultureIgnoreCase))
+        else if (key.Contains("precision", StringComparison.InvariantCultureIgnoreCase) && hasClassification)
         {
             var tp = metrics.Count(x => x.Classification is not null && x.Classification == "t+");
             var p = metrics.Count(x => x.Classification is not null && x.Classification.EndsWith('+'));
@@ -55,7 +56,7 @@ public class Experiment
                 Value = tp.DivBy(p),
             };
         }
-        else if (key.Contains("recall", StringComparison.InvariantCultureIgnoreCase))
+        else if (key.Contains("recall", StringComparison.InvariantCultureIgnoreCase) && hasClassification)
         {
             var tp = metrics.Count(x => x.Classification is not null && x.Classification == "t+");
             var fn = metrics.Count(x => x.Classification is not null && x.Classification == "f-");
@@ -189,5 +190,34 @@ public class Experiment
     public List<Result> GetAllResultsOfSet(string name)
     {
         return this.Results?.Where(x => x.Set == name).ToList() ?? [];
+    }
+
+    public void Filter(IEnumerable<Tag>? includeTags, IEnumerable<Tag>? excludeTags)
+    {
+        var hasIncludeTags = includeTags is not null && includeTags.Any();
+        var hasExcludeTags = excludeTags is not null && excludeTags.Any();
+        if (!hasIncludeTags && !hasExcludeTags) return;
+        this.Results = this.Results?
+            .Where(x =>
+            {
+                if (x.Ref is null) return false;
+                if (hasExcludeTags)
+                {
+                    foreach (var tag in excludeTags!)
+                    {
+                        if (tag.Refs is not null && tag.Refs.Contains(x.Ref)) return false;
+                    }
+                }
+                if (hasIncludeTags)
+                {
+                    foreach (var tag in includeTags!)
+                    {
+                        if (tag.Refs is not null && tag.Refs.Contains(x.Ref)) return true;
+                    }
+                }
+                if (hasIncludeTags) return false;
+                if (hasExcludeTags) return true;
+                return true;
+            }).ToList();
     }
 }

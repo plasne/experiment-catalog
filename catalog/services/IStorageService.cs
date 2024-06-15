@@ -8,6 +8,9 @@ public interface IStorageService
 {
     Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default);
     Task AddProjectAsync(Project project, CancellationToken cancellationToken = default);
+    Task<IList<string>> ListTagsAsync(string projectName, CancellationToken cancellationToken = default);
+    Task AddTagAsync(string projectName, Tag tag, CancellationToken cancellationToken = default);
+    Task<IList<Tag>> GetTagsAsync(string projectName, IEnumerable<string> tags, CancellationToken cancellationToken = default);
     Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default);
     Task AddExperimentAsync(string projectName, Experiment experiment, CancellationToken cancellationToken = default);
     Task SetExperimentAsBaselineAsync(string projectName, string experimentName, CancellationToken cancellationToken = default);
