@@ -2,6 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
+  import TagsFilter from "./TagsFilter.svelte";
 
   export let project: Project;
   export let experiment: Experiment;
@@ -19,12 +20,13 @@
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let comparison: Comparison;
   let metrics: string[] = [];
+  let tagFilters: string;
 
   const fetchComparison = async () => {
     try {
       state = "loading";
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}`
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters}`
       );
       comparison = await response.json();
       const allKeys = [
@@ -50,18 +52,12 @@
     }
   };
 
-  $: fetchComparison();
+  $: fetchComparison(), tagFilters;
 </script>
 
-{#if state === "loading"}
-  <div>Loading...</div>
-  <div>
-    <img class="loading" alt="loading" src="/spinner.gif" />
-  </div>
-{:else if state === "error"}
-  <div>Error loading comparison.</div>
-{:else if comparison}
+{#if comparison}
   <div class="selection">
+    <TagsFilter {project} bind:querystring={tagFilters} />
     <span>last:</span>
     <select bind:value={compareCount} on:change={fetchComparison}>
       <option value="3">3</option>
@@ -72,6 +68,16 @@
       <option value="100">100</option>
     </select>
   </div>
+{/if}
+
+{#if state === "loading"}
+  <div>Loading...</div>
+  <div>
+    <img class="loading" alt="loading" src="/spinner.gif" />
+  </div>
+{:else if state === "error"}
+  <div>Error loading comparison.</div>
+{:else if comparison}
   <table>
     <thead>
       <tr>
@@ -155,6 +161,7 @@
   }
 
   .selection {
+    width: 80rem;
     text-align: right;
   }
 
