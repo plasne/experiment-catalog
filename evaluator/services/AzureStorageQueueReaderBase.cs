@@ -180,6 +180,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
 
         // call the processing endpoint
         using var httpClient = this.httpClientFactory.CreateClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(this.config.SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING);
         using var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(content, Encoding.UTF8, "application/json")

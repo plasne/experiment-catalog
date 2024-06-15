@@ -25,6 +25,7 @@ public interface IConfig
     int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
     string INFERENCE_URL { get; }
     string EVALUATION_URL { get; }
+    int SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING { get; }
     int[] BACKOFF_ON_STATUS_CODES { get; }
     int[] DEADLETTER_ON_STATUS_CODES { get; }
     string EXPERIMENT_CATALOG_BASE_URL { get; }

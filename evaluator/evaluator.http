@@ -3,10 +3,10 @@ POST http://localhost:6030/api/evaluations HTTP/1.1
 Content-Type: application/json
 
 {
-    "project": "test",
-    "experiment": "alpha",
-    "set": "full-test-05",
-    "containers": ["data/ground_truth/gold/v3/test"],
+    "project": "baseline",
+    "experiment": "baseline",
+    "set": "alpha",
+    "containers": ["data/ground_truth/gold/v3/test", "data/ground_truth/gold/v3/train"],
     "queue": "pelasne-inference",
-    "iterations": 1
+    "iterations": 5
 }
