@@ -3,6 +3,7 @@
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
   import TagsFilter from "./TagsFilter.svelte";
+  import FreeFilter from "./FreeFilter.svelte";
 
   export let project: Project;
   export let experiment: Experiment;
@@ -21,7 +22,8 @@
   let results: Result[];
   let showResults = false;
   let comparison: ComparisonByRef;
-  let refs: string[] = [];
+  let masterRefs: string[] = [];
+  let filteredRefs: string[] = [];
   let metrics: string[] = [];
   let tagFilters: string;
 
@@ -34,7 +36,8 @@
       comparison = await response.json();
 
       // get a list of all refs in the chosen results
-      refs = Object.keys(comparison.chosen_results_for_chosen_experiment);
+      masterRefs = Object.keys(comparison.chosen_results_for_chosen_experiment);
+      filteredRefs = masterRefs;
 
       // get a list of all metrics
       const allMetrics = [
@@ -78,6 +81,19 @@
     }
   };
 
+  function filter(event: CustomEvent<Function>) {
+    state = "loading";
+    var func = event.detail;
+    if (!func) {
+      filteredRefs = masterRefs;
+    } else {
+      filteredRefs = masterRefs.filter((ref) => {
+        return func(comparison.chosen_results_for_chosen_experiment[ref]);
+      });
+    }
+    state = "loaded";
+  }
+
   $: fetchComparison(), showResults, tagFilters;
 </script>
 
@@ -109,6 +125,8 @@
 {#if comparison}
   <div class="selection">
     <TagsFilter {project} bind:querystring={tagFilters} />
+    <br />
+    <FreeFilter on:filter={filter} {metrics} />
   </div>
 {/if}
 
@@ -131,7 +149,7 @@
       </tr>
     </thead>
     <tbody>
-      {#each refs as ref}
+      {#each filteredRefs as ref}
         <tr class="experiment-baseline">
           <td
             ><nobr
@@ -290,8 +308,7 @@
   }
 
   .selection {
-    width: 80rem;
-    text-align: right;
+    width: 100em;
     margin-bottom: 1em;
   }
 </style>
