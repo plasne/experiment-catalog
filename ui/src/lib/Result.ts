@@ -9,3 +9,5 @@ interface Result {
     is_baseline: boolean;
     created: Date;
 }
+
+type ResultFilter = (result: Result) => boolean;
