@@ -91,14 +91,14 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         if (!response.IsSuccessStatusCode)
         {
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            this.logger.LogError("when trying to record metrics, got HTTP {c}: {s}.", response.StatusCode, content);
+            throw new Exception($"status code {response.StatusCode} when recording metrics: {content}");
         }
         this.logger.LogInformation("successfully recorded {x} metrics ({y}).",
             metrics.Count,
             string.Join(", ", metrics.Select(x => x.Key)));
     }
 
-    protected void RecordHistogramsAsync(PipelineRequest pipelineRequest, List<string> connectionStrings)
+    protected void RecordHistograms(PipelineRequest pipelineRequest, List<string> connectionStrings)
     {
         if (connectionStrings.Count == 0)
         {
@@ -164,7 +164,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
 
         // record
         await this.RecordMetricsAsync(pipelineRequest, inferenceUri, evaluationUri, metrics, cancellationToken);
-        this.RecordHistogramsAsync(pipelineRequest, connectionStrings);
+        this.RecordHistograms(pipelineRequest, connectionStrings);
     }
 
     protected async Task<(HttpResponseHeaders, string)> SendForProcessingAsync(

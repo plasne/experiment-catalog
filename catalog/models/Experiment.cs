@@ -192,6 +192,7 @@ public class Experiment
         return this.Results?.Where(x => x.Set == name).ToList() ?? [];
     }
 
+# pragma warning disable S3776 // Cognitive Complexity of this method is not too high
     public void Filter(IEnumerable<Tag>? includeTags, IEnumerable<Tag>? excludeTags)
     {
         var hasIncludeTags = includeTags is not null && includeTags.Any();
@@ -220,4 +221,5 @@ public class Experiment
                 return true;
             }).ToList();
     }
+# pragma warning restore S3776
 }

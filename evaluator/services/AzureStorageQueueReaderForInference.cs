@@ -72,7 +72,7 @@ public class AzureStorageQueueReaderForInference(IConfig config,
                 cancellationToken);
 
             // upload the result
-            var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+            var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, $"{request.RunId}/{request.Id}.json", responseContent, cancellationToken);
 
             // handle the response headers (metrics, histograms, etc.)
             await this.HandleResponseHeadersAsync(request, responseHeaders, inferenceUri, null, cancellationToken);
