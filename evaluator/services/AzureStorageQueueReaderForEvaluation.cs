@@ -62,7 +62,7 @@ public class AzureStorageQueueReaderForEvaluation(IConfig config,
                 cancellationToken);
 
             // download and transform the inference file
-            var inferenceBlobClient = this.GetBlobClient(this.config.INFERENCE_CONTAINER, request.Id + ".json");
+            var inferenceBlobClient = this.GetBlobClient(this.config.INFERENCE_CONTAINER, $"{request.RunId}/{request.Id}.json");
             var inferenceContent = await inferenceBlobClient.DownloadAndTransformAsync(
                 this.config.INBOUND_INFERENCE_TRANSFORM_QUERY,
                 this.logger,
@@ -85,10 +85,10 @@ public class AzureStorageQueueReaderForEvaluation(IConfig config,
                 cancellationToken);
 
             // upload the result
-            var evaluationUri = await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, request.Id + ".json", responseContent, cancellationToken);
+            var evaluationUri = await this.UploadBlobAsync(this.config.EVALUATION_CONTAINER, $"{request.RunId}/{request.Id}.json", responseContent, cancellationToken);
 
             // get reference to the inferenceUri
-            var inferenceUri = this.GetBlobUri(this.config.INFERENCE_CONTAINER, request.Id + ".json");
+            var inferenceUri = this.GetBlobUri(this.config.INFERENCE_CONTAINER, $"{request.RunId}/{request.Id}.json");
 
             // handle the response headers (metrics, histograms, etc.)
             await this.HandleResponseHeadersAsync(request, responseHeaders, inferenceUri, evaluationUri, cancellationToken);

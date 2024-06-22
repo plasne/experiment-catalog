@@ -23,7 +23,7 @@
     // Construct the function using the Function constructor
     var func = new Function(
       "result",
-      `try { console.log('ran'); var a = ${funcstr}; console.log(a); return a; } catch (e) { console.log('failed'); return false; }`
+      `try { return ${funcstr}; } catch (e) { return false; }`
     );
     dispatch("filter", func);
   }
