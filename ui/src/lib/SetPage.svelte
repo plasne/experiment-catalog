@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, tick } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
   import TagsFilter from "./TagsFilter.svelte";
@@ -37,7 +37,7 @@
 
       // get a list of all refs in the chosen results
       masterRefs = Object.keys(comparison.chosen_results_for_chosen_experiment);
-      filteredRefs = masterRefs;
+      if (filteredRefs.length === 0) filteredRefs = [...masterRefs];
 
       // get a list of all metrics
       const allMetrics = [
@@ -81,18 +81,24 @@
     }
   };
 
-  function filter(event: CustomEvent<Function>) {
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  const filter = async (event: CustomEvent<Function>) => {
     state = "loading";
+    await delay(0);
+
     var func = event.detail;
     if (!func) {
-      filteredRefs = masterRefs;
+      filteredRefs = [...masterRefs];
     } else {
       filteredRefs = masterRefs.filter((ref) => {
         return func(comparison.chosen_results_for_chosen_experiment[ref]);
       });
     }
+
     state = "loaded";
-  }
+  };
 
   $: fetchComparison(), showResults, tagFilters;
 </script>

@@ -1,6 +1,4 @@
 @baseURL = http://localhost:6010/api
-#@baseURL = https://catalog.yellowtree-5689a7aa.eastus.azurecontainerapps.io/api
-@baseURL = https://plexchatcopilotpoc-eastus-catalg.lemonbeach-93a7a5bb.eastus.azurecontainerapps.io/api
 
 ## Get a list of projects
 GET {{baseURL}}/projects HTTP/1.1

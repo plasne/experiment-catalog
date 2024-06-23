@@ -1,40 +1,82 @@
 <script lang="ts">
+  import { loadExperiment, updateURL } from "./lib/Tools";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
   import ProjectsList from "./lib/ProjectsList.svelte";
+  import { onMount } from "svelte";
 
+  let state: "loading" | "loaded" | "error" = "loading";
   let project: Project;
   let experiment: Experiment;
   let setName: string;
 
   const selectProject = (event: CustomEvent<Project>) => {
     project = event.detail;
+    updateURL(project.name);
   };
 
   const unselectProject = () => {
     project = undefined;
+    updateURL();
   };
 
   const selectExperiment = (event: CustomEvent<Experiment>) => {
     experiment = event.detail;
+    updateURL(project.name, experiment.name);
   };
 
   const unselectExperiment = () => {
     experiment = undefined;
+    updateURL(project.name);
   };
 
   const selectSet = (event: CustomEvent<string>) => {
     setName = event.detail;
+    updateURL(project.name, experiment.name, `set:${setName}`);
   };
 
   const unselectSet = () => {
     setName = undefined;
+    updateURL(project.name, experiment.name);
   };
+
+  async function parseQueryString() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const qproject = params.get("project");
+      const qexperiment = params.get("experiment");
+      const qpage = params.get("page");
+
+      if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {
+        setName = qpage.slice(4);
+        experiment = await loadExperiment(qproject, qexperiment);
+        project = { name: qproject };
+      } else if (qproject && qexperiment) {
+        experiment = await loadExperiment(qproject, qexperiment);
+        project = { name: qproject };
+      } else if (qproject) {
+        project = { name: qproject };
+      }
+    } catch {
+      setName = undefined;
+      experiment = undefined;
+      project = undefined;
+    }
+
+    state = "loaded";
+  }
+
+  onMount(parseQueryString);
 </script>
 
 <main>
-  {#if project && experiment && setName}
+  {#if state === "loading"}
+    <div>Loading...</div>
+    <div>
+      <img class="loading" alt="loading" src="/spinner.gif" />
+    </div>
+  {:else if project && experiment && setName}
     <SetPage on:unselectSet={unselectSet} {project} {experiment} {setName} />
   {:else if project && experiment}
     <ExperimentPage

@@ -63,7 +63,12 @@ public class AzureBlobStorageService(
 
             // create the container client
             var containerClient = this.blobServiceClient.GetBlobContainerClient(projectName);
-            await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
+            // ensure the container exists
+            if (!await containerClient.ExistsAsync(cancellationToken))
+            {
+                throw new HttpException(404, "project not found.");
+            }
 
             return containerClient;
         }

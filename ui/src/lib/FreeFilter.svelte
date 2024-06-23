@@ -16,30 +16,38 @@
     var funcstr = filter.replace(/AND/gi, " && ").replace(/OR/gi, " || ");
     for (const metric of metrics) {
       funcstr = funcstr.replace(
-        new RegExp(metric, "g"),
+        new RegExp(metric, "gi"),
         `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`
       );
     }
-    // Construct the function using the Function constructor
+    funcstr = funcstr.replace(/ref /gi, "result.ref");
+
     var func = new Function(
       "result",
       `try { return ${funcstr}; } catch (e) { return false; }`
     );
     dispatch("filter", func);
   }
+
+  function clear() {
+    filter = "";
+    apply();
+  }
 </script>
 
-<div>
+<div class="top">
   <label for={buttonId}>filter:</label>
-  <textarea id={buttonId} bind:value={filter} on:change={apply}></textarea>
+  <textarea id={buttonId} bind:value={filter}></textarea>
+  <button on:click={apply}>Apply</button>
+  <button on:click={clear}>Clear</button>
 </div>
 
 <style>
-  label {
+  .top > * {
     vertical-align: top;
   }
   textarea {
-    width: 80em;
+    width: 60em;
     height: 5em;
   }
 </style>
