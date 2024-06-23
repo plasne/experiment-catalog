@@ -24,6 +24,17 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         return Ok(experiments);
     }
 
+    [HttpGet("{experimentName}")]
+    public async Task<ActionResult<Experiment>> Get(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        [FromRoute] string experimentName,
+        CancellationToken cancellationToken)
+    {
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        return Ok(experiment);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Add(
         [FromServices] IStorageService storageService,
