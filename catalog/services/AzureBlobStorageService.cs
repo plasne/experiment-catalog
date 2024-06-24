@@ -312,10 +312,10 @@ public class AzureBlobStorageService(
         return experiment;
     }
 
-    public async Task<Experiment> GetExperimentAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)
+    public async Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
-        var experiment = await this.LoadExperimentAsync(containerClient, experimentName, cancellationToken: cancellationToken);
+        var experiment = await this.LoadExperimentAsync(containerClient, experimentName, includeResults, cancellationToken: cancellationToken);
         return experiment;
     }
 

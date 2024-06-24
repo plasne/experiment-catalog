@@ -31,7 +31,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, false, cancellationToken);
         return Ok(experiment);
     }
 
@@ -105,7 +105,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultForChosenExperiment =
             experiment.AggregateBaselineSet()
@@ -141,7 +141,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         // get the comparison data
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultsForChosenExperiment =
             experiment.AggregateBaselineSetByRef()
@@ -184,7 +184,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         var results = experiment.GetAllResultsOfSet(setName);
