@@ -29,4 +29,10 @@ public class EnqueueRequest
 
     [JsonProperty("iterations")]
     public int Iterations { get; set; } = 1;
+
+    [JsonProperty("inf_headers", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, string>? InferenceHeaders { get; set; }
+
+    [JsonProperty("eval_headers", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, string>? EvaluationHeaders { get; set; }
 }

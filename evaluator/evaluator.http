@@ -4,9 +4,12 @@ Content-Type: application/json
 
 {
     "project": "baseline",
-    "experiment": "baseline",
-    "set": "alpha",
-    "containers": ["data/ground_truth/gold/v3/test", "data/ground_truth/gold/v3/train"],
+    "experiment": "test",
+    "set": "ood-test-b",
+    "containers": ["data/ground_truth/gold/v1/test", "data/ground_truth/gold/v1/val"],
     "queue": "pelasne-inference",
-    "iterations": 5
+    "iterations": 5,
+    "inf_headers": {
+        "X-INTENT-PROMPT-FILE": "./templates/intent-prompt-always-out-of-domain.txt"
+    }
 }

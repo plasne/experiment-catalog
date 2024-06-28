@@ -166,10 +166,9 @@ To see what that might look like, see these examples:
 
 ## TODO
 
-- add authentication for API.
+- Rather than work off response headers, use Jsonata against the response body.
+- Add authentication for API.
 - Build a UI for enqueing jobs.
 - Build an API and a UI for viewing progress.
-- Add telemetry.
-- Add Dockerfile.
 - Unit testing/integration testing.
 - Documentation.

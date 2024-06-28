@@ -8,6 +8,7 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
 using Jsonata.Net.Native;
+using Jsonata.Net.Native.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NetBricks;
