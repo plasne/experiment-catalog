@@ -82,6 +82,7 @@ public class AzureStorageQueueReaderForEvaluation(IConfig config,
                 payload,
                 message.Value,
                 body,
+                request.EvaluationHeaders,
                 cancellationToken);
 
             // upload the result

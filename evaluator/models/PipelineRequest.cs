@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Evaluator;
@@ -28,4 +29,10 @@ public class PipelineRequest
 
     [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public bool IsBaseline { get; set; }
+
+    [JsonProperty("inf_headers", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, string>? InferenceHeaders { get; set; }
+
+    [JsonProperty("eval_headers", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, string>? EvaluationHeaders { get; set; }
 }

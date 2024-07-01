@@ -69,6 +69,7 @@ public class AzureStorageQueueReaderForInference(IConfig config,
                 groundTruthContent,
                 message.Value,
                 body,
+                request.InferenceHeaders,
                 cancellationToken);
 
             // upload the result

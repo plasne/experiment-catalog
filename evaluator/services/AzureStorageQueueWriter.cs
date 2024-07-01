@@ -70,6 +70,8 @@ public class AzureStorageQueueWriter(
                     Ref = groundTruthFile.Ref,
                     Set = enqueueRequest.Set,
                     IsBaseline = enqueueRequest.IsBaseline,
+                    InferenceHeaders = enqueueRequest.InferenceHeaders,
+                    EvaluationHeaders = enqueueRequest.EvaluationHeaders,
                 };
 
                 // enqueue in blob

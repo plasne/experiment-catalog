@@ -173,12 +173,13 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         string content,
         QueueMessage queueMessage,
         string queueBody,
+        Dictionary<string, string>? headers,
         CancellationToken cancellationToken)
     {
         var callId = Guid.NewGuid();
         this.logger.LogDebug("attempting to call '{u}' for processing with id {i}...", url, callId);
 
-        // call the processing endpoint
+        // build the request
         using var httpClient = this.httpClientFactory.CreateClient();
         httpClient.Timeout = TimeSpan.FromSeconds(this.config.SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING);
         using var request = new HttpRequestMessage(HttpMethod.Post, url)
@@ -187,6 +188,17 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         };
         request.Headers.Add("x-run-id", pipelineRequest.RunId.ToString());
         request.Headers.Add("x-call-id", callId.ToString());
+
+        // add headers
+        if (headers is not null)
+        {
+            foreach (var (key, value) in headers)
+            {
+                request.Headers.Add(key, value);
+            }
+        }
+
+        // send the request
         var response = await httpClient.SendAsync(request, cancellationToken);
 
         // validate the response
