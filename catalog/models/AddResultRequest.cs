@@ -9,8 +9,8 @@ public class AddResultRequest
 {
     private static readonly string[] classifications = ["t+", "t-", "f+", "f-"];
 
-    [JsonProperty("ref", Required = Required.Always)]
-    public required string Ref { get; set; }
+    [JsonProperty("ref", NullValueHandling = NullValueHandling.Ignore)]
+    public string? Ref { get; set; }
 
     [JsonProperty("set", Required = Required.Always)]
     public required string Set { get; set; }
