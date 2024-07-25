@@ -96,10 +96,16 @@ Then to record results for that experiment, you can do it exactly like the basel
 curl -i -X POST -d '{ "ref": "q1", "set": "beta", "metrics": { "gpt-coherance": 3, "gpt-relevance": 2, "gpt-correctness": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/experiment-000/results
 ```
 
-While generally the first evaluation run of an experiment is the baseline, you can record laster evaluation runs as the baseline by including is_baseline...
+While generally the first evaluation run of an experiment is the baseline, you can record later evaluation runs as the baseline by...
 
 ```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "beta", "metrics": { "gpt-coherance": 3, "gpt-relevance": 2, "gpt-correctness": 3 }, "is_baseline": true }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/experiment-000/results
+curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-baseline/baseline
+```
+
+Alternatively, you can set the experiment baseline to the project baseline like this...
+
+```bash
+curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/:project/baseline
 ```
 
 ## Compare

@@ -27,20 +27,36 @@ public class AzureBlobStorageService(
 
     private BlobServiceClient? blobServiceClient;
 
+    private BlobServiceClient GetBlobServiceClientAsync()
+    {
+        // create the blob service client using connection string if it doesn't exist
+        if (this.blobServiceClient is null && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_ACCOUNT_CONNSTRING))
+        {
+            this.blobServiceClient = new BlobServiceClient(this.config.AZURE_STORAGE_ACCOUNT_CONNSTRING);
+        }
+
+        // create the blob service client using account name if it doesn't exist
+        if (this.blobServiceClient is null && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_ACCOUNT_NAME))
+        {
+            string blobServiceUri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+            this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
+        }
+
+        // throw if no connection string or account name was provided
+        if (this.blobServiceClient is null)
+        {
+            throw new Exception("no connection string or account name was provided.");
+        }
+
+        return this.blobServiceClient;
+    }
+
     private async Task<BlobServiceClient> ConnectAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             await this.connectLock.WaitAsync(cancellationToken);
-
-            // create the blob service client if it doesn't exist
-            if (this.blobServiceClient is null)
-            {
-                string blobServiceUri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-                this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
-            }
-
-            return this.blobServiceClient;
+            return GetBlobServiceClientAsync();
         }
         finally
         {
@@ -54,12 +70,8 @@ public class AzureBlobStorageService(
         {
             await this.connectLock.WaitAsync(cancellationToken);
 
-            // create the blob service client if it doesn't exist
-            if (this.blobServiceClient is null)
-            {
-                string blobServiceUri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-                this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
-            }
+            // create the service client
+            this.blobServiceClient = GetBlobServiceClientAsync();
 
             // create the container client
             var containerClient = this.blobServiceClient.GetBlobContainerClient(projectName);
@@ -238,6 +250,29 @@ public class AzureBlobStorageService(
         await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
+    public async Task SetBaselineForExperiment(string projectName, string experimentName, string setName, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+
+        // ensure experiment is not being optimized
+        var optimizing = containerClient.GetAppendBlobClient($"{experimentName}-optimizing.jsonl");
+        if (await optimizing.ExistsAsync(cancellationToken))
+        {
+            throw new HttpException(409, "experiment is currently being optimized.");
+        }
+
+        // set the metadata for baseline
+        var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
+        var response = await appendBlobClient.ExistsAsync(cancellationToken);
+        if (!response.Value) throw new HttpException(404, "experiment not found.");
+        var metadata = new Dictionary<string, string>
+        {
+            { "exp_catalog_type", "experiment" },
+            { "baseline", setName }
+        };
+        await appendBlobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+    }
+
     public async Task AddResultAsync(string projectName, string experimentName, Result result, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
@@ -293,6 +328,13 @@ public class AzureBlobStorageService(
         }
         experiment.Results = results;
 
+        // determine which is the baseline
+        var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        if (properties.Value.Metadata.TryGetValue("baseline", out var baseline))
+        {
+            experiment.Baseline = baseline;
+        }
+
         return experiment;
     }
 
@@ -324,6 +366,9 @@ public class AzureBlobStorageService(
         // log beginning of copy operation
         this.logger.LogInformation("attempting to copy {s} to {t}...", sourceBlobClient.Uri, targetBlobClient.Uri);
         var count = 0;
+
+        // get the metadata
+        var properties = await sourceBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
 
         // open the source blob
         using var readStream = await sourceBlobClient.OpenReadAsync(cancellationToken: cancellationToken);
@@ -357,6 +402,9 @@ public class AzureBlobStorageService(
             await targetBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
             count++;
         }
+
+        // set the metadata
+        await targetBlobClient.SetMetadataAsync(properties.Value.Metadata, cancellationToken: cancellationToken);
 
         // log end of copy operation
         this.logger.LogInformation(

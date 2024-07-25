@@ -34,7 +34,6 @@ public class ResultsController : ControllerBase
             EvaluationUri = request.EvaluationUri,
             Metrics = request.ToMetrics(),
             Annotations = request.Annotations,
-            IsBaseline = request.IsBaseline,
         };
 
         await storageService.AddResultAsync(projectName, experimentName, result);

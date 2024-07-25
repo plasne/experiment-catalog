@@ -27,9 +27,6 @@ public class Result
     [JsonProperty("policy_results", NullValueHandling = NullValueHandling.Ignore)]
     public Dictionary<string, PolicyResult>? PolicyResults { get; set; }
 
-    [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
-    public bool IsBaseline { get; set; }
-
     [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
     public DateTime Created { get; set; } = DateTime.UtcNow;
 }
