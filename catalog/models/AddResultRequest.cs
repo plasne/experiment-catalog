@@ -27,9 +27,6 @@ public class AddResultRequest
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
     public List<Annotation>? Annotations { get; set; }
 
-    [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
-    public bool IsBaseline { get; set; }
-
     public Dictionary<string, Metric>? ToMetrics()
     {
         if (this.Metrics is null) return null;

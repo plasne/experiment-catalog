@@ -1,3 +1,4 @@
+using System;
 using NetBricks;
 
 namespace Catalog;
@@ -12,6 +13,7 @@ public class Config : IConfig
         this.PORT = this.config.Get<string>("PORT").AsInt(() => 6010);
         this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
         this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
+        this.AZURE_STORAGE_ACCOUNT_CONNSTRING = this.config.GetSecret<string>("AZURE_STORAGE_ACCOUNT_CONNSTRING").Result;
         this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 4);
         this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE = this.config.Get<string>("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE").AsInt(() => 1024);
         this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE = this.config.Get<string>("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE").AsInt(() => 10);
@@ -23,6 +25,8 @@ public class Config : IConfig
     public string OPEN_TELEMETRY_CONNECTION_STRING { get; }
 
     public string AZURE_STORAGE_ACCOUNT_NAME { get; }
+
+    public string AZURE_STORAGE_ACCOUNT_CONNSTRING { get; }
 
     public int CONCURRENCY { get; }
 
@@ -36,7 +40,12 @@ public class Config : IConfig
     {
         this.config.Require("PORT", this.PORT);
         this.config.Optional("OPEN_TELEMETRY_CONNECTION_STRING", this.OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
-        this.config.Require("AZURE_STORAGE_ACCOUNT_NAME", AZURE_STORAGE_ACCOUNT_NAME);
+        this.config.Optional("AZURE_STORAGE_ACCOUNT_NAME", AZURE_STORAGE_ACCOUNT_NAME);
+        this.config.Optional("AZURE_STORAGE_ACCOUNT_CONNECTION_STRING", this.AZURE_STORAGE_ACCOUNT_CONNSTRING, hideValue: true);
+        if (string.IsNullOrEmpty(this.AZURE_STORAGE_ACCOUNT_NAME) && string.IsNullOrEmpty(this.AZURE_STORAGE_ACCOUNT_CONNSTRING))
+        {
+            throw new Exception("either AZURE_STORAGE_ACCOUNT_NAME or AZURE_STORAGE_ACCOUNT_CONNECTION_STRING must be set.");
+        }
         this.config.Require("CONCURRENCY", this.CONCURRENCY);
         this.config.Require("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE", this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE);
         this.config.Require("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE", this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE);

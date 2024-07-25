@@ -57,13 +57,25 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     }
 
     [HttpPatch("{experimentName}/baseline")]
-    public async Task<IActionResult> SetBaseline(
+    public async Task<IActionResult> SetExperimentAsBaseline(
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
         await storageService.SetExperimentAsBaselineAsync(projectName, experimentName, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPatch("{experimentName}/sets/{setName}/baseline")]
+    public async Task<IActionResult> SetBaselineForExperiment(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        [FromRoute] string experimentName,
+        [FromRoute] string setName,
+        CancellationToken cancellationToken)
+    {
+        await storageService.SetBaselineForExperiment(projectName, experimentName, setName, cancellationToken);
         return Ok();
     }
 
@@ -97,7 +109,9 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
-            comparison.LastResultForBaselineExperiment = baseline.AggregateLastSet();
+            comparison.LastResultForBaselineExperiment =
+                baseline.AggregateBaselineSet()
+                ?? baseline.AggregateLastSet();
         }
         catch (Exception e)
         {
@@ -108,6 +122,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultForChosenExperiment =
+            string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
+            ? comparison.LastResultForBaselineExperiment :
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
         comparison.LastResultsForChosenExperiment = experiment.AggregateLastSets(count);
@@ -133,17 +149,21 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
-            comparison.LastResultsForBaselineExperiment = baseline.AggregateLastSetByRef();
+            comparison.LastResultsForBaselineExperiment =
+                baseline.AggregateBaselineSetByRef()
+                ?? baseline.AggregateLastSetByRef();
         }
         catch (Exception e)
         {
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
-        // get the comparison data
+        // get the comparison datas
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultsForChosenExperiment =
+            string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
+            ? comparison.LastResultsForBaselineExperiment :
             experiment.AggregateBaselineSetByRef()
             ?? experiment.AggregateFirstSetByRef();
         comparison.ChosenResultsForChosenExperiment = experiment.AggregateSetByRef(setName);

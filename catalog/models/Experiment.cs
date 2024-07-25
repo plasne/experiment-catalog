@@ -19,6 +19,9 @@ public class Experiment
     [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
     public List<Result>? Results { get; set; }
 
+    [JsonProperty("baseline", NullValueHandling = NullValueHandling.Ignore)]
+    public string? Baseline { get; set; }
+
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
     public List<Annotation>? Annotations { get; set; }
 
@@ -179,12 +182,12 @@ public class Experiment
 
     public Result? AggregateBaselineSet()
     {
-        return this.AggregateSet(this.Results?.LastOrDefault(x => x.IsBaseline)?.Set);
+        return this.AggregateSet(this.Baseline);
     }
 
     public Dictionary<string, Result>? AggregateBaselineSetByRef()
     {
-        return this.AggregateSetByRef(this.Results?.LastOrDefault(x => x.IsBaseline)?.Set);
+        return this.AggregateSetByRef(this.Baseline);
     }
 
     public List<Result> GetAllResultsOfSet(string name)

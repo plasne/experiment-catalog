@@ -14,6 +14,7 @@ public interface IStorageService
     Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default);
     Task AddExperimentAsync(string projectName, Experiment experiment, CancellationToken cancellationToken = default);
     Task SetExperimentAsBaselineAsync(string projectName, string experimentName, CancellationToken cancellationToken = default);
+    Task SetBaselineForExperiment(string projectName, string experimentName, string setName, CancellationToken cancellationToken = default);
     Task AddResultAsync(string projectName, string experimentName, Result result, CancellationToken cancellationToken = default);
     Task<Experiment> GetProjectBaselineAsync(string projectName, CancellationToken cancellationToken = default);
     Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default);
