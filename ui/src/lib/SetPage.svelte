@@ -26,18 +26,19 @@
   let filteredRefs: string[] = [];
   let metrics: string[] = [];
   let tagFilters: string;
+  let filterFunc: Function;
 
   const fetchComparison = async () => {
     try {
       state = "loading";
       // get the comparison
-      let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref?${tagFilters}`;
+      let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref?${tagFilters ?? ""}`;
       var response = await fetch(url);
       comparison = await response.json();
 
       // get a list of all refs in the chosen results
       masterRefs = Object.keys(comparison.chosen_results_for_chosen_experiment);
-      if (filteredRefs.length === 0) filteredRefs = [...masterRefs];
+      applyFilter();
 
       // get a list of all metrics
       const allMetrics = [
@@ -84,19 +85,22 @@
   const delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
+  const applyFilter = async () => {
+    if (!filterFunc) {
+      filteredRefs = [...masterRefs];
+    } else {
+      filteredRefs = masterRefs.filter((ref) => {
+        return filterFunc(comparison.chosen_results_for_chosen_experiment[ref]);
+      });
+    }
+  };
+
   const filter = async (event: CustomEvent<Function>) => {
     state = "loading";
     await delay(0);
 
-    var func = event.detail;
-    if (!func) {
-      filteredRefs = [...masterRefs];
-    } else {
-      filteredRefs = masterRefs.filter((ref) => {
-        return func(comparison.chosen_results_for_chosen_experiment[ref]);
-      });
-    }
-
+    filterFunc = event.detail;
+    applyFilter();
     state = "loaded";
   };
 
@@ -200,7 +204,7 @@
             ><nobr
               >Set Aggregate / {comparison.chosen_results_for_chosen_experiment[
                 ref
-              ].set}</nobr
+              ]?.set ?? "MISSING"}</nobr
             ></td
           >
           <td class="label">{ref}</td>

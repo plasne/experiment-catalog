@@ -26,7 +26,7 @@
     try {
       state = "loading";
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters}`
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters ?? ""}`
       );
       comparison = await response.json();
       const allKeys = [
@@ -86,6 +86,7 @@
           <ComparisonTableHeader
             title="Project Baseline"
             result={comparison.last_result_for_baseline_experiment}
+            clickable={false}
             on:selectSet={selectSet}
           />
         </th>
@@ -93,6 +94,7 @@
           <ComparisonTableHeader
             title="Experiment Baseline"
             result={comparison.baseline_result_for_chosen_experiment}
+            clickable={false}
             on:selectSet={selectSet}
           />
         </th>
