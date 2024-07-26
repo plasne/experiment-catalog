@@ -4,6 +4,7 @@
 
   export let title: string;
   export let result: Result;
+  export let clickable: boolean = true;
 
   const dispatch = createEventDispatcher();
 
@@ -14,7 +15,11 @@
 
 <div class="title">{title}</div>
 <div class="set">
-  <button class="link" on:click={select}>set: {result?.set ?? "-"}</button>
+  {#if clickable}
+    <button class="link" on:click={select}>set: {result?.set ?? "-"}</button>
+  {:else}
+    <span>set: {result?.set ?? "-"}</span>
+  {/if}
 </div>
 <Annotations {result} />
 
