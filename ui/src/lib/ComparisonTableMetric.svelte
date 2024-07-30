@@ -8,7 +8,7 @@
   let isCount: boolean;
   let isCost: boolean;
   let isAvg: boolean;
-
+  
   $: {
     isCount = metric.indexOf("count") > -1;
     isCost = metric.indexOf("cost") > -1;
@@ -38,14 +38,14 @@
       <span>-</span>
     {:else}
       <span
-        >{result.metrics[metric].value.toFixed(2) === "0.00" &&
+        >{result.metrics[metric].value.toFixed(3) === "0.000" &&
         result.metrics[metric].value > 0
           ? ">0.00"
-          : result.metrics[metric].value.toFixed(2)}</span
+          : result.metrics[metric].value.toFixed(3)}</span
       >
     {/if}
     {#if showStdDev && isAvg && result.metrics[metric].std_dev !== undefined}
-      <span>({result.metrics[metric].std_dev.toFixed(2)})</span>
+      <span>({result.metrics[metric].std_dev.toFixed(3)})</span>
     {/if}
 
     {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}

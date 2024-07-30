@@ -44,17 +44,17 @@
       const allMetrics = [
         ...(comparison.last_results_for_baseline_experiment
           ? Object.values(
-              comparison.last_results_for_baseline_experiment
+              comparison.last_results_for_baseline_experiment,
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
         ...(comparison.baseline_results_for_chosen_experiment
           ? Object.values(
-              comparison.baseline_results_for_chosen_experiment
+              comparison.baseline_results_for_chosen_experiment,
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
         ...(comparison.chosen_results_for_chosen_experiment
           ? Object.values(
-              comparison.chosen_results_for_chosen_experiment
+              comparison.chosen_results_for_chosen_experiment,
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
       ];
@@ -90,7 +90,10 @@
       filteredRefs = [...masterRefs];
     } else {
       filteredRefs = masterRefs.filter((ref) => {
-        return filterFunc(comparison.chosen_results_for_chosen_experiment[ref]);
+        return filterFunc(
+          comparison.baseline_results_for_chosen_experiment[ref],
+          comparison.chosen_results_for_chosen_experiment[ref],
+        );
       });
     }
   };
@@ -163,7 +166,7 @@
         <tr class="experiment-baseline">
           <td
             ><nobr
-              >Experiment Baseline / {comparison
+              >Project Baseline / {comparison
                 .last_results_for_baseline_experiment?.[ref]?.set ?? "-"}</nobr
             ></td
           >
@@ -183,7 +186,7 @@
         <tr class="project-baseline">
           <td
             ><nobr
-              >Project Baseline / {comparison
+              >Experiment Baseline / {comparison
                 .baseline_results_for_chosen_experiment[ref]?.set ?? "-"}</nobr
             ></td
           >
