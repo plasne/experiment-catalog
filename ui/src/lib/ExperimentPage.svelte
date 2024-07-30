@@ -36,6 +36,10 @@
     }).format(new Date(experiment.created))}
   </span>
 </div>
+<div>
+  <span class="label">Legend:</span>
+  <span>[value] ([standard-deviation]) [change-vs-experiment-baseline] x[number-of-values]</span>
+</div>
 {#if experiment.annotations}
   {#each experiment.annotations as annotation}
     <div>
