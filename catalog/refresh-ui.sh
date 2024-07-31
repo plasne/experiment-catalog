@@ -17,7 +17,7 @@ npm run build
 cd ../catalog
 
 # Copy the built files to the wwwroot directory
-rm -r wwwroot/
+rm -rf wwwroot/
 mkdir -p wwwroot/
 cp -r ../ui/dist/* wwwroot/
 

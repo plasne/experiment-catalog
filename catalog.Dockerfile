@@ -1,5 +1,6 @@
 # create the build container
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG TARGETARCH
 LABEL stage=build
 WORKDIR /ui
 COPY ui .
@@ -11,7 +12,7 @@ RUN apt-get update && \
     apt-get install -y nodejs && \
     apt-get clean
 RUN ./refresh-ui.sh
-RUN dotnet publish -c Release -o out
+RUN dotnet publish -c Release -o out -a $TARGETARCH
 
 # create the runtime container
 FROM mcr.microsoft.com/dotnet/aspnet:8.0

@@ -204,6 +204,9 @@ public class Experiment
         this.Results = this.Results?
             .Where(x =>
             {
+                var hasAnnotations = x.Annotations is not null && x.Annotations.Count > 0;
+                var hasMetrics = x.Metrics is not null && x.Metrics.Count > 0;
+                if (hasAnnotations && !hasMetrics) return true;
                 if (x.Ref is null) return false;
                 if (hasExcludeTags)
                 {
