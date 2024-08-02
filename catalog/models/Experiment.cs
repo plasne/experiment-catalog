@@ -228,4 +228,6 @@ public class Experiment
             }).ToList();
     }
 # pragma warning restore S3776
+
+    public int ExperimentCount => this.Results?.Select(x => x.Set).Distinct().Count() ?? 0;
 }

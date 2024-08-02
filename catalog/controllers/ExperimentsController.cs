@@ -120,6 +120,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
+        comparison.TotalExperimentCount = experiment.ExperimentCount;
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)

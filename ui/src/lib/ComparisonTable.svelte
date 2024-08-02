@@ -26,7 +26,7 @@
     try {
       state = "loading";
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters ?? ""}`
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters ?? ""}`,
       );
       comparison = await response.json();
       const allKeys = [
@@ -35,12 +35,12 @@
           : []),
         ...(comparison.baseline_result_for_chosen_experiment
           ? Object.keys(
-              comparison.baseline_result_for_chosen_experiment.metrics
+              comparison.baseline_result_for_chosen_experiment.metrics,
             )
           : []),
         ...(comparison.last_results_for_chosen_experiment
           ? comparison.last_results_for_chosen_experiment.flatMap(
-              (experiment) => Object.keys(experiment.metrics)
+              (experiment) => Object.keys(experiment.metrics),
             )
           : []),
       ];
@@ -60,13 +60,17 @@
     <TagsFilter {project} bind:querystring={tagFilters} />
     <span>last:</span>
     <select bind:value={compareCount} on:change={fetchComparison}>
+      <option value="1">1</option>
+      <option value="2">2</option>
       <option value="3">3</option>
+      <option value="4">4</option>
       <option value="5">5</option>
       <option value="10">10</option>
       <option value="20">20</option>
       <option value="30">30</option>
       <option value="100">100</option>
     </select>
+    <span>of {comparison.total_experiment_count} experiments</span>
   </div>
 {/if}
 
