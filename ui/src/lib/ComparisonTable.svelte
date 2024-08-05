@@ -9,6 +9,7 @@
 
   let state: "loading" | "loaded" | "error" = "loading";
   let compareCount = "3";
+  let sets = [];
 
   const dispatch = createEventDispatcher();
 
@@ -22,25 +23,34 @@
   let metrics: string[] = [];
   let tagFilters: string;
 
+  const updateSetsPerCompareCount = () => {
+    const count = parseInt(compareCount, 10);
+    while (sets.length < count) {
+      sets.push("*");
+    }
+    while (sets.length > count) {
+      sets.pop();
+    }
+  };
+
   const fetchComparison = async () => {
     try {
       state = "loading";
+      updateSetsPerCompareCount();
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters ?? ""}`,
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?sets=${sets.join(",")}&${tagFilters ?? ""}`,
       );
       comparison = await response.json();
       const allKeys = [
-        ...(comparison.last_result_for_baseline_experiment
-          ? Object.keys(comparison.last_result_for_baseline_experiment.metrics)
+        ...(comparison.baseline_result_for_project
+          ? Object.keys(comparison.baseline_result_for_project.metrics)
           : []),
-        ...(comparison.baseline_result_for_chosen_experiment
-          ? Object.keys(
-              comparison.baseline_result_for_chosen_experiment.metrics,
-            )
+        ...(comparison.baseline_result_for_experiment
+          ? Object.keys(comparison.baseline_result_for_experiment.metrics)
           : []),
-        ...(comparison.last_results_for_chosen_experiment
-          ? comparison.last_results_for_chosen_experiment.flatMap(
-              (experiment) => Object.keys(experiment.metrics),
+        ...(comparison.sets_for_experiment
+          ? comparison.sets_for_experiment.flatMap((experiment) =>
+              Object.keys(experiment.metrics),
             )
           : []),
       ];
@@ -52,7 +62,14 @@
     }
   };
 
-  $: fetchComparison(), tagFilters;
+  const changeSet = async () => {
+    const selects = document.querySelectorAll("button[data-set-options]");
+    sets = Array.from(selects).map(
+      (select) => (select as HTMLButtonElement).innerText,
+    );
+  };
+
+  $: fetchComparison(), tagFilters, sets;
 </script>
 
 {#if comparison}
@@ -70,7 +87,7 @@
       <option value="30">30</option>
       <option value="100">100</option>
     </select>
-    <span>of {comparison.total_experiment_count} experiments</span>
+    <span>of {comparison.set_details.length} experiments</span>
   </div>
 {/if}
 
@@ -89,22 +106,26 @@
         <th>
           <ComparisonTableHeader
             title="Project Baseline"
-            result={comparison.last_result_for_baseline_experiment}
+            result={comparison.baseline_result_for_project}
             clickable={false}
-            on:selectSet={selectSet}
           />
         </th>
         <th>
           <ComparisonTableHeader
             title="Experiment Baseline"
-            result={comparison.baseline_result_for_chosen_experiment}
+            result={comparison.baseline_result_for_experiment}
             clickable={false}
-            on:selectSet={selectSet}
           />
         </th>
-        {#each comparison.last_results_for_chosen_experiment as result}
+        {#each comparison.sets_for_experiment as result}
           <th>
-            <ComparisonTableHeader title="" {result} on:selectSet={selectSet} />
+            <ComparisonTableHeader
+              title=""
+              {result}
+              details={comparison.set_details}
+              on:selectSet={selectSet}
+              on:changeSet={changeSet}
+            />
           </th>
         {/each}
       </tr>
@@ -115,22 +136,22 @@
           <td class="label">{metric}</td>
           <td
             ><ComparisonTableMetric
-              result={comparison.last_result_for_baseline_experiment}
-              baseline={comparison.baseline_result_for_chosen_experiment}
+              result={comparison.baseline_result_for_project}
+              baseline={comparison.baseline_result_for_experiment}
               {metric}
             /></td
           >
           <td
             ><ComparisonTableMetric
-              result={comparison.baseline_result_for_chosen_experiment}
+              result={comparison.baseline_result_for_experiment}
               {metric}
             /></td
           >
-          {#each comparison?.last_results_for_chosen_experiment as result}
+          {#each comparison?.sets_for_experiment as result}
             <td
               ><ComparisonTableMetric
                 {result}
-                baseline={comparison.baseline_result_for_chosen_experiment}
+                baseline={comparison.baseline_result_for_experiment}
                 {metric}
               /></td
             >

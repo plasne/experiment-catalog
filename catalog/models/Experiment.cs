@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 
 namespace Catalog;
@@ -158,25 +159,31 @@ public class Experiment
         return this.AggregateSetByRef(this.Results?.LastOrDefault()?.Set);
     }
 
-    public List<Result> AggregateLastSets(int count)
+    public List<Result?> AggregateSets(IEnumerable<string> sets)
     {
-        var results = new List<Result>();
+        var results = new List<Result?>();
         if (this.Results is null) return results;
 
-        var queue = new Queue<Result>(this.Results.AsEnumerable().Reverse());
-        var sets = new HashSet<string>();
-        while (results.Count < count && queue.Count > 0)
+        // replace * in sets
+        var possible = this.Sets.Reverse();
+        List<string> revised = [];
+        foreach (var set in sets.Reverse())
         {
-            var next = queue.Dequeue();
-            if (next is null) break;
-            if (!string.IsNullOrEmpty(next.Set) && sets.Contains(next.Set)) continue;
+            revised.Add(set.Equals("*", StringComparison.Ordinal)
+                ? possible.FirstOrDefault() ?? "-"
+                : set);
+            possible = possible.Skip(1);
+        }
+        revised.Reverse();
 
-            var result = this.AggregateSet(next.Set);
-            if (result is not null) results.Add(result);
-            sets.Add(next.Set!);
+        // aggregate
+        foreach (var set in revised)
+        {
+            // NOTE: result could be null and that is OK
+            var result = this.AggregateSet(set);
+            results.Add(result);
         }
 
-        results.Reverse();
         return results;
     }
 
@@ -229,5 +236,33 @@ public class Experiment
     }
 # pragma warning restore S3776
 
-    public int ExperimentCount => this.Results?.Select(x => x.Set).Distinct().Count() ?? 0;
+    public IList<string> Sets
+    {
+        get => this.Results?
+            .Select(x => x.Set)
+            .Distinct()
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Cast<string>()
+            .ToList() ?? [];
+    }
+
+    public IList<SetDetails> SetDetails
+    {
+        get
+        {
+            var details = new List<SetDetails>();
+            foreach (var set in this.Sets)
+            {
+                var annotations = this.Results?
+                    .Where(x => x.Set == set && x.Ref is null && x.Annotations is not null)
+                    .SelectMany(x => x.Annotations!);
+                details.Add(new SetDetails
+                {
+                    Name = set,
+                    Annotations = annotations,
+                });
+            }
+            return details;
+        }
+    }
 }
