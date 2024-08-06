@@ -22,16 +22,14 @@
   const updateSetList = () => {
     if (!selected) return;
     setList = selected.map((result) => result?.set).join(",");
-    console.info("setList", setList);
     dispatch("changeSetList", setList);
   };
 
   const applySetList = () => {
     selected = [];
     if (setList) {
-      console.info("no set", setList);
       var setListSplit = setList.split(",");
-      for (var i = 0; i < compareCount; i++) {
+      for (var i = 0; i < Math.max(compareCount, setListSplit.length); i++) {
         const result =
           i < setListSplit.length
             ? comparison.sets_for_experiment.find(
@@ -41,16 +39,13 @@
         selected[i] = result;
       }
     } else {
-      console.info("use last");
       selected = comparison.sets_for_experiment.slice(-compareCount);
     }
-    console.info("from apply");
     updateSetList();
   };
 
   const select = (event: CustomEvent<{ index: number; result: Result }>) => {
     selected[event.detail.index] = event.detail.result;
-    console.info("from select");
     updateSetList();
   };
 
