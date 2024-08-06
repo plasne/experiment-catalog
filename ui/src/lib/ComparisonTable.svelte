@@ -9,6 +9,7 @@
   export let setList: string;
 
   let state: "loading" | "loaded" | "error" = "loading";
+  let compareCount = 3;
   let controls = [];
   let selected: Result[];
 
@@ -21,11 +22,35 @@
   const updateSetList = () => {
     if (!selected) return;
     setList = selected.map((result) => result?.set).join(",");
+    console.info("setList", setList);
     dispatch("changeSetList", setList);
+  };
+
+  const applySetList = () => {
+    selected = [];
+    if (setList) {
+      console.info("no set", setList);
+      var setListSplit = setList.split(",");
+      for (var i = 0; i < compareCount; i++) {
+        const result =
+          i < setListSplit.length
+            ? comparison.sets_for_experiment.find(
+                (result) => result.set === setListSplit[i],
+              )
+            : null;
+        selected[i] = result;
+      }
+    } else {
+      console.info("use last");
+      selected = comparison.sets_for_experiment.slice(-compareCount);
+    }
+    console.info("from apply");
+    updateSetList();
   };
 
   const select = (event: CustomEvent<{ index: number; result: Result }>) => {
     selected[event.detail.index] = event.detail.result;
+    console.info("from select");
     updateSetList();
   };
 
@@ -61,20 +86,8 @@
       ];
       metrics = [...new Set(allKeys)];
 
-      // determine the results that are selected
-      console.info("fetch comparison");
-      selected = [null, null, null, null, null];
-      if (setList) {
-        var setListSplit = setList.split(",");
-        for (var i = 0; i < Math.max(setListSplit.length, 5); i++) {
-          selected[i] = comparison.sets_for_experiment.find(
-            (result) => result.set === setListSplit[i],
-          );
-        }
-      } else {
-        selected = comparison.sets_for_experiment.slice(-5);
-      }
-      updateSetList();
+      // apply the set list
+      applySetList();
 
       state = "loaded";
     } catch (error) {
@@ -88,12 +101,24 @@
 
 {#if comparison}
   <div class="selection">
-    <div class="selection">
-      <TagsFilter {project} bind:querystring={tagFilters} />
-      <span
-        >{comparison.sets_for_experiment.length} runs of this experiment</span
-      >
-    </div>
+    <TagsFilter {project} bind:querystring={tagFilters} />
+    <span>last:</span>
+    <select bind:value={compareCount} on:change={applySetList}>
+      <option value={1}>1</option>
+      <option value={2}>2</option>
+      <option value={3}>3</option>
+      <option value={4}>4</option>
+      <option value={5}>5</option>
+      <option value={6}>6</option>
+      <option value={7}>7</option>
+      <option value={8}>8</option>
+      <option value={9}>9</option>
+      <option value={10}>10</option>
+      <option value={20}>20</option>
+      <option value={30}>30</option>
+      <option value={100}>100</option>
+    </select>
+    <span>of {comparison.sets_for_experiment.length} experiments</span>
   </div>
 {/if}
 

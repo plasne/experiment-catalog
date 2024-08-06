@@ -49,11 +49,13 @@
         <button class="dropdown-button" on:click={() => select(result)}>
           <div class="dropdown-item">
             <div class="title">{result.set}</div>
-            {#each result.annotations as annotation}
-              <div>
-                {annotation.text}
-              </div>
-            {/each}
+            {#if result.annotations}
+              {#each result.annotations as annotation}
+                <div>
+                  {annotation.text}
+                </div>
+              {/each}
+            {/if}
           </div>
         </button>
       {/each}

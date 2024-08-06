@@ -19,6 +19,7 @@
 
   const unselectProject = () => {
     project = undefined;
+    setList = undefined;
     updateURL();
   };
 
@@ -29,6 +30,7 @@
 
   const unselectExperiment = () => {
     experiment = undefined;
+    setList = undefined;
     updateURL(project.name);
   };
 
