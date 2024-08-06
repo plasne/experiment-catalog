@@ -19,12 +19,8 @@
   };
 
   const updateSetList = () => {
-    console.info("updateSetList");
-    console.info("selected", selected);
     if (!selected) return;
-    console.info("selected");
     setList = selected.map((result) => result?.set).join(",");
-    console.info("setList", setList);
     dispatch("changeSetList", setList);
   };
 
@@ -75,6 +71,8 @@
             (result) => result.set === setListSplit[i],
           );
         }
+      } else {
+        selected = comparison.sets_for_experiment.slice(-5);
       }
       updateSetList();
 
