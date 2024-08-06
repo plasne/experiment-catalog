@@ -5,9 +5,6 @@ namespace Catalog;
 
 public class Comparison
 {
-    [JsonProperty("set_details", NullValueHandling = NullValueHandling.Ignore)]
-    public IList<SetDetails>? SetDetails { get; set; }
-
     [JsonProperty("baseline_result_for_project", NullValueHandling = NullValueHandling.Ignore)]
     public Result? BaselineResultForBaselineExperiment { get; set; }
 
@@ -15,5 +12,5 @@ public class Comparison
     public Result? BaselineResultForChosenExperiment { get; set; }
 
     [JsonProperty("sets_for_experiment", NullValueHandling = NullValueHandling.Ignore)]
-    public IList<Result?>? SetsForChosenExperiment { get; set; }
+    public IList<Result>? SetsForChosenExperiment { get; set; }
 }

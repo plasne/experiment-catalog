@@ -9,6 +9,7 @@
   let state: "loading" | "loaded" | "error" = "loading";
   let project: Project;
   let experiment: Experiment;
+  let setList: string;
   let setName: string;
 
   const selectProject = (event: CustomEvent<Project>) => {
@@ -41,6 +42,11 @@
     updateURL(project.name, experiment.name);
   };
 
+  const changeSetList = (event: CustomEvent<string>) => {
+    setList = event.detail;
+    updateURL(project.name, experiment.name, `sets:${setList}`);
+  };
+
   async function parseQueryString() {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -50,6 +56,15 @@
 
       if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {
         setName = qpage.slice(4);
+        experiment = await loadExperiment(qproject, qexperiment);
+        project = { name: qproject };
+      } else if (
+        qproject &&
+        qexperiment &&
+        qpage &&
+        qpage.startsWith("sets:")
+      ) {
+        setList = qpage.slice(5);
         experiment = await loadExperiment(qproject, qexperiment);
         project = { name: qproject };
       } else if (qproject && qexperiment) {
@@ -82,8 +97,10 @@
     <ExperimentPage
       on:unselectExperiment={unselectExperiment}
       on:selectSet={selectSet}
+      on:changeSetList={changeSetList}
       {project}
       {experiment}
+      {setList}
     />
   {:else if project}
     <ExperimentsList

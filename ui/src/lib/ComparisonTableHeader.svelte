@@ -5,29 +5,30 @@
 
   export let title: string;
   export let result: Result;
-  export let details: SetDetails[] = [];
+  export let results: Result[] = [];
   export let clickable: boolean = true;
+  export let index: number = -1;
 
   const dispatch = createEventDispatcher();
 
-  const select = () => {
-    if (result?.set) dispatch("selectSet", result.set);
+  const drilldown = () => {
+    if (result?.set) dispatch("drilldown", result.set);
   };
 
-  const onChangeSet = () => {
-    dispatch("changeSet");
+  const select = (event: CustomEvent<Result>) => {
+    dispatch("select", { index, result: event.detail });
   };
 </script>
 
 <div class="title">{title}</div>
 <div class="set">
   {#if clickable}
-    <button class="link" on:click={select}>set:</button>
+    <button class="link" on:click={drilldown}>set:</button>
   {:else}
     <span>set: {result?.set ?? "-"}</span>
   {/if}
-  {#if details.length > 0}
-    <SetSelector {details} on:change={onChangeSet} />
+  {#if results.length > 0}
+    <SetSelector {result} {results} on:select={select} />
   {/if}
 </div>
 <Annotations {result} />

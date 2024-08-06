@@ -121,14 +121,13 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        comparison.SetDetails = experiment.SetDetails;
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
             ? comparison.BaselineResultForBaselineExperiment :
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
-        comparison.SetsForChosenExperiment = experiment.AggregateSets(sets.AsArray(() => []));
+        comparison.SetsForChosenExperiment = experiment.AggregateAllSets();
 
         return Ok(comparison);
     }

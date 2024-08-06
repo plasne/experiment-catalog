@@ -1,9 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import Annotations from "./Annotations.svelte";
 
-  export let details: SetDetails[] = [];
-  export let selected: string = "";
+  export let result: Result;
+  export let results: Result[] = [];
 
   const dispatch = createEventDispatcher();
   let isOpen = false;
@@ -12,15 +11,15 @@
     isOpen = !isOpen;
   };
 
-  const selectOption = (option: SetDetails) => {
-    selected = option.name;
+  const select = (selected: Result) => {
+    result = selected;
     isOpen = false;
-    dispatch("select", option.name);
+    dispatch("select", selected);
   };
 
-  function clickOutside(node) {
-    const handleClick = (event) => {
-      if (!node.contains(event.target)) {
+  function clickOutside(node: HTMLElement) {
+    const handleClick = (event: MouseEvent) => {
+      if (!node.contains(event.target as Node)) {
         isOpen = false;
       }
     };
@@ -35,15 +34,22 @@
   }
 </script>
 
-<div class="dropdown" use:clickOutside>
-  <button data-set-options on:click={toggleDropdown}>{selected}</button>
+<div class="dropdown-container" use:clickOutside>
+  <button class="dropdown-header" on:click={toggleDropdown}
+    >{result ? result.set : "None"}</button
+  >
   {#if isOpen}
     <div class="dropdown-menu">
-      {#each details as option}
-        <button on:click={() => selectOption(option)}>
+      <button class="dropdown-button" on:click={() => select(null)}>
+        <div class="dropdown-item">
+          <div class="title">None</div>
+        </div>
+      </button>
+      {#each results as result}
+        <button class="dropdown-button" on:click={() => select(result)}>
           <div class="dropdown-item">
-            <div class="title">{option.name}</div>
-            {#each option.annotations as annotation}
+            <div class="title">{result.set}</div>
+            {#each result.annotations as annotation}
               <div>
                 {annotation.text}
               </div>
@@ -56,33 +62,44 @@
 </div>
 
 <style>
-  .dropdown {
+  .dropdown-container {
     position: relative;
     display: inline-block;
     width: 14rem;
   }
 
-  .title {
-    font-size: 1.1rem;
-    font-weight: bold;
+  .dropdown-header {
+    width: 100%;
+    text-align: left;
+    border: 1px solid #ccc;
+    border-radius: 0.15rem;
+    font-size: 1rem;
+    cursor: pointer;
   }
 
   .dropdown-menu {
     position: absolute;
     top: 100%;
     left: 0;
-    width: 100%;
-    border: 1px solid #ccc;
-    background-color: #fff;
     z-index: 1000;
-    max-height: 200px;
+    max-height: 14rem;
     overflow-y: auto;
   }
 
+  .dropdown-button {
+    width: 100%;
+    text-align: left;
+    background-color: #ccc;
+  }
+
   .dropdown-item {
-    padding: 10px;
     text-align: left;
     color: black;
     cursor: pointer;
+  }
+
+  .title {
+    font-size: 1.1rem;
+    font-weight: bold;
   }
 </style>

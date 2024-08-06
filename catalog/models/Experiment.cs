@@ -159,29 +159,15 @@ public class Experiment
         return this.AggregateSetByRef(this.Results?.LastOrDefault()?.Set);
     }
 
-    public List<Result?> AggregateSets(IEnumerable<string> sets)
+    public List<Result> AggregateAllSets()
     {
-        var results = new List<Result?>();
+        var results = new List<Result>();
         if (this.Results is null) return results;
 
-        // replace * in sets
-        var possible = this.Sets.Reverse();
-        List<string> revised = [];
-        foreach (var set in sets.Reverse())
+        foreach (var set in this.Sets)
         {
-            revised.Add(set.Equals("*", StringComparison.Ordinal)
-                ? possible.FirstOrDefault() ?? "-"
-                : set);
-            possible = possible.Skip(1);
-        }
-        revised.Reverse();
-
-        // aggregate
-        foreach (var set in revised)
-        {
-            // NOTE: result could be null and that is OK
             var result = this.AggregateSet(set);
-            results.Add(result);
+            if (result is not null) results.Add(result);
         }
 
         return results;
@@ -244,25 +230,5 @@ public class Experiment
             .Where(x => !string.IsNullOrEmpty(x))
             .Cast<string>()
             .ToList() ?? [];
-    }
-
-    public IList<SetDetails> SetDetails
-    {
-        get
-        {
-            var details = new List<SetDetails>();
-            foreach (var set in this.Sets)
-            {
-                var annotations = this.Results?
-                    .Where(x => x.Set == set && x.Ref is null && x.Annotations is not null)
-                    .SelectMany(x => x.Annotations!);
-                details.Add(new SetDetails
-                {
-                    Name = set,
-                    Annotations = annotations,
-                });
-            }
-            return details;
-        }
     }
 }

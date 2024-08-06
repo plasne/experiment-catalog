@@ -1,20 +1,36 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, onMount } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
 
   export let project: Project;
   export let experiment: Experiment;
+  export let setList: string;
 
   let state: "loading" | "loaded" | "error" = "loading";
-  let compareCount = "3";
-  let sets = [];
+  let controls = [];
+  let selected: Result[];
 
   const dispatch = createEventDispatcher();
 
-  const selectSet = (event: CustomEvent<string>) => {
-    dispatch("selectSet", event.detail);
+  const drilldown = (event: CustomEvent<string>) => {
+    dispatch("drilldown", event.detail);
+  };
+
+  const updateSetList = () => {
+    console.info("updateSetList");
+    console.info("selected", selected);
+    if (!selected) return;
+    console.info("selected");
+    setList = selected.map((result) => result?.set).join(",");
+    console.info("setList", setList);
+    dispatch("changeSetList", setList);
+  };
+
+  const select = (event: CustomEvent<{ index: number; result: Result }>) => {
+    selected[event.detail.index] = event.detail.result;
+    updateSetList();
   };
 
   let prefix =
@@ -23,24 +39,17 @@
   let metrics: string[] = [];
   let tagFilters: string;
 
-  const updateSetsPerCompareCount = () => {
-    const count = parseInt(compareCount, 10);
-    while (sets.length < count) {
-      sets.push("*");
-    }
-    while (sets.length > count) {
-      sets.pop();
-    }
-  };
-
   const fetchComparison = async () => {
     try {
       state = "loading";
-      updateSetsPerCompareCount();
+
+      // fetch comparison
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?sets=${sets.join(",")}&${tagFilters ?? ""}`,
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
       );
       comparison = await response.json();
+
+      // get a list of metrics
       const allKeys = [
         ...(comparison.baseline_result_for_project
           ? Object.keys(comparison.baseline_result_for_project.metrics)
@@ -55,6 +64,20 @@
           : []),
       ];
       metrics = [...new Set(allKeys)];
+
+      // determine the results that are selected
+      console.info("fetch comparison");
+      selected = [null, null, null, null, null];
+      if (setList) {
+        var setListSplit = setList.split(",");
+        for (var i = 0; i < Math.max(setListSplit.length, 5); i++) {
+          selected[i] = comparison.sets_for_experiment.find(
+            (result) => result.set === setListSplit[i],
+          );
+        }
+      }
+      updateSetList();
+
       state = "loaded";
     } catch (error) {
       console.error(error);
@@ -62,32 +85,17 @@
     }
   };
 
-  const changeSet = async () => {
-    const selects = document.querySelectorAll("button[data-set-options]");
-    sets = Array.from(selects).map(
-      (select) => (select as HTMLButtonElement).innerText,
-    );
-  };
-
-  $: fetchComparison(), tagFilters, sets;
+  $: fetchComparison(), tagFilters;
 </script>
 
 {#if comparison}
   <div class="selection">
-    <TagsFilter {project} bind:querystring={tagFilters} />
-    <span>last:</span>
-    <select bind:value={compareCount} on:change={fetchComparison}>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-      <option value="10">10</option>
-      <option value="20">20</option>
-      <option value="30">30</option>
-      <option value="100">100</option>
-    </select>
-    <span>of {comparison.set_details.length} experiments</span>
+    <div class="selection">
+      <TagsFilter {project} bind:querystring={tagFilters} />
+      <span
+        >{comparison.sets_for_experiment.length} runs of this experiment</span
+      >
+    </div>
   </div>
 {/if}
 
@@ -117,14 +125,15 @@
             clickable={false}
           />
         </th>
-        {#each comparison.sets_for_experiment as result}
+        {#each selected as result, index}
           <th>
             <ComparisonTableHeader
+              {index}
               title=""
               {result}
-              details={comparison.set_details}
-              on:selectSet={selectSet}
-              on:changeSet={changeSet}
+              results={comparison.sets_for_experiment}
+              on:drilldown={drilldown}
+              on:select={select}
             />
           </th>
         {/each}
@@ -147,9 +156,10 @@
               {metric}
             /></td
           >
-          {#each comparison?.sets_for_experiment as result}
+          {#each selected as result, index}
             <td
               ><ComparisonTableMetric
+                bind:this={controls[index]}
                 {result}
                 baseline={comparison.baseline_result_for_experiment}
                 {metric}
@@ -190,10 +200,5 @@
   .selection {
     width: 80rem;
     text-align: right;
-  }
-
-  select {
-    text-align: center;
-    font-size: 1rem;
   }
 </style>
