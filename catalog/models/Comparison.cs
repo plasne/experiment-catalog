@@ -5,15 +5,12 @@ namespace Catalog;
 
 public class Comparison
 {
-    [JsonProperty("total_experiment_count")]
-    public int TotalExperimentCount { get; set; }
+    [JsonProperty("baseline_result_for_project", NullValueHandling = NullValueHandling.Ignore)]
+    public Result? BaselineResultForBaselineExperiment { get; set; }
 
-    [JsonProperty("last_result_for_baseline_experiment", NullValueHandling = NullValueHandling.Ignore)]
-    public Result? LastResultForBaselineExperiment { get; set; }
-
-    [JsonProperty("baseline_result_for_chosen_experiment", NullValueHandling = NullValueHandling.Ignore)]
+    [JsonProperty("baseline_result_for_experiment", NullValueHandling = NullValueHandling.Ignore)]
     public Result? BaselineResultForChosenExperiment { get; set; }
 
-    [JsonProperty("last_results_for_chosen_experiment", NullValueHandling = NullValueHandling.Ignore)]
-    public List<Result>? LastResultsForChosenExperiment { get; set; }
+    [JsonProperty("sets_for_experiment", NullValueHandling = NullValueHandling.Ignore)]
+    public IList<Result>? SetsForChosenExperiment { get; set; }
 }

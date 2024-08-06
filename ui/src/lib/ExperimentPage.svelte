@@ -4,6 +4,7 @@
 
   export let project: Project;
   export let experiment: Experiment;
+  export let setList: string;
 
   const dispatch = createEventDispatcher();
 
@@ -13,6 +14,10 @@
 
   const selectSet = (event: CustomEvent<string>) => {
     dispatch("selectSet", event.detail);
+  };
+
+  const changeSetList = (event: CustomEvent<string>) => {
+    dispatch("changeSetList", event.detail);
   };
 </script>
 
@@ -38,7 +43,10 @@
 </div>
 <div>
   <span class="label">Legend:</span>
-  <span>[value] ([standard-deviation]) [change-vs-experiment-baseline] x[number-of-values]</span>
+  <span
+    >[value] ([standard-deviation]) [change-vs-experiment-baseline]
+    x[number-of-values]</span
+  >
 </div>
 {#if experiment.annotations}
   {#each experiment.annotations as annotation}
@@ -50,7 +58,13 @@
 {/if}
 
 <div class="table">
-  <ComparisonTable {project} {experiment} on:selectSet={selectSet} />
+  <ComparisonTable
+    {project}
+    {experiment}
+    {setList}
+    on:drilldown={selectSet}
+    on:changeSetList={changeSetList}
+  />
 </div>
 
 <style>

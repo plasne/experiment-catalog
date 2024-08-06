@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -97,7 +98,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
         CancellationToken cancellationToken,
-        [FromQuery] int count = 0,
+        [FromQuery(Name = "sets")] string sets = "",
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
@@ -109,7 +110,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
-            comparison.LastResultForBaselineExperiment =
+            comparison.BaselineResultForBaselineExperiment =
                 baseline.AggregateBaselineSet()
                 ?? baseline.AggregateLastSet();
         }
@@ -120,14 +121,13 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        comparison.TotalExperimentCount = experiment.ExperimentCount;
         experiment.Filter(includeTags, excludeTags);
         comparison.BaselineResultForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
-            ? comparison.LastResultForBaselineExperiment :
+            ? comparison.BaselineResultForBaselineExperiment :
             experiment.AggregateBaselineSet()
             ?? experiment.AggregateFirstSet();
-        comparison.LastResultsForChosenExperiment = experiment.AggregateLastSets(count);
+        comparison.SetsForChosenExperiment = experiment.AggregateAllSets();
 
         return Ok(comparison);
     }

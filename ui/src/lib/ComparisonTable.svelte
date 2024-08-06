@@ -1,19 +1,32 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, onMount } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
 
   export let project: Project;
   export let experiment: Experiment;
+  export let setList: string;
 
   let state: "loading" | "loaded" | "error" = "loading";
-  let compareCount = "3";
+  let controls = [];
+  let selected: Result[];
 
   const dispatch = createEventDispatcher();
 
-  const selectSet = (event: CustomEvent<string>) => {
-    dispatch("selectSet", event.detail);
+  const drilldown = (event: CustomEvent<string>) => {
+    dispatch("drilldown", event.detail);
+  };
+
+  const updateSetList = () => {
+    if (!selected) return;
+    setList = selected.map((result) => result?.set).join(",");
+    dispatch("changeSetList", setList);
+  };
+
+  const select = (event: CustomEvent<{ index: number; result: Result }>) => {
+    selected[event.detail.index] = event.detail.result;
+    updateSetList();
   };
 
   let prefix =
@@ -25,26 +38,44 @@
   const fetchComparison = async () => {
     try {
       state = "loading";
+
+      // fetch comparison
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?count=${compareCount}&${tagFilters ?? ""}`,
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
       );
       comparison = await response.json();
+
+      // get a list of metrics
       const allKeys = [
-        ...(comparison.last_result_for_baseline_experiment
-          ? Object.keys(comparison.last_result_for_baseline_experiment.metrics)
+        ...(comparison.baseline_result_for_project
+          ? Object.keys(comparison.baseline_result_for_project.metrics)
           : []),
-        ...(comparison.baseline_result_for_chosen_experiment
-          ? Object.keys(
-              comparison.baseline_result_for_chosen_experiment.metrics,
-            )
+        ...(comparison.baseline_result_for_experiment
+          ? Object.keys(comparison.baseline_result_for_experiment.metrics)
           : []),
-        ...(comparison.last_results_for_chosen_experiment
-          ? comparison.last_results_for_chosen_experiment.flatMap(
-              (experiment) => Object.keys(experiment.metrics),
+        ...(comparison.sets_for_experiment
+          ? comparison.sets_for_experiment.flatMap((experiment) =>
+              Object.keys(experiment.metrics),
             )
           : []),
       ];
       metrics = [...new Set(allKeys)];
+
+      // determine the results that are selected
+      console.info("fetch comparison");
+      selected = [null, null, null, null, null];
+      if (setList) {
+        var setListSplit = setList.split(",");
+        for (var i = 0; i < Math.max(setListSplit.length, 5); i++) {
+          selected[i] = comparison.sets_for_experiment.find(
+            (result) => result.set === setListSplit[i],
+          );
+        }
+      } else {
+        selected = comparison.sets_for_experiment.slice(-5);
+      }
+      updateSetList();
+
       state = "loaded";
     } catch (error) {
       console.error(error);
@@ -57,20 +88,12 @@
 
 {#if comparison}
   <div class="selection">
-    <TagsFilter {project} bind:querystring={tagFilters} />
-    <span>last:</span>
-    <select bind:value={compareCount} on:change={fetchComparison}>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-      <option value="10">10</option>
-      <option value="20">20</option>
-      <option value="30">30</option>
-      <option value="100">100</option>
-    </select>
-    <span>of {comparison.total_experiment_count} experiments</span>
+    <div class="selection">
+      <TagsFilter {project} bind:querystring={tagFilters} />
+      <span
+        >{comparison.sets_for_experiment.length} runs of this experiment</span
+      >
+    </div>
   </div>
 {/if}
 
@@ -89,22 +112,27 @@
         <th>
           <ComparisonTableHeader
             title="Project Baseline"
-            result={comparison.last_result_for_baseline_experiment}
+            result={comparison.baseline_result_for_project}
             clickable={false}
-            on:selectSet={selectSet}
           />
         </th>
         <th>
           <ComparisonTableHeader
             title="Experiment Baseline"
-            result={comparison.baseline_result_for_chosen_experiment}
+            result={comparison.baseline_result_for_experiment}
             clickable={false}
-            on:selectSet={selectSet}
           />
         </th>
-        {#each comparison.last_results_for_chosen_experiment as result}
+        {#each selected as result, index}
           <th>
-            <ComparisonTableHeader title="" {result} on:selectSet={selectSet} />
+            <ComparisonTableHeader
+              {index}
+              title=""
+              {result}
+              results={comparison.sets_for_experiment}
+              on:drilldown={drilldown}
+              on:select={select}
+            />
           </th>
         {/each}
       </tr>
@@ -115,22 +143,23 @@
           <td class="label">{metric}</td>
           <td
             ><ComparisonTableMetric
-              result={comparison.last_result_for_baseline_experiment}
-              baseline={comparison.baseline_result_for_chosen_experiment}
+              result={comparison.baseline_result_for_project}
+              baseline={comparison.baseline_result_for_experiment}
               {metric}
             /></td
           >
           <td
             ><ComparisonTableMetric
-              result={comparison.baseline_result_for_chosen_experiment}
+              result={comparison.baseline_result_for_experiment}
               {metric}
             /></td
           >
-          {#each comparison?.last_results_for_chosen_experiment as result}
+          {#each selected as result, index}
             <td
               ><ComparisonTableMetric
+                bind:this={controls[index]}
                 {result}
-                baseline={comparison.baseline_result_for_chosen_experiment}
+                baseline={comparison.baseline_result_for_experiment}
                 {metric}
               /></td
             >
@@ -169,10 +198,5 @@
   .selection {
     width: 80rem;
     text-align: right;
-  }
-
-  select {
-    text-align: center;
-    font-size: 1rem;
   }
 </style>

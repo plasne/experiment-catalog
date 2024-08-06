@@ -1,6 +1,5 @@
 interface Comparison {
-    total_experiment_count: number;
-    last_result_for_baseline_experiment: Result;
-    baseline_result_for_chosen_experiment: Result;
-    last_results_for_chosen_experiment: Result[];
+    baseline_result_for_project: Result;
+    baseline_result_for_experiment: Result;
+    sets_for_experiment: Result[];
 }
