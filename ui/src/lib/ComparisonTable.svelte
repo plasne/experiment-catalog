@@ -29,6 +29,12 @@
     selected = [];
     if (setList) {
       var setListSplit = setList.split(",");
+      while (
+        setListSplit.length > 0 &&
+        setListSplit[setListSplit.length - 1].trim() === ""
+      ) {
+        setListSplit.pop();
+      }
       for (var i = 0; i < Math.max(compareCount, setListSplit.length); i++) {
         const result =
           i < setListSplit.length
@@ -97,7 +103,7 @@
 {#if comparison}
   <div class="selection">
     <TagsFilter {project} bind:querystring={tagFilters} />
-    <span>last:</span>
+    <span>show at least</span>
     <select bind:value={compareCount} on:change={applySetList}>
       <option value={1}>1</option>
       <option value={2}>2</option>
