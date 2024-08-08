@@ -55,9 +55,9 @@ public class ProjectsController : ControllerBase
         [FromBody] Tag tag,
         CancellationToken cancellationToken)
     {
-        if (tag is null)
+        if (string.IsNullOrEmpty(projectName) || tag is null)
         {
-            return BadRequest("a tag (as body) is required.");
+            return BadRequest("a project name and tag (as body) is required.");
         }
 
         if (string.IsNullOrEmpty(tag.Name))
@@ -66,6 +66,32 @@ public class ProjectsController : ControllerBase
         }
 
         await storageService.AddTagAsync(projectName, tag, cancellationToken);
+        return Ok();
+    }
+
+    [HttpGet("{projectName}/metrics")]
+    public async Task<ActionResult<IList<MetricDefinition>>> GetMetricDefinitions(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        CancellationToken cancellationToken)
+    {
+        var metrics = await storageService.GetMetricsAsync(projectName, cancellationToken);
+        return Ok(metrics);
+    }
+
+    [HttpPut("{projectName}/metrics")]
+    public async Task<IActionResult> AddMetricToProject(
+        [FromServices] IStorageService storageService,
+        [FromRoute] string projectName,
+        [FromBody] IList<MetricDefinition> metrics,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(projectName) || metrics is null)
+        {
+            return BadRequest("a project name and metric definitions (as body) are required.");
+        }
+
+        await storageService.AddMetricsAsync(projectName, metrics, cancellationToken);
         return Ok();
     }
 }

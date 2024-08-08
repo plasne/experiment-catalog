@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Catalog;
@@ -10,9 +11,15 @@ public class Metric
     [JsonProperty("value", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? Value { get; set; }
 
+    [JsonProperty("normalized", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? Normalized { get; set; }
+
     [JsonProperty("std_dev", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? StdDev { get; set; }
 
     [JsonProperty("classification", NullValueHandling = NullValueHandling.Ignore)]
     public string? Classification { get; set; }
+
+    [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
+    public IList<string>? Tags { get; set; }
 }

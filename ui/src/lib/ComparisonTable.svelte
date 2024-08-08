@@ -85,7 +85,7 @@
             )
           : []),
       ];
-      metrics = [...new Set(allKeys)];
+      metrics = [...new Set(allKeys)].sort();
 
       // apply the set list
       applySetList();

@@ -1,20 +1,37 @@
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+
 namespace Catalog;
 
 public class MetricDefinition
 {
-    public required decimal Min { get; set; }
-    public required decimal Max { get; set; }
+    [JsonProperty("name", Required = Required.Always)]
+    public required string Name { get; set; }
+
+    [JsonProperty("min", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? Min { get; set; }
+
+    [JsonProperty("max", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? Max { get; set; }
+
+    [JsonProperty("aggregate_function")]
+    [JsonConverter(typeof(StringEnumConverter))]
+    public AggregateFunctions AggregateFunction { get; set; } = AggregateFunctions.Default;
+
+    [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
+    public IList<string>? Tags { get; set; }
 
     public bool TryNormalize(decimal? value, out decimal normalized)
     {
-        if (value is not null && this.Max > this.Min)
+        if (value is not null && this.Min is not null && this.Max is not null && this.Max > this.Min)
         {
-            normalized = ((decimal)value - this.Min) / (this.Max - this.Min);
+            normalized = (value - this.Min) / (this.Max - this.Min) ?? 0;
             return true;
         }
-        else if (value is not null && this.Min > this.Max)
+        else if (value is not null && this.Min is not null && this.Max is not null && this.Min > this.Max)
         {
-            normalized = (this.Min - (decimal)value) / (this.Min - this.Max);
+            normalized = (this.Min - (decimal)value) / (this.Min - this.Max) ?? 0;
             return true;
         }
         normalized = default;

@@ -139,11 +139,6 @@ public class AzureBlobStorageService(
         var serializedJson = JsonConvert.SerializeObject(tag);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson));
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: cancellationToken);
-        var metadata = new Dictionary<string, string>
-        {
-            { "exp_catalog_type", "tag" }
-        };
-        await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
     private async Task<Tag> LoadTagAsync(BlobContainerClient containerClient, string tagName, CancellationToken cancellationToken = default)
@@ -182,6 +177,31 @@ public class AzureBlobStorageService(
         }
 
         return await Task.WhenAll(tasks);
+    }
+
+    public async Task AddMetricsAsync(string projectName, IList<MetricDefinition> metrics, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var blobClient = containerClient.GetBlobClient($"metric_definitions.json");
+        var serializedJson = JsonConvert.SerializeObject(metrics);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson));
+        await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: cancellationToken);
+    }
+
+    public async Task<IList<MetricDefinition>> GetMetricsAsync(string projectName, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var blobClient = containerClient.GetBlobClient("metric_definitions.json");
+        if (!await blobClient.ExistsAsync()) return new List<MetricDefinition>();
+        var response = await blobClient.DownloadAsync(cancellationToken: cancellationToken);
+        using var memoryStream = new MemoryStream();
+        await response.Value.Content.CopyToAsync(memoryStream, cancellationToken);
+        memoryStream.Position = 0;
+        using var streamReader = new StreamReader(memoryStream);
+        var serializedJson = await streamReader.ReadToEndAsync(cancellationToken);
+        var metric = JsonConvert.DeserializeObject<List<MetricDefinition>>(serializedJson)
+            ?? throw new Exception("the metric contents were not valid.");
+        return metric;
     }
 
     public async Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default)
@@ -232,11 +252,6 @@ public class AzureBlobStorageService(
         var serializedJson = JsonConvert.SerializeObject(experiment);
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
         await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
-        var metadata = new Dictionary<string, string>
-        {
-            { "exp_catalog_type", "experiment" }
-        };
-        await appendBlobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
     public async Task SetExperimentAsBaselineAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)
@@ -244,7 +259,6 @@ public class AzureBlobStorageService(
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var metadata = new Dictionary<string, string>
         {
-            { "exp_catalog_type", "project" },
             { "baseline", experimentName }
         };
         await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
@@ -267,7 +281,6 @@ public class AzureBlobStorageService(
         if (!response.Value) throw new HttpException(404, "experiment not found.");
         var metadata = new Dictionary<string, string>
         {
-            { "exp_catalog_type", "experiment" },
             { "baseline", setName }
         };
         await appendBlobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
