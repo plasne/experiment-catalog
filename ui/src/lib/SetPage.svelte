@@ -58,7 +58,7 @@
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
       ];
-      metrics = [...new Set(allMetrics)];
+      metrics = [...new Set(allMetrics)].sort();
       state = "loaded";
     } catch (error) {
       console.error(error);

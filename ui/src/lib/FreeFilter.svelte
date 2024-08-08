@@ -14,14 +14,15 @@
     }
 
     var funcstr = filter.replace(/ AND /gi, " && ").replace(/ OR /gi, " || ");
-    for (const metric of metrics) {
+    const sorted = [...metrics].sort((a, b) => b.length - a.length);
+    for (const metric of sorted) {
       funcstr = funcstr
         .replace(
-          new RegExp(`baseline.${metric}`, "gi"),
+          new RegExp(`\\[baseline.${metric}\\]`, "gi"),
           `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : null)`,
         )
         .replace(
-          new RegExp(`(?<!")${metric}`, "gi"),
+          new RegExp(`\\[${metric}\\]`, "gi"),
           `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`,
         );
     }

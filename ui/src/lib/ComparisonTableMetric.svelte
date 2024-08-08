@@ -8,24 +8,51 @@
   let isCount: boolean;
   let isCost: boolean;
   let isAvg: boolean;
-  
+  let lowerIsBetter: boolean;
+
+  const hasTag = (tag: string): boolean =>
+    result &&
+    result.metrics &&
+    result.metrics[metric] &&
+    result.metrics[metric].tags &&
+    result.metrics[metric].tags.includes(tag);
+
   $: {
-    isCount = metric.indexOf("count") > -1;
-    isCost = metric.indexOf("cost") > -1;
+    isCount = hasTag("count");
+    isCost = hasTag("cost");
     isAvg = !(isCount || isCost);
+    lowerIsBetter = hasTag("lower-is-better");
   }
 
   let diff: number;
+  let difp: number;
+  let opacity: number;
 
-  $: diff =
-    result &&
-    baseline &&
-    result.metrics &&
-    baseline.metrics &&
-    result.metrics[metric] &&
-    baseline.metrics[metric]
-      ? result.metrics[metric].value - baseline.metrics[metric].value
-      : 0;
+  $: {
+    diff =
+      result &&
+      baseline &&
+      result.metrics &&
+      baseline.metrics &&
+      result.metrics[metric] &&
+      baseline.metrics[metric]
+        ? result.metrics[metric].value - baseline.metrics[metric].value
+        : 0;
+    difp =
+      result &&
+      baseline &&
+      result.metrics &&
+      baseline.metrics &&
+      result.metrics[metric] &&
+      baseline.metrics[metric] &&
+      result.metrics[metric].normalized !== undefined &&
+      baseline.metrics[metric].normalized !== undefined
+        ? (result.metrics[metric].normalized -
+            baseline.metrics[metric].normalized) /
+          baseline.metrics[metric].normalized
+        : undefined;
+    opacity = 30 + Math.abs(difp) * (80 - 30) * 4;
+  }
 </script>
 
 <nobr>
@@ -57,21 +84,40 @@
       </svg>
     {/if}
     {#if isAvg && diff > 0}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 40 40"
+        style="opacity: {opacity}%"
+      >
         <polygon
           points="25,10 10,40 40,40"
-          style="fill:green;stroke:black;stroke-width:1"
+          style="fill:{lowerIsBetter
+            ? 'red'
+            : 'green'};stroke:black;stroke-width:1"
         />
       </svg>
     {/if}
     {#if isAvg && diff < 0}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 40 40"
+        style="opacity: {opacity}%"
+      >
         <polygon
           points="10,10 40,10 25,40"
-          style="fill:red;stroke:black;stroke-width:1"
+          style="fill:{lowerIsBetter
+            ? 'green'
+            : 'red'};stroke:black;stroke-width:1"
         />
       </svg>
     {/if}
+
+    {#if difp != undefined}
+      <span class:difp-red={difp < 0} class:difp-green={difp > 0}
+        >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
+      >
+    {/if}
+
     {#if showCount && isAvg}
       <span>x{result.metrics[metric].count}</span>
     {/if}
@@ -84,5 +130,13 @@
   svg {
     width: 1.2rem;
     height: 1.2rem;
+  }
+
+  .difp-red {
+    color: #f66;
+  }
+
+  .difp-green {
+    color: #6a6;
   }
 </style>

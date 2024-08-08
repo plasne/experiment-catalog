@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,11 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromRoute] string projectName,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(projectName))
+        {
+            return BadRequest("a project name is required.");
+        }
+
         var experiments = await storageService.GetExperimentsAsync(projectName, cancellationToken);
         return Ok(experiments);
     }
@@ -32,6 +38,11 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
+        {
+            return BadRequest("a project name and experiment name are required.");
+        }
+
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, false, cancellationToken);
         return Ok(experiment);
     }
@@ -43,7 +54,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromBody] Experiment experiment,
         CancellationToken cancellationToken)
     {
-        if (projectName is null || experiment is null)
+        if (string.IsNullOrEmpty(projectName) || experiment is null)
         {
             return BadRequest("a project name and experiment (as body) are required.");
         }
@@ -64,6 +75,11 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromRoute] string experimentName,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
+        {
+            return BadRequest("a project name and experiment name are required.");
+        }
+
         await storageService.SetExperimentAsBaselineAsync(projectName, experimentName, cancellationToken);
         return Ok();
     }
@@ -76,6 +92,11 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromRoute] string setName,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName) || string.IsNullOrEmpty(setName))
+        {
+            return BadRequest("a project name, experiment name, and set name are required.");
+        }
+
         await storageService.SetBaselineForExperiment(projectName, experimentName, setName, cancellationToken);
         return Ok();
     }
@@ -102,14 +123,23 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
+        {
+            return BadRequest("a project name and experiment name are required.");
+        }
+
+        // init
         var comparison = new Comparison();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
+        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
+            .ToDictionary(x => x.Name);
 
         // get the baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
+            baseline.MetricDefinitions = metricDefinitions;
             comparison.BaselineResultForBaselineExperiment =
                 baseline.AggregateBaselineSet()
                 ?? baseline.AggregateLastSet();
@@ -122,6 +152,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
+        experiment.MetricDefinitions = metricDefinitions;
         comparison.BaselineResultForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
             ? comparison.BaselineResultForBaselineExperiment :
@@ -142,14 +173,24 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName) || string.IsNullOrEmpty(setName))
+        {
+            return BadRequest("a project name, experiment name, and set name are required.");
+        }
+
+        // init
         var comparison = new ComparisonByRef();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
+        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
+            .ToDictionary(x => x.Name);
+
 
         // get the baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
+            baseline.MetricDefinitions = metricDefinitions;
             comparison.LastResultsForBaselineExperiment =
                 baseline.AggregateBaselineSetByRef()
                 ?? baseline.AggregateLastSetByRef();
@@ -162,6 +203,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // get the comparison datas
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
+        experiment.MetricDefinitions = metricDefinitions;
         comparison.BaselineResultsForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
             ? comparison.LastResultsForBaselineExperiment :
@@ -173,18 +215,12 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         if (comparison.ChosenResultsForChosenExperiment is not null
             && comparison.BaselineResultsForChosenExperiment is not null)
         {
-            var definitions = new Dictionary<string, MetricDefinition>
-            {
-                { "ndcg", new MetricDefinition { Min = 0, Max = 1 } },
-                { "bertscore", new MetricDefinition { Min = 0, Max = 1 } },
-                { "groundedness", new MetricDefinition { Min = 1, Max = 5 } }
-            };
             var policy = new PercentImprovement();
             foreach (var (key, result) in comparison.ChosenResultsForChosenExperiment)
             {
                 if (comparison.BaselineResultsForChosenExperiment.TryGetValue(key, out var baseline))
                 {
-                    policy.Evaluate(result, baseline, definitions);
+                    policy.Evaluate(result, baseline, metricDefinitions);
                 }
             }
             this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);
