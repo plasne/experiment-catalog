@@ -233,6 +233,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
     [HttpGet("{experimentName}/sets/{setName}")]
     public async Task<ActionResult<Comparison>> GetNamedSet(
+        [FromServices] IConfig config,
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
@@ -245,6 +246,14 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         var results = experiment.GetAllResultsOfSet(setName);
+        if (!string.IsNullOrEmpty(config.PATH_TEMPLATE))
+        {
+            foreach (var result in results)
+            {
+                if (!string.IsNullOrEmpty(result.InferenceUri)) result.InferenceUri = string.Format(config.PATH_TEMPLATE, result.InferenceUri);
+                if (!string.IsNullOrEmpty(result.EvaluationUri)) result.EvaluationUri = string.Format(config.PATH_TEMPLATE, result.EvaluationUri);
+            }
+        }
         return Ok(results);
     }
 
