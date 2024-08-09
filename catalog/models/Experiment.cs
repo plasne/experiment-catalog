@@ -152,9 +152,10 @@ public class Experiment()
 
     private Metric ReduceAsAverage(string key, IList<string> tags, List<Metric> metrics)
     {
+        var average = metrics.Average(x => x.Value);
         decimal? normalized = (this.MetricDefinitions is not null &&
             this.MetricDefinitions.TryGetValue(key, out var definition) &&
-            definition.TryNormalize(metrics.Average(x => x.Value), out var x))
+            definition.TryNormalize(average, out var x))
             ? x : null;
 
         if (!tags.Contains("average")) tags.Add("average");
@@ -162,7 +163,7 @@ public class Experiment()
         return new Metric
         {
             Count = metrics.Count,
-            Value = metrics.Average(x => x.Value),
+            Value = average,
             Normalized = normalized,
             StdDev = metrics.StdDev(x => x.Value),
             Tags = tags,

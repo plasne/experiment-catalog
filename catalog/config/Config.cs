@@ -18,6 +18,7 @@ public class Config : IConfig
         this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE = this.config.Get<string>("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE").AsInt(() => 1024);
         this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE = this.config.Get<string>("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE").AsInt(() => 10);
         this.OPTIMIZE_EVERY_X_MINUTES = this.config.Get<string>("OPTIMIZE_EVERY_X_MINUTES").AsInt(() => 0);
+        this.PATH_TEMPLATE = this.config.Get<string>("PATH_TEMPLATE");
     }
 
     public int PORT { get; }
@@ -36,6 +37,8 @@ public class Config : IConfig
 
     public int OPTIMIZE_EVERY_X_MINUTES { get; }
 
+    public string PATH_TEMPLATE { get; }
+
     public void Validate()
     {
         this.config.Require("PORT", this.PORT);
@@ -50,5 +53,6 @@ public class Config : IConfig
         this.config.Require("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE", this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE);
         this.config.Require("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE", this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE);
         this.config.Require("OPTIMIZE_EVERY_X_MINUTES", this.OPTIMIZE_EVERY_X_MINUTES);
+        this.config.Optional("PATH_TEMPLATE", this.PATH_TEMPLATE);
     }
 }

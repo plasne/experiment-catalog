@@ -234,15 +234,21 @@
           {#each results.filter((x) => x.ref === ref) as result}
             <tr>
               <td>
+                <nobr>Set / {result.set}</nobr>
+                {#if result.inference_uri}
+                  <button
+                    class="link"
+                    on:click={() => window.open(result.inference_uri, "_blank")}
+                    >(inf)</button
+                  >
+                {/if}
                 {#if result.evaluation_uri}
                   <button
                     class="link"
                     on:click={() =>
                       window.open(result.evaluation_uri, "_blank")}
-                    ><nobr>Set / {result.set}</nobr></button
+                    >(eval)</button
                   >
-                {:else}
-                  <nobr>Set / {result.set}</nobr>
                 {/if}
               </td>
               <td class="label">{result.ref}</td>
