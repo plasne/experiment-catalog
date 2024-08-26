@@ -112,19 +112,28 @@
       </svg>
     {/if}
 
-    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp)}
+    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && !lowerIsBetter}
       <span class:difp-red={difp < 0} class:difp-green={difp > 0}
         >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
       >
     {/if}
+    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && lowerIsBetter}
+      <span class:difp-red={difp > 0} class:difp-green={difp < 0}
+        >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
+      >
+    {/if}
     {#if difp != undefined && !Number.isNaN(difp) && !Number.isFinite(difp)}
-      <span class="difp-green">&infin;%</span>
+      <span class:difp-green={!lowerIsBetter} class:difp-red={lowerIsBetter}
+        >&infin;%</span
+      >
     {/if}
     {#if difp != undefined && Number.isNaN(difp) && diff === 0}
       <span>0%</span>
     {/if}
     {#if difp != undefined && Number.isNaN(difp) && diff < 0}
-      <span class="difp-red">&infin;%</span>
+      <span class:difp-green={lowerIsBetter} class:difp-red={!lowerIsBetter}
+        >&infin;%</span
+      >
     {/if}
 
     {#if showCount && isAvg}

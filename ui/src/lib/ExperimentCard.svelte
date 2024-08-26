@@ -1,16 +1,32 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { createEventDispatcher } from "svelte";
 
   export let experiment: Experiment;
+
+  let titleRef;
+  let cardRef;
 
   const dispatch = createEventDispatcher();
 
   const select = () => {
     dispatch("select", experiment);
   };
+
+  onMount(() => {
+    if (titleRef && cardRef) {
+      const titleWidth = titleRef.offsetWidth;
+      cardRef.style.maxWidth = `${titleWidth}px`;
+      titleRef.style.display = "none";
+    }
+  });
 </script>
 
-<div class="card">
+<div class="title" bind:this={titleRef}>
+  <button class="link" on:click={select}>{experiment.name}</button>
+</div>
+
+<div class="card" bind:this={cardRef}>
   <div class="title">
     <button class="link" on:click={select}>{experiment.name}</button>
   </div>
@@ -23,7 +39,7 @@
     border-radius: 4px;
     padding: 1rem;
     margin: 1rem;
-    max-width: 20rem;
+    min-width: 20rem;
   }
 
   .title {
