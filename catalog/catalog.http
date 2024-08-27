@@ -193,6 +193,7 @@ Content-Type: application/json
         "min": 0,
         "max": 1,
         "aggregate_function": "average",
+        "tags": ["lower-is-better"],
     },
     {
         "name": "correctness",
