@@ -1,9 +1,8 @@
-#@baseURL = http://localhost:6010/api
-@baseURL = https://plexchatcopilotpoc-eastus-catalg.lemonbeach-93a7a5bb.eastus.azurecontainerapps.io/api
-@project = sprint-06-24
+@baseURL = http://localhost:6010/api
+@project = sprint-05-24
 @baseline = baseline
-@experiment = pick_docs
-@set = 20240811175555
+@experiment = pelasne_123
+@set = set-000
 
 ## Get a list of projects
 GET {{baseURL}}/projects HTTP/1.1
@@ -82,7 +81,8 @@ Content-Type: application/json
     "set": "{{set}}",
     "annotations": [
         {
-            "text": "IGNORE: wrong docker version"
+            "text": "commit #4897f3d",
+            "uri": "https://example.com"
         }
     ]
 }
