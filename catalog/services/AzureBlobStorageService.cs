@@ -259,6 +259,7 @@ public class AzureBlobStorageService(
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var metadata = new Dictionary<string, string>
         {
+            { "exp_catalog_type", "project" },
             { "baseline", experimentName }
         };
         await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
