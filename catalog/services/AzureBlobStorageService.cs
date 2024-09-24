@@ -141,7 +141,7 @@ public class AzureBlobStorageService(
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: cancellationToken);
     }
 
-    private async Task<Tag> LoadTagAsync(BlobContainerClient containerClient, string tagName, CancellationToken cancellationToken = default)
+    private static async Task<Tag> LoadTagAsync(BlobContainerClient containerClient, string tagName, CancellationToken cancellationToken = default)
     {
         var blobClient = containerClient.GetBlobClient($"tag_{tagName}.json");
         var response = await blobClient.DownloadAsync(cancellationToken: cancellationToken);
@@ -167,7 +167,7 @@ public class AzureBlobStorageService(
             {
                 try
                 {
-                    return this.LoadTagAsync(containerClient, tag, cancellationToken);
+                    return LoadTagAsync(containerClient, tag, cancellationToken);
                 }
                 finally
                 {
@@ -192,7 +192,7 @@ public class AzureBlobStorageService(
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var blobClient = containerClient.GetBlobClient("metric_definitions.json");
-        if (!await blobClient.ExistsAsync()) return new List<MetricDefinition>();
+        if (!await blobClient.ExistsAsync(cancellationToken)) return new List<MetricDefinition>();
         var response = await blobClient.DownloadAsync(cancellationToken: cancellationToken);
         using var memoryStream = new MemoryStream();
         await response.Value.Content.CopyToAsync(memoryStream, cancellationToken);
@@ -227,7 +227,7 @@ public class AzureBlobStorageService(
             {
                 try
                 {
-                    return this.LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
+                    return LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
                 }
                 finally
                 {
@@ -307,7 +307,7 @@ public class AzureBlobStorageService(
         await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
     }
 
-    private async Task<Experiment> LoadExperimentAsync(
+    private static async Task<Experiment> LoadExperimentAsync(
         BlobContainerClient containerClient,
         string experimentName,
         bool includeResults = true,
@@ -364,14 +364,14 @@ public class AzureBlobStorageService(
         }
 
         // load the baseline experiment
-        var experiment = await this.LoadExperimentAsync(containerClient, baselineExperimentName, cancellationToken: cancellationToken);
+        var experiment = await LoadExperimentAsync(containerClient, baselineExperimentName, cancellationToken: cancellationToken);
         return experiment;
     }
 
     public async Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
-        var experiment = await this.LoadExperimentAsync(containerClient, experimentName, includeResults, cancellationToken: cancellationToken);
+        var experiment = await LoadExperimentAsync(containerClient, experimentName, includeResults, cancellationToken: cancellationToken);
         return experiment;
     }
 

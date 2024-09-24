@@ -58,7 +58,7 @@ public class Experiment()
     {
         metric = new Metric();
 
-        if (func == AggregateFunctions.Cost ||
+        if (func == AggregateFunctions.Count ||
             (
                 func == AggregateFunctions.Default &&
                 key.Contains("count", StringComparison.InvariantCultureIgnoreCase)
