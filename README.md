@@ -12,6 +12,26 @@ This repository contains a collection of projects that are helpful for running e
 
 Click on each of those services above to learn more.
 
+## Why?
+
+This project was created because our team found it difficult to compare the results of our experimentation using existing tools. A few benefits of this approach include:
+
+- It is easy to see how specific ground truths performed across multiple runs or experiments.
+
+- Tagging allows us to investigate the performance of specific subsets of ground truth. This is critically important to understand how a model performs across diverse ground truth.
+
+- Separation of project and experiment baselines.
+
+- It is easy to see the number of results for each each metric across run. This is very important to ensure how similar the things being compared are.
+
+- It is fast to get started without metric definitions. When more advanced comparision is needed, definitions can be added.
+
+- It is easy to organize and reorganize as things change.
+
+- Tagging and annotation can be done after the execution of the experiment run allowing for greater flexibility.
+
+![screenshot](./screenshot.jpg)
+
 ## Enqueue Inference
 
 ```bash
