@@ -1,3 +1,6 @@
+<!-- Copyright (c) Microsoft Corporation. -->
+<!-- Licensed under the MIT license. -->
+
 <script lang="ts">
   import { loadExperiment, updateURL } from "./lib/Tools";
   import ExperimentsList from "./lib/ExperimentsList.svelte";

@@ -1,3 +1,6 @@
+<!-- Copyright (c) Microsoft Corporation. -->
+<!-- Licensed under the MIT license. -->
+
 <script lang="ts">
   export let result: Result;
   export let baseline: Result = undefined;

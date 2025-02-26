@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 export function updateURL(project: string = null, experiment: string = null, page: string = null) {
     let url = `${window.location.pathname}`;
     var parts: string[] = [];

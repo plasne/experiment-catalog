@@ -1,3 +1,6 @@
+<!-- Copyright (c) Microsoft Corporation. -->
+<!-- Licensed under the MIT license. -->
+
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
@@ -39,7 +42,7 @@
         const result =
           i < setListSplit.length
             ? comparison.sets_for_experiment.find(
-                (result) => result.set === setListSplit[i],
+                (result) => result.set === setListSplit[i]
               )
             : null;
         selected[i] = result;
@@ -67,7 +70,7 @@
 
       // fetch comparison
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`
       );
       comparison = await response.json();
 
@@ -81,7 +84,7 @@
           : []),
         ...(comparison.sets_for_experiment
           ? comparison.sets_for_experiment.flatMap((experiment) =>
-              Object.keys(experiment.metrics),
+              Object.keys(experiment.metrics)
             )
           : []),
       ];

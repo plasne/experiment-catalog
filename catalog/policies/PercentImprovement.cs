@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 // EX. At least 60% of results are improved by 2% or more (metrics: x, y, z).
 
 using System.Collections.Generic;

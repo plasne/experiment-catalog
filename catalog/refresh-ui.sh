@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
 # Exit on error keeping error code
 set -e
 echo "Refreshing UI..."

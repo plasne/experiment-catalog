@@ -1,3 +1,6 @@
+<!-- Copyright (c) Microsoft Corporation. -->
+<!-- Licensed under the MIT license. -->
+
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   const dispatch = createEventDispatcher();
@@ -19,11 +22,11 @@
       funcstr = funcstr
         .replace(
           new RegExp(`\\[baseline.${metric}\\]`, "gi"),
-          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : null)`,
+          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : null)`
         )
         .replace(
           new RegExp(`\\[${metric}\\]`, "gi"),
-          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`,
+          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`
         );
     }
     funcstr = funcstr.replace(/ref /gi, "result.ref");
@@ -32,7 +35,7 @@
     var func = new Function(
       "baseline",
       "result",
-      `try { return ${funcstr}; } catch (e) { console.warn("filter: " + e); return false; }`,
+      `try { return ${funcstr}; } catch (e) { console.warn("filter: " + e); return false; }`
     );
     dispatch("filter", func);
   }

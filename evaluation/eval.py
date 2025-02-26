@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
 from flask import Flask, request, Response
 from dotenv import load_dotenv
 from openai import AzureOpenAI, RateLimitError, APIError

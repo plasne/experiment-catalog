@@ -1,3 +1,6 @@
+<!-- Copyright (c) Microsoft Corporation. -->
+<!-- Licensed under the MIT license. -->
+
 <script lang="ts">
   import { onMount } from "svelte";
   import { createEventDispatcher } from "svelte";

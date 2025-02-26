@@ -1,3 +1,6 @@
+<!-- Copyright (c) Microsoft Corporation. -->
+<!-- Licensed under the MIT license. -->
+
 <script lang="ts">
   import TriStateCheckboxes from "./TriStateCheckboxes.svelte";
 
