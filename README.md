@@ -18,6 +18,10 @@ Click on each of those services above to learn more.
 curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "containers": ["test"], "queue": "pelasne-inference", "iterations": 3 }' http://localhost:6030/api/evaluations
 ```
 
+## Trademarks
+
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos are subject to those third-party’s policies.
+
 ## TODO
 
 - Add StyleCop
@@ -25,6 +29,4 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01
 - Add UI to create an experiment
 - Add UI to mark a baseline
 - Test cases like no baseline experiment, no experiment to compare, etc.
-- Add a Dockerfile and test deploying
-- Get docs from Stewart
 - Bulk up documentation
