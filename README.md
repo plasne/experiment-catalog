@@ -32,11 +32,9 @@ This project was created because our team found it difficult to compare the resu
 
 ![screenshot](./screenshot.jpg)
 
-## Enqueue Inference
+## Experimentation Process
 
-```bash
-curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01", "experiment": "experiment-000", "set": "both", "containers": ["test"], "queue": "pelasne-inference", "iterations": 3 }' http://localhost:6030/api/evaluations
-```
+For more information on a complete experimentation process, see the [Experimentation Process](./docs/experimentation-process.md) document.
 
 ## Code of Conduct
 
