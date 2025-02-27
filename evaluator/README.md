@@ -70,20 +70,6 @@ The following configuration settings are used when the InferenceProxy role is en
 
 - **INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY** [OPTIONAL]: The Jsonata query to convert the ground truth files format from how they appear in the storage account to how they must be consumed by the inference solution. This is optional, obviously it is perferable for the ground truth files to already be in the format required by the inference solution, but when that is not the case, this setting is provided.
 
-            this.config.Require("INFERENCE_CONCURRENCY", this.INFERENCE_CONCURRENCY);
-            this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
-            this.config.Require("INFERENCE_URL", this.INFERENCE_URL);
-            this.config.Require("INBOUND_INFERENCE_QUEUES", this.INBOUND_INFERENCE_QUEUES);
-            if (this.INBOUND_INFERENCE_QUEUES.Length == 0)
-            {
-                throw new Exception("When configured for the InferenceProxy role, INBOUND_INFERENCE_QUEUES must be specified.");
-            }
-            this.config.Require("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY, hideValue: true);
-            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
-
 ## Samples
 
 Samples of all API features (API role) are available in the evaluator.http file. You can use the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in Visual Studio Code to run these samples.
