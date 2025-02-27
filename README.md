@@ -34,7 +34,7 @@ This project was created because our team found it difficult to compare the resu
 
 ## Experimentation Process
 
-For more information on a complete experimentation process, see the [Experimentation Process](./docs/experimentation-process.md) document.
+For more information on a complete experimentation process, see the [Experimentation Process](./experimentation-process.md) document.
 
 ## Code of Conduct
 
