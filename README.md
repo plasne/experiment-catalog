@@ -28,3 +28,4 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "project": "project-01
 - Add a Dockerfile and test deploying
 - Get docs from Stewart
 - Bulk up documentation
+- Switch to Table storage to allow for basic updates and removing the optimize step
