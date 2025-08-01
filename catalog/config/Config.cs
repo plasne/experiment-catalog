@@ -19,6 +19,7 @@ public class Config : IConfig
         this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE = this.config.Get<string>("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE").AsInt(() => 10);
         this.OPTIMIZE_EVERY_X_MINUTES = this.config.Get<string>("OPTIMIZE_EVERY_X_MINUTES").AsInt(() => 0);
         this.PATH_TEMPLATE = this.config.Get<string>("PATH_TEMPLATE");
+        this.ENABLE_ANONYMOUS_DOWNLOAD = this.config.Get<string>("ENABLE_ANONYMOUS_DOWNLOAD").AsBool(() => false);
     }
 
     public int PORT { get; }
@@ -39,6 +40,8 @@ public class Config : IConfig
 
     public string PATH_TEMPLATE { get; }
 
+    public bool ENABLE_ANONYMOUS_DOWNLOAD { get; }
+
     public void Validate()
     {
         this.config.Require("PORT", this.PORT);
@@ -54,5 +57,6 @@ public class Config : IConfig
         this.config.Require("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE", this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE);
         this.config.Require("OPTIMIZE_EVERY_X_MINUTES", this.OPTIMIZE_EVERY_X_MINUTES);
         this.config.Optional("PATH_TEMPLATE", this.PATH_TEMPLATE);
+        this.config.Optional("ENABLE_ANONYMOUS_DOWNLOAD", this.ENABLE_ANONYMOUS_DOWNLOAD.ToString());
     }
 }
