@@ -35,7 +35,8 @@ public class PercentImprovement
                 && baseline.Metrics.TryGetValue(metricName, out var baselineMetric)
                 && definitions.TryGetValue(metricName, out var definition)
                 && definition.TryNormalize(evaluatingMetric.Value, out var evaluatingNormalized)
-                && definition.TryNormalize(baselineMetric.Value, out var baselineNormalized))
+                && definition.TryNormalize(baselineMetric.Value, out var baselineNormalized)
+                && baselineNormalized != 0)
             {
                 var improvement = (evaluatingNormalized - baselineNormalized) / baselineNormalized;
                 if (improvement >= this.requiredImprovement)

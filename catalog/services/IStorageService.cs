@@ -21,4 +21,5 @@ public interface IStorageService
     Task<Experiment> GetProjectBaselineAsync(string projectName, CancellationToken cancellationToken = default);
     Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default);
     Task OptimizeExperimentAsync(string projectName, string experimentName, CancellationToken cancellationToken = default);
+    Task<byte[]> GetSupportingDocumentAsync(string url, CancellationToken cancellationToken = default);
 }

@@ -11,6 +11,7 @@ public interface IConfig
     int REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE { get; }
     int OPTIMIZE_EVERY_X_MINUTES { get; }
     string PATH_TEMPLATE { get; }
+    bool ENABLE_ANONYMOUS_DOWNLOAD { get; }
 
     void Validate();
 }
