@@ -41,6 +41,7 @@
   .checkbox-container {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
   }
   button {
     margin-left: 1.2em;

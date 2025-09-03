@@ -23,9 +23,11 @@
   }
 </script>
 
-<button id={buttonId} class="checkbox-wrapper {state}" on:click={toggle}
-></button>
-<label for={buttonId}>{label}</label>
+<nobr>
+  <button id={buttonId} class="checkbox-wrapper {state}" on:click={toggle}
+  ></button>
+  <label for={buttonId}>{label}</label> ;
+</nobr>
 
 <style>
   .checkbox-wrapper {
