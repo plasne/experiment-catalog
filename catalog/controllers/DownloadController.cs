@@ -12,7 +12,7 @@ public class DownloadController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Download(
         [FromServices] IConfig config,
-        [FromServices] IStorageService storageService,
+        [FromServices] ISupportDocsService supportDocsService,
         [FromQuery] string url)
     {
         if (!config.ENABLE_ANONYMOUS_DOWNLOAD)
@@ -25,7 +25,7 @@ public class DownloadController : ControllerBase
             return BadRequest("A URL is required.");
         }
 
-        var result = await storageService.GetSupportingDocumentAsync(url);
+        var result = await supportDocsService.GetSupportingDocumentAsync(url);
         var fileName = url.Substring(url.LastIndexOf('/') + 1);
         var contentType = GetContentType(fileName);
         Response.Headers.Add("Content-Disposition", $"inline; filename=\"{fileName}\"");

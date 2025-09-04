@@ -19,7 +19,16 @@ public class Config : IConfig
         this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE = this.config.Get<string>("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE").AsInt(() => 10);
         this.OPTIMIZE_EVERY_X_MINUTES = this.config.Get<string>("OPTIMIZE_EVERY_X_MINUTES").AsInt(() => 0);
         this.PATH_TEMPLATE = this.config.Get<string>("PATH_TEMPLATE");
+        this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS");
+        this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS = this.config.GetSecret<string>("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS").Result;
         this.ENABLE_ANONYMOUS_DOWNLOAD = this.config.Get<string>("ENABLE_ANONYMOUS_DOWNLOAD").AsBool(() => false);
+        if (this.ENABLE_ANONYMOUS_DOWNLOAD
+            && string.IsNullOrEmpty(this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS)
+            && string.IsNullOrEmpty(this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS))
+        {
+            this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS = this.AZURE_STORAGE_ACCOUNT_CONNSTRING;
+            this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS = this.AZURE_STORAGE_ACCOUNT_NAME;
+        }
     }
 
     public int PORT { get; }
@@ -40,6 +49,10 @@ public class Config : IConfig
 
     public string PATH_TEMPLATE { get; }
 
+    public string AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS { get; }
+
+    public string AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS { get; }
+
     public bool ENABLE_ANONYMOUS_DOWNLOAD { get; }
 
     public void Validate()
@@ -57,6 +70,8 @@ public class Config : IConfig
         this.config.Require("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE", this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE);
         this.config.Require("OPTIMIZE_EVERY_X_MINUTES", this.OPTIMIZE_EVERY_X_MINUTES);
         this.config.Optional("PATH_TEMPLATE", this.PATH_TEMPLATE);
+        this.config.Optional("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS", this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS);
+        this.config.Optional("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS", this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS, hideValue: true);
         this.config.Optional("ENABLE_ANONYMOUS_DOWNLOAD", this.ENABLE_ANONYMOUS_DOWNLOAD.ToString());
     }
 }

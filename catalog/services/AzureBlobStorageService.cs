@@ -523,38 +523,4 @@ public class AzureBlobStorageService(
 
         this.logger.LogDebug("completed optimize operation.");
     }
-
-    public async Task<byte[]> GetSupportingDocumentAsync(string url, CancellationToken cancellationToken = default)
-    {
-        var client = await this.ConnectAsync(cancellationToken);
-
-        // verify the URL is for the correct storage account
-        if (!url.StartsWith($"https://{client.AccountName}.blob.core.windows.net/", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new HttpException(400, "the URL does not point to the storage account used for the catalog.");
-        }
-
-        // extract container name and blob name from the URI path
-        var blobUri = new Uri(url);
-        var pathSegments = blobUri.AbsolutePath.TrimStart('/').Split('/', 2);
-        if (pathSegments.Length < 2)
-        {
-            throw new HttpException(400, "the URL does not contain a valid container and blob path.");
-        }
-
-        // log the attempt
-        var containerName = pathSegments[0];
-        var blobName = pathSegments[1];
-        this.logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
-
-        // download the blob
-        var containerClient = client.GetBlobContainerClient(containerName);
-        var blobClient = containerClient.GetBlobClient(blobName);
-        var response = await blobClient.DownloadAsync(cancellationToken: cancellationToken);
-        using var memoryStream = new MemoryStream();
-        await response.Value.Content.CopyToAsync(memoryStream);
-        var result = memoryStream.ToArray();
-        this.logger.LogDebug("successfully downloaded blob {b} from container {c}.", blobName, containerName);
-        return result;
-    }
 }
