@@ -34,6 +34,7 @@ if (!string.IsNullOrEmpty(config.OPEN_TELEMETRY_CONNECTION_STRING))
 // add services to the container
 builder.Services.AddConfig();
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
+builder.Services.AddSingleton<ISupportDocsService, AzureBlobSupportDocsService>();
 if (config.OPTIMIZE_EVERY_X_MINUTES > 0)
 {
     Console.WriteLine("ADDING SERVICE: AzureBlobStorageMaintenanceService");

@@ -11,6 +11,8 @@ public interface IConfig
     int REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE { get; }
     int OPTIMIZE_EVERY_X_MINUTES { get; }
     string PATH_TEMPLATE { get; }
+    string AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS { get; }
+    string AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS { get; }
     bool ENABLE_ANONYMOUS_DOWNLOAD { get; }
 
     void Validate();

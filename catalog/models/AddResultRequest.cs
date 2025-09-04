@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 
@@ -34,9 +35,9 @@ public class AddResultRequest
         foreach (var metric in this.Metrics)
         {
             var str = metric.Value.ToString();
-            if (decimal.TryParse(str, out var dec))
+            if (double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
             {
-                metrics[metric.Key] = new Metric { Value = dec };
+                metrics[metric.Key] = new Metric { Value = (decimal)d };
             }
             else if (classifications.Contains(str)
                 && Array.Exists(Experiment.namesIndicatingClassification, x => metric.Key.Contains(x, StringComparison.InvariantCultureIgnoreCase)))
