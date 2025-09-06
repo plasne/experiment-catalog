@@ -60,7 +60,13 @@
     {#if isCount}
       <span>{result.metrics[metric].value.toLocaleString()}</span>
     {:else if isCost}
-      <span>${result.metrics[metric].value.toFixed(2).toLocaleString()}</span>
+      <span
+        >{result.metrics[metric].value.toFixed(2) === "0.00" &&
+        result.metrics[metric].value > 0
+          ? ">$0.00"
+          : "$" +
+            result.metrics[metric].value.toFixed(2).toLocaleString()}</span
+      >
     {:else if result.metrics[metric].value == undefined}
       <span>-</span>
     {:else}
@@ -68,13 +74,13 @@
         >{result.metrics[metric].value.toFixed(3) === "0.000" &&
         result.metrics[metric].value > 0
           ? ">0.00"
-          : result.metrics[metric].value.toFixed(3)}</span
+          : result.metrics[metric].value.toFixed(3).toLocaleString()}</span
       >
     {/if}
     {#if showStdDev && isAvg && result.metrics[metric].std_dev !== undefined}
-      <span>({result.metrics[metric].std_dev.toFixed(3)})</span>
+      <span>({result.metrics[metric].std_dev.toFixed(3).toLocaleString()})</span
+      >
     {/if}
-
     {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
