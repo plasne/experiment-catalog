@@ -184,7 +184,6 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
 
-
         // get the baseline
         try
         {
@@ -242,10 +241,20 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
+        // init
+        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
+            .ToDictionary(x => x.Name);
+
+        // get the experiment and filter the results
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         experiment.Filter(includeTags, excludeTags);
+        experiment.MetricDefinitions = metricDefinitions;
+
+        // get the results
         var results = experiment.GetAllResultsOfSet(setName);
+
+        // add the support docs
         if (!string.IsNullOrEmpty(config.PATH_TEMPLATE))
         {
             foreach (var result in results)
@@ -254,6 +263,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
                 if (!string.IsNullOrEmpty(result.EvaluationUri)) result.EvaluationUri = string.Format(config.PATH_TEMPLATE, result.EvaluationUri);
             }
         }
+
         return Ok(results);
     }
 

@@ -295,7 +295,19 @@ public class Experiment()
 
     public List<Result> GetAllResultsOfSet(string name)
     {
-        return this.Results?.Where(x => x.Set == name).ToList() ?? [];
+        var results = this.Results?.Where(x => x.Set == name).ToList() ?? [];
+        foreach (var result in results)
+        {
+            if (result.Metrics is not null)
+            {
+                foreach (var metric in result.Metrics)
+                {
+                    var reduced = this.Reduce(metric.Key, new List<Metric> { metric.Value });
+                    result.Metrics[metric.Key] = reduced;
+                }
+            }
+        }
+        return results;
     }
 
 # pragma warning disable S3776 // Cognitive Complexity of this method is not too high
