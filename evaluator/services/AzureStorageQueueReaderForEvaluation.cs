@@ -53,27 +53,40 @@ public class AzureStorageQueueReaderForEvaluation(IConfig config,
             // it is considered to have processed once it starts doing something related to the actual request
             isConsideredToHaveProcessed = true;
 
-            // download and transform the ground truth file
-            var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
-            var groundTruthBlobClient = this.GetBlobClient(groundTruthBlobRef.Container, groundTruthBlobRef.BlobName);
-            var groundTruthContent = await groundTruthBlobClient.DownloadAndTransformAsync(
-                this.config.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY,
-                this.logger,
-                cancellationToken);
-
-            // download and transform the inference file
+            // download and transform the inference file first
             var inferenceBlobClient = this.GetBlobClient(this.config.INFERENCE_CONTAINER, $"{request.RunId}/{request.Id}.json");
             var inferenceContent = await inferenceBlobClient.DownloadAndTransformAsync(
                 this.config.INBOUND_INFERENCE_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
 
-            // generate consolidated payload
-            string payload = JsonConvert.SerializeObject(new
+            // check if inference content already has the required structure
+            string payload;
+            var inferenceJson = JsonConvert.DeserializeObject<dynamic>(inferenceContent);
+            bool hasGroundTruthNode = inferenceJson?.ground_truth != null;
+            bool hasInferenceNode = inferenceJson?.inference != null;
+
+            if (hasGroundTruthNode && hasInferenceNode)
             {
-                ground_truth = JsonConvert.DeserializeObject(groundTruthContent),
-                inference = JsonConvert.DeserializeObject(inferenceContent)
-            });
+                payload = inferenceContent;
+            }
+            else
+            {
+                // download and transform the ground truth file
+                var groundTruthBlobRef = new BlobRef(request.GroundTruthUri);
+                var groundTruthBlobClient = this.GetBlobClient(groundTruthBlobRef.Container, groundTruthBlobRef.BlobName);
+                var groundTruthContent = await groundTruthBlobClient.DownloadAndTransformAsync(
+                    this.config.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY,
+                    this.logger,
+                    cancellationToken);
+
+                // generate consolidated payload
+                payload = JsonConvert.SerializeObject(new
+                {
+                    ground_truth = JsonConvert.DeserializeObject(groundTruthContent),
+                    inference = JsonConvert.DeserializeObject(inferenceContent)
+                });
+            }
 
             // call processing URL
             var (responseHeaders, responseContent) = await this.SendForProcessingAsync(
@@ -91,8 +104,11 @@ public class AzureStorageQueueReaderForEvaluation(IConfig config,
             // get reference to the inferenceUri
             var inferenceUri = this.GetBlobUri(this.config.INFERENCE_CONTAINER, $"{request.RunId}/{request.Id}.json");
 
-            // handle the response headers (metrics, histograms, etc.)
-            await this.HandleResponseHeadersAsync(request, responseHeaders, inferenceUri, evaluationUri, cancellationToken);
+            // handle the response headers (metrics, etc.)
+            if (this.config.PROCESS_METRICS_IN_EVALUATION_RESPONSE)
+            {
+                await this.HandleResponseAsync(request, responseContent, inferenceUri, evaluationUri, cancellationToken);
+            }
 
             // delete the message
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
@@ -142,6 +158,12 @@ public class AzureStorageQueueReaderForEvaluation(IConfig config,
             this.logger.LogError(e, "error getting messages from queues in AzureStorageQueueReaderForEvaluation...");
         }
         return count;
+    }
+
+    public async Task<Dictionary<string, int>> GetAllQueueMessageCountsAsync()
+    {
+        List<QueueClient> queueClients = [.. this.inboundQueues, .. this.inboundDeadletterQueues];
+        return await base.GetAllQueueMessageCountsAsync(queueClients);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

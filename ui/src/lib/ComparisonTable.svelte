@@ -3,6 +3,7 @@
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
+  import { sortMetrics } from "./Tools";
 
   export let project: Project;
   export let experiment: Experiment;
@@ -39,7 +40,7 @@
         const result =
           i < setListSplit.length
             ? comparison.sets_for_experiment.find(
-                (result) => result.set === setListSplit[i],
+                (result) => result.set === setListSplit[i]
               )
             : null;
         selected[i] = result;
@@ -67,7 +68,7 @@
 
       // fetch comparison
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`
       );
       comparison = await response.json();
 
@@ -81,11 +82,13 @@
           : []),
         ...(comparison.sets_for_experiment
           ? comparison.sets_for_experiment.flatMap((experiment) =>
-              Object.keys(experiment.metrics),
+              Object.keys(experiment.metrics)
             )
           : []),
       ];
-      metrics = [...new Set(allKeys)].sort();
+      metrics = [...new Set(allKeys)].sort((a, b) =>
+        sortMetrics(comparison.metric_definitions, a, b)
+      );
 
       // apply the set list
       applySetList();
@@ -96,6 +99,10 @@
       state = "error";
     }
   };
+
+  export function reload() {
+    fetchComparison();
+  }
 
   $: fetchComparison(), tagFilters;
 </script>
@@ -119,7 +126,7 @@
       <option value={30}>30</option>
       <option value={100}>100</option>
     </select>
-    <span>of {comparison.sets_for_experiment.length} experiments</span>
+    <span>of {comparison.sets_for_experiment.length} permutations</span>
   </div>
 {/if}
 
@@ -172,12 +179,14 @@
               result={comparison.baseline_result_for_project}
               baseline={comparison.baseline_result_for_experiment}
               {metric}
+              definition={comparison.metric_definitions[metric]}
             /></td
           >
           <td
             ><ComparisonTableMetric
               result={comparison.baseline_result_for_experiment}
               {metric}
+              definition={comparison.metric_definitions[metric]}
             /></td
           >
           {#each selected as result, index}
@@ -187,6 +196,7 @@
                 {result}
                 baseline={comparison.baseline_result_for_experiment}
                 {metric}
+                definition={comparison.metric_definitions[metric]}
               /></td
             >
           {/each}

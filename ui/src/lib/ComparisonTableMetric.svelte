@@ -2,6 +2,7 @@
   export let result: Result;
   export let baseline: Result = undefined;
   export let metric: string;
+  export let definition: MetricDefinition = undefined;
   export let showStdDev: boolean = true;
   export let showCount: boolean = true;
 
@@ -10,18 +11,14 @@
   let isAvg: boolean;
   let lowerIsBetter: boolean;
 
-  const hasTag = (tag: string): boolean =>
-    result &&
-    result.metrics &&
-    result.metrics[metric] &&
-    result.metrics[metric].tags &&
-    result.metrics[metric].tags.includes(tag);
-
   $: {
-    isCount = hasTag("count");
-    isCost = hasTag("cost");
+    isCount = definition && definition.aggregate_function === "Count";
+    isCost = definition && definition.aggregate_function === "Cost";
     isAvg = !(isCount || isCost);
-    lowerIsBetter = hasTag("lower-is-better");
+    lowerIsBetter =
+      definition &&
+      definition.tags &&
+      definition.tags.includes("lower-is-better");
   }
 
   let diff: number;

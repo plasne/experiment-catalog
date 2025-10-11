@@ -17,3 +17,24 @@ export async function loadExperiment(projectName: string, experimentName: string
     var experiment = await response.json();
     return experiment
 }
+
+export function sortMetrics(
+    metric_definitions: Record<string, MetricDefinition>,
+    a: string,
+    b: string,
+) {
+    // get metric definitions
+    const defA = metric_definitions?.[a];
+    const defB = metric_definitions?.[b];
+
+    // if a metric definition is missing, push it to the end
+    const orderA = defA?.order ?? Number.MAX_SAFE_INTEGER;
+    const orderB = defB?.order ?? Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+
+    // fall back to case-insensitive alphabetical order
+    return a.localeCompare(b, undefined, {
+        sensitivity: "base",
+        numeric: true,
+    });
+}

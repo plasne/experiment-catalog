@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -25,8 +26,35 @@ public class EvaluationsController() : ControllerBase
     }
 
     [HttpGet("status")]
-    public IActionResult Status()
+    public async Task<ActionResult<Dictionary<string, int>>> Status(
+        [FromServices] IServiceProvider serviceProvider
+    )
     {
-        throw new HttpException(501, "not implemented");
+        var status = new Dictionary<string, int>();
+        var inferenceReader = serviceProvider
+            .GetServices<IHostedService>()
+            .OfType<AzureStorageQueueReaderForInference>()
+            .FirstOrDefault();
+        if (inferenceReader is not null)
+        {
+            var inferenceStatus = await inferenceReader.GetAllQueueMessageCountsAsync();
+            foreach (var kvp in inferenceStatus)
+            {
+                status[kvp.Key] = kvp.Value;
+            }
+        }
+        var evaluationReader = serviceProvider
+            .GetServices<IHostedService>()
+            .OfType<AzureStorageQueueReaderForEvaluation>()
+            .FirstOrDefault();
+        if (evaluationReader is not null)
+        {
+            var evaluationStatus = await evaluationReader.GetAllQueueMessageCountsAsync();
+            foreach (var kvp in evaluationStatus)
+            {
+                status[kvp.Key] = kvp.Value;
+            }
+        }
+        return this.Ok(status);
     }
 }

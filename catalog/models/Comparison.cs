@@ -5,6 +5,9 @@ namespace Catalog;
 
 public class Comparison
 {
+    [JsonProperty("metric_definitions", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, MetricDefinition>? MetricDefinitions { get; set; }
+
     [JsonProperty("baseline_result_for_project", NullValueHandling = NullValueHandling.Ignore)]
     public Result? BaselineResultForBaselineExperiment { get; set; }
 

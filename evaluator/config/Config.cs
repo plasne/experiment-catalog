@@ -90,6 +90,9 @@ public class Config : IConfig
                 ? string.Empty
                 : File.ReadAllText(this.INBOUND_EVALUATION_TRANSFORM_FILE);
         });
+
+        this.PROCESS_METRICS_IN_INFERENCE_RESPONSE = this.config.Get<string>("PROCESS_METRICS_IN_INFERENCE_RESPONSE").AsBool(() => false);
+        this.PROCESS_METRICS_IN_EVALUATION_RESPONSE = this.config.Get<string>("PROCESS_METRICS_IN_EVALUATION_RESPONSE").AsBool(() => true);
     }
 
     public int PORT { get; }
@@ -162,6 +165,10 @@ public class Config : IConfig
 
     public string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
 
+    public bool PROCESS_METRICS_IN_INFERENCE_RESPONSE { get; }
+
+    public bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; }
+
     public void Validate()
     {
         // applies regardless of role
@@ -199,6 +206,7 @@ public class Config : IConfig
             this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY, hideValue: true);
             this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
             this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
+            this.config.Optional("PROCESS_METRICS_IN_INFERENCE_RESPONSE", this.PROCESS_METRICS_IN_INFERENCE_RESPONSE.ToString());
         }
 
         // EvaluationProxy-specific
@@ -217,6 +225,7 @@ public class Config : IConfig
             this.config.Optional("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY, hideValue: true);
             this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);
             this.config.Optional("INBOUND_EVALUATION_TRANSFORM_QUERY", this.INBOUND_EVALUATION_TRANSFORM_QUERY, hideValue: true);
+            this.config.Optional("PROCESS_METRICS_IN_EVALUATION_RESPONSE", this.PROCESS_METRICS_IN_EVALUATION_RESPONSE.ToString());
         }
 
         // any proxy

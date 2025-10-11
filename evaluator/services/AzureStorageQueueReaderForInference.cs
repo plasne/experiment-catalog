@@ -75,8 +75,11 @@ public class AzureStorageQueueReaderForInference(IConfig config,
             // upload the result
             var inferenceUri = await this.UploadBlobAsync(this.config.INFERENCE_CONTAINER, $"{request.RunId}/{request.Id}.json", responseContent, cancellationToken);
 
-            // handle the response headers (metrics, histograms, etc.)
-            await this.HandleResponseHeadersAsync(request, responseHeaders, inferenceUri, null, cancellationToken);
+            // handle the response headers (metrics, etc.)
+            if (this.config.PROCESS_METRICS_IN_INFERENCE_RESPONSE)
+            {
+                await this.HandleResponseAsync(request, responseContent, inferenceUri, null, cancellationToken);
+            }
 
             // enqueue for the next stage
             await this.outboundQueue!.SendMessageAsync(body, cancellationToken);
@@ -129,6 +132,12 @@ public class AzureStorageQueueReaderForInference(IConfig config,
             this.logger.LogError(e, "error getting messages from queues in AzureStorageQueueReaderForInference...");
         }
         return count;
+    }
+
+    public async Task<Dictionary<string, int>> GetAllQueueMessageCountsAsync()
+    {
+        List<QueueClient> queueClients = [.. this.inboundQueues, .. this.inboundDeadletterQueues];
+        return await base.GetAllQueueMessageCountsAsync(queueClients);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

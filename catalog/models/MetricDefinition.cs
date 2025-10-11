@@ -19,6 +19,9 @@ public class MetricDefinition
     [JsonConverter(typeof(StringEnumConverter))]
     public AggregateFunctions AggregateFunction { get; set; } = AggregateFunctions.Default;
 
+    [JsonProperty("order", NullValueHandling = NullValueHandling.Ignore)]
+    public int? Order { get; set; }
+
     [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
     public IList<string>? Tags { get; set; }
 

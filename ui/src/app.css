@@ -55,6 +55,13 @@ button.link:hover {
   text-decoration-color: #ccc;
 }
 
+button.link:disabled {
+  cursor: default;
+  color: #666;
+  text-decoration-color: #666;
+  text-decoration: none;
+}
+
 a.link {
   text-decoration-color: #999;
 }

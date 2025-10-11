@@ -19,11 +19,85 @@
   const changeSetList = (event: CustomEvent<string>) => {
     dispatch("changeSetList", event.detail);
   };
+
+  const useTheProjectBaseline = async () => {
+    const response = await fetch(
+      `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/:project/baseline`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.ok) {
+      comparisonTable.reload();
+      confirmUseTheProjectBaseline = false;
+    }
+  };
+
+  const setAsProjectBaseline = async () => {
+    const response = await fetch(
+      `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/baseline`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.ok) {
+      comparisonTable.reload();
+      confirmSetAsProjectBaseline = false;
+    }
+  };
+
+  let prefix =
+    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
+  let confirmUseTheProjectBaseline = false;
+  let confirmSetAsProjectBaseline = false;
+  let comparisonTable: ComparisonTable;
 </script>
 
 <button class="link" on:click={unselectExperiment}>back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
+<div>
+  <span>
+    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
+      <input
+        type="checkbox"
+        bind:checked={confirmUseTheProjectBaseline}
+        aria-label="Confirm set as project baseline"
+      />
+      <button
+        class="link"
+        on:click={useTheProjectBaseline}
+        disabled={!confirmUseTheProjectBaseline}
+      >
+        use the project baseline
+      </button>
+    </label>
+  </span>
+</div>
+<div>
+  <span>
+    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
+      <input
+        type="checkbox"
+        bind:checked={confirmSetAsProjectBaseline}
+        aria-label="Confirm set as project baseline"
+      />
+      <button
+        class="link"
+        on:click={setAsProjectBaseline}
+        disabled={!confirmSetAsProjectBaseline}
+      >
+        set this experiment as the project baseline
+      </button>
+    </label>
+  </span>
+</div>
 <div>
   <span class="label">Hypothesis:</span>
   <span>{experiment.hypothesis}</span>
@@ -62,6 +136,7 @@
     {project}
     {experiment}
     {setList}
+    bind:this={comparisonTable}
     on:drilldown={selectSet}
     on:changeSetList={changeSetList}
   />

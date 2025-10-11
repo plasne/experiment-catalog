@@ -4,6 +4,7 @@
   import Annotations from "./Annotations.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import FreeFilter from "./FreeFilter.svelte";
+  import { sortMetrics } from "./Tools";
 
   export let project: Project;
   export let experiment: Experiment;
@@ -44,21 +45,24 @@
       const allMetrics = [
         ...(comparison.last_results_for_baseline_experiment
           ? Object.values(
-              comparison.last_results_for_baseline_experiment,
+              comparison.last_results_for_baseline_experiment
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
         ...(comparison.baseline_results_for_chosen_experiment
           ? Object.values(
-              comparison.baseline_results_for_chosen_experiment,
+              comparison.baseline_results_for_chosen_experiment
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
         ...(comparison.chosen_results_for_chosen_experiment
           ? Object.values(
-              comparison.chosen_results_for_chosen_experiment,
+              comparison.chosen_results_for_chosen_experiment
             ).flatMap((result) => Object.keys(result.metrics))
           : []),
       ];
-      metrics = [...new Set(allMetrics)].sort();
+      metrics = [...new Set(allMetrics)].sort((a, b) =>
+        sortMetrics(comparison.metric_definitions, a, b)
+      );
+
       state = "loaded";
     } catch (error) {
       console.error(error);
@@ -92,7 +96,7 @@
       filteredRefs = masterRefs.filter((ref) => {
         return filterFunc(
           comparison.baseline_results_for_chosen_experiment[ref],
-          comparison.chosen_results_for_chosen_experiment[ref],
+          comparison.chosen_results_for_chosen_experiment[ref]
         );
       });
     }
@@ -107,12 +111,48 @@
     state = "loaded";
   };
 
+  const setAsExperimentBaseline = async () => {
+    const response = await fetch(
+      `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/baseline`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.ok) {
+      fetchComparison();
+      confirmBaseline = false;
+    }
+  };
+
+  var confirmBaseline = false;
+
   $: fetchComparison(), showResults, tagFilters;
 </script>
 
 <button class="link" on:click={unselectSet}>back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
+<div>
+  <span>
+    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
+      <input
+        type="checkbox"
+        bind:checked={confirmBaseline}
+        aria-label="Confirm set as project baseline"
+      />
+      <button
+        class="link"
+        on:click={setAsExperimentBaseline}
+        disabled={!confirmBaseline}
+      >
+        set this permutation as the experiment baseline
+      </button>
+    </label>
+  </span>
+</div>
 <div>
   <span class="label">Hypothesis:</span>
   <span>{experiment.hypothesis}</span>
@@ -179,6 +219,7 @@
                 baseline={comparison.baseline_results_for_chosen_experiment[
                   ref
                 ]}
+                definition={comparison.metric_definitions[metric]}
               ></ComparisonTableMetric>
             </td>
           {/each}
@@ -198,6 +239,7 @@
                   ref
                 ]}
                 {metric}
+                definition={comparison.metric_definitions[metric]}
               ></ComparisonTableMetric>
             </td>
           {/each}
@@ -219,6 +261,7 @@
                 baseline={comparison.baseline_results_for_chosen_experiment[
                   ref
                 ]}
+                definition={comparison.metric_definitions[metric]}
               ></ComparisonTableMetric>
             </td>
           {/each}
@@ -262,6 +305,7 @@
                     ]}
                     showStdDev={false}
                     showCount={false}
+                    definition={comparison.metric_definitions[metric]}
                   ></ComparisonTableMetric>
                 </td>
               {/each}
