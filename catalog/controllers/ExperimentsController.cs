@@ -131,7 +131,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // init
         var comparison = new Comparison();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
-        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
+        comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
 
         // get the baseline
@@ -139,7 +139,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
-            baseline.MetricDefinitions = metricDefinitions;
+            baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.BaselineResultForBaselineExperiment =
                 baseline.AggregateBaselineSet()
                 ?? baseline.AggregateLastSet();
@@ -152,7 +152,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // get the comparison data
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
-        experiment.MetricDefinitions = metricDefinitions;
+        experiment.MetricDefinitions = comparison.MetricDefinitions;
         comparison.BaselineResultForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
             ? comparison.BaselineResultForBaselineExperiment :
@@ -181,7 +181,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // init
         var comparison = new ComparisonByRef();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
-        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
+        comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
 
         // get the baseline
@@ -189,7 +189,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
-            baseline.MetricDefinitions = metricDefinitions;
+            baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.LastResultsForBaselineExperiment =
                 baseline.AggregateBaselineSetByRef()
                 ?? baseline.AggregateLastSetByRef();
@@ -202,7 +202,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // get the comparison datas
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
-        experiment.MetricDefinitions = metricDefinitions;
+        experiment.MetricDefinitions = comparison.MetricDefinitions;
         comparison.BaselineResultsForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
             ? comparison.LastResultsForBaselineExperiment :
@@ -219,7 +219,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             {
                 if (comparison.BaselineResultsForChosenExperiment.TryGetValue(key, out var baseline))
                 {
-                    policy.Evaluate(result, baseline, metricDefinitions);
+                    policy.Evaluate(result, baseline, comparison.MetricDefinitions);
                 }
             }
             this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);

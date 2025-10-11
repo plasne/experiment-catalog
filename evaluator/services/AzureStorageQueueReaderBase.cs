@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,31 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
             : new BlobServiceClient(this.config.AZURE_STORAGE_CONNECTION_STRING);
         var containerClient = blobClient.GetBlobContainerClient(containerName);
         return containerClient.GetBlobClient(blobName);
+    }
+
+    public async Task<int> GetQueueMessageCountAsync(QueueClient queueClient)
+    {
+        this.logger.LogDebug("getting message count for queue {q}...", queueClient.Name);
+        var properties = await queueClient.GetPropertiesAsync();
+        var x = properties.Value.ApproximateMessagesCount;
+        return x;
+    }
+
+    public async Task<Dictionary<string, int>> GetAllQueueMessageCountsAsync(List<QueueClient> queueClients)
+    {
+        var result = new Dictionary<string, int>();
+        foreach (var queueClient in queueClients)
+        {
+            try
+            {
+                result[queueClient.Name] = await this.GetQueueMessageCountAsync(queueClient);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "could not get message count for queue {q}.", queueClient.Name);
+            }
+        }
+        return result;
     }
 
     protected async Task<string> UploadBlobAsync(string containerName, string blobName, string content, CancellationToken cancellationToken)
@@ -98,73 +124,68 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
             string.Join(", ", metrics.Select(x => x.Key)));
     }
 
-    protected void RecordHistograms(PipelineRequest pipelineRequest, List<string> connectionStrings)
-    {
-        if (connectionStrings.Count == 0)
-        {
-            return;
-        }
-
-        this.logger.LogDebug("attempting to record {x} histograms...", connectionStrings.Count);
-
-        var recorded = new Dictionary<string, decimal>();
-        var notRecorded = new List<string>();
-        var meter = new Meter(DiagnosticService.SourceName);
-        foreach (var connectionString in connectionStrings)
-        {
-            var definition = new HistogramDefinition(connectionString);
-            if (definition.TryRecord(meter, pipelineRequest))
-            {
-                recorded.Add(definition.Name!, definition.Value ?? 0);
-            }
-            else
-            {
-                notRecorded.Add(definition.Name!);
-            }
-        }
-
-        this.logger.LogInformation(
-            "successfully recorded {r} histograms ({h}); not recorded ({n}).",
-            recorded.Count,
-            string.Join(", ", recorded.Select(x => $"{x.Key}={x.Value}")),
-            string.Join(", ", notRecorded));
-    }
-
-    protected async Task HandleResponseHeadersAsync(
+    protected async Task HandleResponseAsync(
         PipelineRequest pipelineRequest,
-        HttpResponseHeaders headers,
+        string? responseContent,
         string? inferenceUri,
         string? evaluationUri,
         CancellationToken cancellationToken)
     {
         var metrics = new Dictionary<string, string>();
-        var connectionStrings = new List<string>();
 
-        // look at all the headers
-        foreach (var header in headers)
+        // check if responseContent is JSON and extract metrics from $metrics nodes
+        if (!string.IsNullOrEmpty(responseContent))
         {
-            if (header.Value is null || !header.Value.Any() || string.IsNullOrEmpty(header.Value.First())) continue;
-            var value = header.Value.First();
-
-            if (header.Key.StartsWith("x-tag-", StringComparison.InvariantCultureIgnoreCase))
+            try
             {
-                Activity.Current?.AddTag(header.Key[6..], value);
+                var jsonObject = JsonConvert.DeserializeObject(responseContent);
+                ExtractMetricsFromJson(jsonObject, metrics);
             }
-            else if (header.Key.StartsWith("x-metric-", StringComparison.InvariantCultureIgnoreCase))
+            catch (JsonException)
             {
-                var key = header.Key[9..];
-                metrics.Add(key, value);
-                Activity.Current?.AddTag(key, value);
-            }
-            else if (header.Key.StartsWith("x-histogram-", StringComparison.InvariantCultureIgnoreCase))
-            {
-                connectionStrings.Add(header.Value.First());
+                // responseContent is not valid JSON, skip metrics extraction
+                this.logger.LogDebug("Response content is not valid JSON, skipping metrics extraction.");
             }
         }
 
         // record
         await this.RecordMetricsAsync(pipelineRequest, inferenceUri, evaluationUri, metrics, cancellationToken);
-        this.RecordHistograms(pipelineRequest, connectionStrings);
+    }
+
+    private static void ExtractMetricsFromJson(object? jsonObject, Dictionary<string, string> metrics)
+    {
+        if (jsonObject == null) return;
+
+        if (jsonObject is Newtonsoft.Json.Linq.JObject jObject)
+        {
+            foreach (var property in jObject.Properties())
+            {
+                if (property.Name == "$metrics" && property.Value is Newtonsoft.Json.Linq.JObject metricsObject)
+                {
+                    // Found a $metrics node, extract all child properties as metrics
+                    foreach (var metricProperty in metricsObject.Properties())
+                    {
+                        if (metricProperty.Value != null)
+                        {
+                            metrics[metricProperty.Name] = metricProperty.Value.ToString();
+                        }
+                    }
+                }
+                else
+                {
+                    // Recursively search in child objects
+                    ExtractMetricsFromJson(property.Value, metrics);
+                }
+            }
+        }
+        else if (jsonObject is Newtonsoft.Json.Linq.JArray jArray)
+        {
+            // Recursively search in array elements
+            foreach (var item in jArray)
+            {
+                ExtractMetricsFromJson(item, metrics);
+            }
+        }
     }
 
     protected async Task<(HttpResponseHeaders, string)> SendForProcessingAsync(

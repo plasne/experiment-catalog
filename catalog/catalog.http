@@ -120,6 +120,7 @@ Content-Type: application/json
         "name": "intent-accuracy",
         "min": 0,
         "max": 1,
+        "order": 1,
         "aggregate_function": "average",
     },
     {

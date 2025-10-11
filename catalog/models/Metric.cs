@@ -19,7 +19,4 @@ public class Metric
 
     [JsonProperty("classification", NullValueHandling = NullValueHandling.Ignore)]
     public string? Classification { get; set; }
-
-    [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
-    public IList<string>? Tags { get; set; }
 }

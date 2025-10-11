@@ -5,6 +5,9 @@ namespace Catalog;
 
 public class ComparisonByRef
 {
+    [JsonProperty("metric_definitions", NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, MetricDefinition>? MetricDefinitions { get; set; }
+
     [JsonProperty("last_results_for_baseline_experiment", NullValueHandling = NullValueHandling.Ignore)]
     public Dictionary<string, Result>? LastResultsForBaselineExperiment { get; set; }
 

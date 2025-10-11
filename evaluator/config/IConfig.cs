@@ -39,6 +39,8 @@ public interface IConfig
     string INBOUND_INFERENCE_TRANSFORM_QUERY { get; }
     string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
     string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
+    bool PROCESS_METRICS_IN_INFERENCE_RESPONSE { get; }
+    bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; }
 
     void Validate();
 }

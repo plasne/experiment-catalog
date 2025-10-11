@@ -1,14 +1,21 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using dotenv.net;
 using Evaluator;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using NetBricks;
 
-// load environment variables from .env file
-DotEnv.Load();
+// Load environment variables from .env file
+var ENV_FILES = System.Environment.GetEnvironmentVariable("ENV_FILES").AsArray(() => [".env"]);
+Console.WriteLine($"ENV_FILES = {string.Join(", ", ENV_FILES)}");
+DotEnv.Load(new DotEnvOptions(envFilePaths: ENV_FILES, overwriteExistingVars: false));
 
 // create the web application
 var builder = WebApplication.CreateBuilder(args);
@@ -61,6 +68,11 @@ if (config.ROLES.Contains(Roles.API))
     {
         options.ListenAnyIP(config.PORT);
     });
+}
+else
+{
+    // NOTE: This does not expose a port
+    builder.WebHost.UseTestServer();
 }
 
 // add InferenceProxy services

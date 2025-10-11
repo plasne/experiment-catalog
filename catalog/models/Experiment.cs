@@ -33,55 +33,53 @@ public class Experiment()
     [JsonIgnore]
     public Dictionary<string, MetricDefinition>? MetricDefinitions { get; set; }
 
-    private bool TryReduceAsCost(string key, AggregateFunctions func, IList<string> tags, List<Metric> metrics, out Metric metric)
+    private bool TryReduceAsCost(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
         metric = new Metric();
 
-        if (func == AggregateFunctions.Cost ||
+        if (definition.AggregateFunction == AggregateFunctions.Cost ||
             (
-                func == AggregateFunctions.Default &&
+                definition.AggregateFunction == AggregateFunctions.Default &&
                 key.Contains("cost", StringComparison.InvariantCultureIgnoreCase)
             )
         )
         {
             metric.Count = metrics.Count;
             metric.Value = metrics.Sum(x => x.Value);
-            if (!tags.Contains("cost")) tags.Add("cost");
-            metric.Tags = tags;
+            definition.AggregateFunction = AggregateFunctions.Cost;
             return true;
         }
 
         return false;
     }
 
-    private bool TryReduceAsCount(string key, AggregateFunctions func, IList<string> tags, List<Metric> metrics, out Metric metric)
+    private bool TryReduceAsCount(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
         metric = new Metric();
 
-        if (func == AggregateFunctions.Count ||
+        if (definition.AggregateFunction == AggregateFunctions.Count ||
             (
-                func == AggregateFunctions.Default &&
+                definition.AggregateFunction == AggregateFunctions.Default &&
                 key.Contains("count", StringComparison.InvariantCultureIgnoreCase)
             )
         )
         {
             metric.Count = metrics.Count;
             metric.Value = metrics.Sum(x => x.Value);
-            if (!tags.Contains("count")) tags.Add("count");
-            metric.Tags = tags;
+            definition.AggregateFunction = AggregateFunctions.Count;
             return true;
         }
 
         return false;
     }
 
-    private bool TryReduceAsAccuracy(string key, AggregateFunctions func, IList<string> tags, List<Metric> metrics, out Metric metric)
+    private bool TryReduceAsAccuracy(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
         metric = new Metric();
 
-        if (func == AggregateFunctions.Accuracy ||
+        if (definition.AggregateFunction == AggregateFunctions.Accuracy ||
             (
-                func == AggregateFunctions.Default &&
+                definition.AggregateFunction == AggregateFunctions.Default &&
                 key.Contains("accuracy", StringComparison.InvariantCultureIgnoreCase) &&
                 metrics.Exists(x => x.Classification is not null)
             )
@@ -92,21 +90,20 @@ public class Experiment()
             metric.Count = metrics.Count;
             metric.Value = t.DivBy(a);
             metric.Normalized = metric.Value;
-            if (!tags.Contains("accuracy")) tags.Add("accuracy");
-            metric.Tags = tags;
+            definition.AggregateFunction = AggregateFunctions.Accuracy;
             return true;
         }
 
         return false;
     }
 
-    private bool TryReduceAsPrecision(string key, AggregateFunctions func, IList<string> tags, List<Metric> metrics, out Metric metric)
+    private bool TryReduceAsPrecision(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
         metric = new Metric();
 
-        if (func == AggregateFunctions.Precision ||
+        if (definition.AggregateFunction == AggregateFunctions.Precision ||
             (
-                func == AggregateFunctions.Default &&
+                definition.AggregateFunction == AggregateFunctions.Default &&
                 key.Contains("precision", StringComparison.InvariantCultureIgnoreCase) &&
                 metrics.Exists(x => x.Classification is not null)
             )
@@ -117,21 +114,20 @@ public class Experiment()
             metric.Count = metrics.Count;
             metric.Value = tp.DivBy(p);
             metric.Normalized = metric.Value;
-            if (!tags.Contains("precision")) tags.Add("precision");
-            metric.Tags = tags;
+            definition.AggregateFunction = AggregateFunctions.Precision;
             return true;
         }
 
         return false;
     }
 
-    private bool TryReduceAsRecall(string key, AggregateFunctions func, IList<string> tags, List<Metric> metrics, out Metric metric)
+    private bool TryReduceAsRecall(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
         metric = new Metric();
 
-        if (func == AggregateFunctions.Recall ||
+        if (definition.AggregateFunction == AggregateFunctions.Recall ||
             (
-                func == AggregateFunctions.Default &&
+                definition.AggregateFunction == AggregateFunctions.Default &&
                 key.Contains("recall", StringComparison.InvariantCultureIgnoreCase) &&
                 metrics.Exists(x => x.Classification is not null)
             )
@@ -142,23 +138,18 @@ public class Experiment()
             metric.Count = metrics.Count;
             metric.Value = tp.DivBy(tp + fn);
             metric.Normalized = metric.Value;
-            if (!tags.Contains("recall")) tags.Add("recall");
-            metric.Tags = tags;
+            definition.AggregateFunction = AggregateFunctions.Recall;
             return true;
         }
 
         return false;
     }
 
-    private Metric ReduceAsAverage(string key, IList<string> tags, List<Metric> metrics)
+    private Metric ReduceAsAverage(string key, MetricDefinition definition, List<Metric> metrics)
     {
         var average = metrics.Average(x => x.Value);
-        decimal? normalized = (this.MetricDefinitions is not null &&
-            this.MetricDefinitions.TryGetValue(key, out var definition) &&
-            definition.TryNormalize(average, out var x))
-            ? x : null;
-
-        if (!tags.Contains("average")) tags.Add("average");
+        decimal? normalized = definition.TryNormalize(average, out var x) ? x : null;
+        definition.AggregateFunction = AggregateFunctions.Average;
 
         return new Metric
         {
@@ -166,7 +157,6 @@ public class Experiment()
             Value = average,
             Normalized = normalized,
             StdDev = metrics.StdDev(x => x.Value),
-            Tags = tags,
         };
     }
 
@@ -174,31 +164,34 @@ public class Experiment()
     {
         Metric metric;
 
-        AggregateFunctions func = AggregateFunctions.Default;
-        IList<string>? ntags = null;
-        if (this.MetricDefinitions is not null && this.MetricDefinitions.TryGetValue(key, out var definition))
+        // use or create a metric definition
+        this.MetricDefinitions ??= new Dictionary<string, MetricDefinition>();
+        if (!this.MetricDefinitions.TryGetValue(key, out var definition))
         {
-            func = definition.AggregateFunction;
-            ntags = definition.Tags;
+            definition = new MetricDefinition { Name = key, AggregateFunction = AggregateFunctions.Default };
+            this.MetricDefinitions.Add(key, definition);
         }
-        IList<string> tags = ntags ?? [];
 
-        if (TryReduceAsCost(key, func, tags, metrics, out metric)) return metric;
-        if (TryReduceAsCount(key, func, tags, metrics, out metric)) return metric;
-        if (TryReduceAsAccuracy(key, func, tags, metrics, out metric)) return metric;
-        if (TryReduceAsPrecision(key, func, tags, metrics, out metric)) return metric;
-        if (TryReduceAsRecall(key, func, tags, metrics, out metric)) return metric;
-        return ReduceAsAverage(key, tags, metrics);
+        if (TryReduceAsCost(key, definition, metrics, out metric)) return metric;
+        if (TryReduceAsCount(key, definition, metrics, out metric)) return metric;
+        if (TryReduceAsAccuracy(key, definition, metrics, out metric)) return metric;
+        if (TryReduceAsPrecision(key, definition, metrics, out metric)) return metric;
+        if (TryReduceAsRecall(key, definition, metrics, out metric)) return metric;
+        return ReduceAsAverage(key, definition, metrics);
     }
 
     private Result Aggregate(IEnumerable<Result> from, bool includeAnnotationsWithRef)
     {
         var result = new Result();
+        DateTime first = DateTime.MaxValue;
+        DateTime last = DateTime.MinValue;
         var annotations = new List<Annotation>();
 
         var metrics = new Dictionary<string, List<Metric>>();
         foreach (var r in from)
         {
+            if (r.Created < first) first = r.Created;
+            if (r.Created > last) last = r.Created;
             if (r.Annotations is not null
                 && (includeAnnotationsWithRef || string.IsNullOrEmpty(r.Ref)))
             {
@@ -218,6 +211,7 @@ public class Experiment()
         {
             result.Annotations = annotations;
         }
+        result.Runtime = (int)(last - first).TotalSeconds;
         return result;
     }
 
