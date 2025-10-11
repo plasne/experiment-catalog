@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Azure.Storage.Blobs.Models;
 using Newtonsoft.Json;
 
 namespace Catalog;
@@ -29,4 +30,7 @@ public class Result
 
     [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
     public DateTime Created { get; set; } = DateTime.UtcNow;
+
+    [JsonProperty("runtime", NullValueHandling = NullValueHandling.Ignore)]
+    public int? Runtime { get; set; }
 }

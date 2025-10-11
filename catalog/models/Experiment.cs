@@ -183,11 +183,15 @@ public class Experiment()
     private Result Aggregate(IEnumerable<Result> from, bool includeAnnotationsWithRef)
     {
         var result = new Result();
+        DateTime first = DateTime.MaxValue;
+        DateTime last = DateTime.MinValue;
         var annotations = new List<Annotation>();
 
         var metrics = new Dictionary<string, List<Metric>>();
         foreach (var r in from)
         {
+            if (r.Created < first) first = r.Created;
+            if (r.Created > last) last = r.Created;
             if (r.Annotations is not null
                 && (includeAnnotationsWithRef || string.IsNullOrEmpty(r.Ref)))
             {
@@ -207,6 +211,7 @@ public class Experiment()
         {
             result.Annotations = annotations;
         }
+        result.Runtime = (int)(last - first).TotalSeconds;
         return result;
     }
 
