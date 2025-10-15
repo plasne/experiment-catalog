@@ -11,6 +11,7 @@
   let experiment: Experiment;
   let setList: string;
   let setName: string;
+  let checked: string;
 
   const selectProject = (event: CustomEvent<Project>) => {
     project = event.detail;
@@ -36,7 +37,7 @@
 
   const selectSet = (event: CustomEvent<string>) => {
     setName = event.detail;
-    updateURL(project.name, experiment.name, `set:${setName}`);
+    updateURL(project.name, experiment.name, `set:${setName}`, checked);
   };
 
   const unselectSet = () => {
@@ -46,7 +47,12 @@
 
   const changeSetList = (event: CustomEvent<string>) => {
     setList = event.detail;
-    updateURL(project.name, experiment.name, `sets:${setList}`);
+    updateURL(project.name, experiment.name, `sets:${setList}`, checked);
+  };
+
+  const changeChecked = (event: CustomEvent<string>) => {
+    checked = event.detail;
+    updateURL(project.name, experiment.name, `sets:${setList}`, checked);
   };
 
   async function parseQueryString() {
@@ -55,7 +61,9 @@
       const qproject = params.get("project");
       const qexperiment = params.get("experiment");
       const qpage = params.get("page");
+      const qchecked = params.get("checked");
 
+      checked = qchecked;
       if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {
         setName = qpage.slice(4);
         experiment = await loadExperiment(qproject, qexperiment);
@@ -100,9 +108,11 @@
       on:unselectExperiment={unselectExperiment}
       on:selectSet={selectSet}
       on:changeSetList={changeSetList}
+      on:changeChecked={changeChecked}
       {project}
       {experiment}
       {setList}
+      {checked}
     />
   {:else if project}
     <ExperimentsList

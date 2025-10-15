@@ -18,6 +18,14 @@
   const select = (event: CustomEvent<Result>) => {
     dispatch("select", { index, result: event.detail });
   };
+
+  const convertToFriendlyTime = (runtime: number): string => {
+    if (!runtime) return "-";
+    const hours = Math.floor(runtime / 3600);
+    const minutes = Math.floor((runtime % 3600) / 60);
+    const seconds = Math.round(runtime % 60);
+    return `${hours}h ${minutes}m ${seconds}s`;
+  };
 </script>
 
 <div class="title">{title}</div>
@@ -32,6 +40,7 @@
   {/if}
 </div>
 <Annotations {result} />
+<div class="runtime">{convertToFriendlyTime(result?.runtime)}</div>
 
 <style>
   .title {
@@ -42,5 +51,11 @@
 
   .set {
     font-size: 1rem;
+  }
+
+  .runtime {
+    font-size: 0.6rem;
+    color: #888;
+    text-align: right;
   }
 </style>

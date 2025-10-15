@@ -8,11 +8,13 @@
   export let project: Project;
   export let experiment: Experiment;
   export let setList: string;
+  export let checked: string;
 
   let state: "loading" | "loaded" | "error" = "loading";
   let compareCount = 3;
   let controls = [];
   let selected: Result[];
+  let metricsHighlighted: Set<string>;
 
   const dispatch = createEventDispatcher();
 
@@ -24,6 +26,20 @@
     if (!selected) return;
     setList = selected.map((result) => result?.set).join(",");
     dispatch("changeSetList", setList);
+  };
+
+  const toggleRowCheck = (metric: string) => {
+    if (!metricsHighlighted) {
+      metricsHighlighted = new Set<string>([metric]);
+    } else if (metricsHighlighted.has(metric)) {
+      metricsHighlighted.delete(metric);
+      metricsHighlighted = metricsHighlighted; // trigger reactivity
+    } else {
+      metricsHighlighted.add(metric);
+      metricsHighlighted = metricsHighlighted; // trigger reactivity
+    }
+    checked = Array.from(metricsHighlighted).join(",");
+    dispatch("changeChecked", checked);
   };
 
   const applySetList = () => {
@@ -93,6 +109,11 @@
       // apply the set list
       applySetList();
 
+      // apply the checked metrics
+      if (checked) {
+        metricsHighlighted = new Set(checked.split(","));
+      }
+
       state = "loaded";
     } catch (error) {
       console.error(error);
@@ -141,6 +162,7 @@
   <table>
     <thead>
       <tr>
+        <th class="checkbox-column"></th>
         <th></th>
         <th>
           <ComparisonTableHeader
@@ -172,7 +194,14 @@
     </thead>
     <tbody>
       {#each metrics as metric}
-        <tr>
+        <tr class:highlighted={metricsHighlighted?.has(metric)}>
+          <td class="checkbox-column">
+            <input
+              type="checkbox"
+              checked={metricsHighlighted?.has(metric)}
+              on:change={() => toggleRowCheck(metric)}
+            />
+          </td>
           <td class="label">{metric}</td>
           <td
             ><ComparisonTableMetric
@@ -229,6 +258,18 @@
   td.label {
     text-align: left;
     font-weight: bold;
+  }
+
+  .checkbox-column {
+    text-align: center;
+  }
+
+  .highlighted {
+    background-color: #333333;
+  }
+
+  input[type="checkbox"] {
+    cursor: pointer;
   }
 
   .selection {

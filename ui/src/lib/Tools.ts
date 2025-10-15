@@ -1,10 +1,11 @@
-export function updateURL(project: string = null, experiment: string = null, page: string = null) {
+export function updateURL(project: string = null, experiment: string = null, page: string = null, checked: string = null) {
     let url = `${window.location.pathname}`;
     var parts: string[] = [];
     if (project) parts.push(`project=${project}`);
     if (experiment) parts.push(`experiment=${experiment}`);
     if (page) parts.push(`page=${page}`);
-    if (parts.length > 0) url += '?' + parts.join('&');
+    if (checked) parts.push(`checked=${checked}`);
+    if (parts.length > 0) url += `?${parts.join("&")}`;
     window.history.pushState(null, '', url);
 }
 

@@ -5,6 +5,7 @@
   export let project: Project;
   export let experiment: Experiment;
   export let setList: string;
+  export let checked: string;
 
   const dispatch = createEventDispatcher();
 
@@ -18,6 +19,10 @@
 
   const changeSetList = (event: CustomEvent<string>) => {
     dispatch("changeSetList", event.detail);
+  };
+
+  const changeChecked = (event: CustomEvent<Set<string>>) => {
+    dispatch("changeChecked", event.detail);
   };
 
   const useTheProjectBaseline = async () => {
@@ -136,9 +141,11 @@
     {project}
     {experiment}
     {setList}
+    {checked}
     bind:this={comparisonTable}
     on:drilldown={selectSet}
     on:changeSetList={changeSetList}
+    on:changeChecked={changeChecked}
   />
 </div>
 

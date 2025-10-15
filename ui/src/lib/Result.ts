@@ -8,6 +8,7 @@ interface Result {
     annotations?: Annotation[];
     is_baseline: boolean;
     created: Date;
+    runtime?: number;
 }
 
 type ResultFilter = (result: Result) => boolean;
