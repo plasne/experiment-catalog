@@ -84,6 +84,6 @@ public class AnalysisController : ControllerBase
             baseline?.Restore();
         }
 
-        return Ok(new MeaningfulTagsResponse { Tags = diffs.OrderByDescending(x => x.Impact) });
+        return Ok(new MeaningfulTagsResponse { Tags = diffs.OrderBy(x => x.Impact) });
     }
 }
