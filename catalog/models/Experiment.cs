@@ -33,6 +33,9 @@ public class Experiment()
     [JsonIgnore]
     public Dictionary<string, MetricDefinition>? MetricDefinitions { get; set; }
 
+    [JsonIgnore]
+    public List<Result>? Saved { get; set; }
+
     private bool TryReduceAsCost(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
         metric = new Metric();
@@ -338,6 +341,13 @@ public class Experiment()
     }
 # pragma warning restore S3776
 
+    public void Filter(string set)
+    {
+        this.Results = this.Results?
+            .Where(x => x.Set == set)
+            .ToList();
+    }
+
     public IList<string> Sets
     {
         get => this.Results?
@@ -346,5 +356,15 @@ public class Experiment()
             .Where(x => !string.IsNullOrEmpty(x))
             .Cast<string>()
             .ToList() ?? [];
+    }
+
+    public void Save()
+    {
+        this.Saved = this.Results;
+    }
+
+    public void Restore()
+    {
+        this.Results = this.Saved;
     }
 }

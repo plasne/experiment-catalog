@@ -108,6 +108,45 @@ Content-Type: application/json
     "refs": [519, 568, 653, 102, 104, 115, 180, 235, 284]
 }
 
+
+### Get meaningful tags for an experiment, set, and metric vs. the baseline
+POST {{baseURL}}/analysis/meaningful-tags HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+	"set": "{{set}}",
+	"metric": "generation_correctness",
+	"exclude_tags": ["split:validation"]
+}
+
+### Get meaningful tags for an experiment, set, and metric comparing to zero
+POST {{baseURL}}/analysis/meaningful-tags HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+	"set": "{{set}}",
+	"metric": "generation_correctness",
+	"exclude_tags": ["split:validation"],
+	"compare_to": "zero"
+}
+
+### Get meaningful tags for an experiment, set, and metric comparing to the whole experiment average
+POST {{baseURL}}/analysis/meaningful-tags HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+	"set": "{{set}}",
+	"metric": "generation_correctness",
+	"exclude_tags": ["split:validation"],
+	"compare_to": "average"
+}
+
 ### Get metric definitions
 GET {{baseURL}}/projects/{{project}}/metrics HTTP/1.1
 
