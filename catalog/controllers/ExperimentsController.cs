@@ -140,9 +140,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
             baseline.MetricDefinitions = comparison.MetricDefinitions;
-            comparison.BaselineResultForBaselineExperiment =
-                baseline.AggregateBaselineSet()
-                ?? baseline.AggregateLastSet();
+            comparison.BaselineResultForBaselineExperiment = baseline.AggregateSet(baseline.BaselineSet ?? baseline.LastSet);
         }
         catch (Exception e)
         {
@@ -155,9 +153,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         experiment.MetricDefinitions = comparison.MetricDefinitions;
         comparison.BaselineResultForChosenExperiment =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
-            ? comparison.BaselineResultForBaselineExperiment :
-            experiment.AggregateBaselineSet()
-            ?? experiment.AggregateFirstSet();
+            ? comparison.BaselineResultForBaselineExperiment
+            : experiment.AggregateSet(experiment.BaselineSet ?? experiment.FirstSet);
         comparison.SetsForChosenExperiment = experiment.AggregateAllSets();
 
         return Ok(comparison);
@@ -190,42 +187,65 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             baseline.Filter(includeTags, excludeTags);
             baseline.MetricDefinitions = comparison.MetricDefinitions;
-            comparison.LastResultsForBaselineExperiment =
-                baseline.AggregateBaselineSetByRef()
-                ?? baseline.AggregateLastSetByRef();
+            comparison.ProjectBaseline = new ComparisonByRefEntity
+            {
+                Project = projectName,
+                Experiment = baseline.Name,
+                Set = baseline.BaselineSet ?? baseline.LastSet,
+                Results = baseline.AggregateSetByRef(baseline.BaselineSet ?? baseline.LastSet),
+            };
         }
         catch (Exception e)
         {
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
-        // get the comparison datas
+        // get the experiment info
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         experiment.Filter(includeTags, excludeTags);
         experiment.MetricDefinitions = comparison.MetricDefinitions;
-        comparison.BaselineResultsForChosenExperiment =
-            string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
-            ? comparison.LastResultsForBaselineExperiment :
-            experiment.AggregateBaselineSetByRef()
-            ?? experiment.AggregateFirstSetByRef();
-        comparison.ChosenResultsForChosenExperiment = experiment.AggregateSetByRef(setName);
+
+        // get the experiment baseline
+        if (string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase))
+        {
+            comparison.ExperimentBaseline = comparison.ProjectBaseline;
+        }
+        else
+        {
+            comparison.ExperimentBaseline = new ComparisonByRefEntity
+            {
+                Project = projectName,
+                Experiment = experiment.Name,
+                Set = experiment.BaselineSet ?? experiment.FirstSet,
+                Results = experiment.AggregateSetByRef(experiment.BaselineSet ?? experiment.FirstSet),
+            };
+        }
+
+        // get the set experiment
+        comparison.ExperimentSet = new ComparisonByRefEntity
+        {
+            Project = projectName,
+            Experiment = experiment.Name,
+            Set = setName,
+            Results = experiment.AggregateSetByRef(setName),
+        };
 
         // run policies
-        if (comparison.ChosenResultsForChosenExperiment is not null
-            && comparison.BaselineResultsForChosenExperiment is not null)
-        {
-            var policy = new PercentImprovement();
-            foreach (var (key, result) in comparison.ChosenResultsForChosenExperiment)
-            {
-                if (comparison.BaselineResultsForChosenExperiment.TryGetValue(key, out var baseline))
-                {
-                    policy.Evaluate(result, baseline, comparison.MetricDefinitions);
-                }
-            }
-            this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);
-            this.logger.LogWarning(policy.Requirement);
-            this.logger.LogWarning(policy.Actual);
-        }
+        // if (comparison.ChosenResultsForChosenExperiment is not null
+        //     && comparison.BaselineResultsForChosenExperiment is not null)
+        // {
+        //     var policy = new PercentImprovement();
+        //     foreach (var (key, result) in comparison.ChosenResultsForChosenExperiment)
+        //     {
+        //         if (comparison.BaselineResultsForChosenExperiment.TryGetValue(key, out var baseline))
+        //         {
+        //             policy.Evaluate(result, baseline, comparison.MetricDefinitions);
+        //         }
+        //     }
+        //     this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);
+        //     this.logger.LogWarning(policy.Requirement);
+        //     this.logger.LogWarning(policy.Actual);
+        // }
 
         return Ok(comparison);
     }

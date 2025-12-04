@@ -1,13 +1,33 @@
 <script lang="ts">
   import ComparisonTable from "./ComparisonTable.svelte";
   import { createEventDispatcher } from "svelte";
+  import type { ViewConfig } from "./Tools";
 
   export let project: Project;
   export let experiment: Experiment;
   export let setList: string;
-  export let checked: string;
+  export let config: ViewConfig = {};
 
   const dispatch = createEventDispatcher();
+
+  // Local state initialized from config
+  let checked: string = config.checked_metrics ?? "";
+  let tags: string = config.tags ?? "";
+
+  const emitConfigChange = () => {
+    const newConfig: ViewConfig = { ...config };
+    if (checked) {
+      newConfig.checked_metrics = checked;
+    } else {
+      delete newConfig.checked_metrics;
+    }
+    if (tags) {
+      newConfig.tags = tags;
+    } else {
+      delete newConfig.tags;
+    }
+    dispatch("changeConfig", newConfig);
+  };
 
   const unselectExperiment = () => {
     dispatch("unselectExperiment");
@@ -21,8 +41,14 @@
     dispatch("changeSetList", event.detail);
   };
 
-  const changeChecked = (event: CustomEvent<Set<string>>) => {
-    dispatch("changeChecked", event.detail);
+  const changeChecked = (event: CustomEvent<string>) => {
+    checked = event.detail;
+    emitConfigChange();
+  };
+
+  const changeTags = (event: CustomEvent<string>) => {
+    tags = event.detail;
+    emitConfigChange();
   };
 
   const useTheProjectBaseline = async () => {
@@ -142,10 +168,12 @@
     {experiment}
     {setList}
     {checked}
+    initialTags={tags}
     bind:this={comparisonTable}
     on:drilldown={selectSet}
     on:changeSetList={changeSetList}
     on:changeChecked={changeChecked}
+    on:changeTags={changeTags}
   />
 </div>
 

@@ -62,7 +62,7 @@ public class AnalysisController : ControllerBase
             {
                 baseline.Save();
                 baseline.Filter([tag], excludeTags);
-                var baselineResult = baseline.AggregateBaselineSet() ?? baseline.AggregateLastSet();
+                var baselineResult = baseline.AggregateSet(baseline.BaselineSet ?? baseline.LastSet);
                 Metric? baselineTagMetric = null;
                 baselineResult?.Metrics?.TryGetValue(request.Metric, out baselineTagMetric);
                 compareTo = baselineTagMetric?.Value;

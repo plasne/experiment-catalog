@@ -51,6 +51,10 @@
 
   .set {
     font-size: 1rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
   }
 
   .runtime {

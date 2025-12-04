@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { loadExperiment, updateURL } from "./lib/Tools";
+  import {
+    loadExperiment,
+    updateURL,
+    decodeConfig,
+    type ViewConfig,
+  } from "./lib/Tools";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
@@ -11,7 +16,7 @@
   let experiment: Experiment;
   let setList: string;
   let setName: string;
-  let checked: string;
+  let config: ViewConfig = {};
 
   const selectProject = (event: CustomEvent<Project>) => {
     project = event.detail;
@@ -37,7 +42,7 @@
 
   const selectSet = (event: CustomEvent<string>) => {
     setName = event.detail;
-    updateURL(project.name, experiment.name, `set:${setName}`, checked);
+    updateURL(project.name, experiment.name, `set:${setName}`, config);
   };
 
   const unselectSet = () => {
@@ -47,12 +52,18 @@
 
   const changeSetList = (event: CustomEvent<string>) => {
     setList = event.detail;
-    updateURL(project.name, experiment.name, `sets:${setList}`, checked);
+    updateURL(project.name, experiment.name, `sets:${setList}`, config);
   };
 
-  const changeChecked = (event: CustomEvent<string>) => {
-    checked = event.detail;
-    updateURL(project.name, experiment.name, `sets:${setList}`, checked);
+  const changeConfig = (event: CustomEvent<ViewConfig>) => {
+    config = event.detail;
+    if (setName) {
+      updateURL(project.name, experiment.name, `set:${setName}`, config);
+    } else if (setList) {
+      updateURL(project.name, experiment.name, `sets:${setList}`, config);
+    } else {
+      updateURL(project.name, experiment.name, null, config);
+    }
   };
 
   async function parseQueryString() {
@@ -61,9 +72,18 @@
       const qproject = params.get("project");
       const qexperiment = params.get("experiment");
       const qpage = params.get("page");
-      const qchecked = params.get("checked");
+      const qconfig = params.get("config");
+      const qchecked = params.get("checked"); // backward compatibility
 
-      checked = qchecked;
+      // Parse config from URL or fall back to legacy "checked" param
+      if (qconfig) {
+        config = decodeConfig(qconfig);
+      } else if (qchecked) {
+        config = { checked_metrics: qchecked };
+      } else {
+        config = {};
+      }
+
       if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {
         setName = qpage.slice(4);
         experiment = await loadExperiment(qproject, qexperiment);
@@ -87,6 +107,7 @@
       setName = undefined;
       experiment = undefined;
       project = undefined;
+      config = {};
     }
 
     state = "loaded";
@@ -102,17 +123,24 @@
       <img class="loading" alt="loading" src="/spinner.gif" />
     </div>
   {:else if project && experiment && setName}
-    <SetPage on:unselectSet={unselectSet} {project} {experiment} {setName} />
+    <SetPage
+      on:unselectSet={unselectSet}
+      on:changeConfig={changeConfig}
+      {project}
+      {experiment}
+      {setName}
+      {config}
+    />
   {:else if project && experiment}
     <ExperimentPage
       on:unselectExperiment={unselectExperiment}
       on:selectSet={selectSet}
       on:changeSetList={changeSetList}
-      on:changeChecked={changeChecked}
+      on:changeConfig={changeConfig}
       {project}
       {experiment}
       {setList}
-      {checked}
+      {config}
     />
   {:else if project}
     <ExperimentsList

@@ -2,13 +2,15 @@
   import { createEventDispatcher, tick } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
+  import MetricsFilter from "./MetricsFilter.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import FreeFilter from "./FreeFilter.svelte";
-  import { sortMetrics } from "./Tools";
+  import { sortMetrics, type ViewConfig } from "./Tools";
 
   export let project: Project;
   export let experiment: Experiment;
   export let setName: string;
+  export let config: ViewConfig = {};
 
   let state: "loading" | "loaded" | "error" = "loading";
 
@@ -22,12 +24,34 @@
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let results: Result[];
   let showResults = false;
+  let baselineResults: Result[];
+  let showBaselineResults = false;
   let comparison: ComparisonByRef;
   let masterRefs: string[] = [];
   let filteredRefs: string[] = [];
   let metrics: string[] = [];
-  let tagFilters: string;
+  let selectedMetrics: string[] = [];
+  let metricDefinitions: MetricDefinition[] = [];
+  let tagFilters: string = config.tags ?? "";
   let filterFunc: Function;
+
+  const emitConfigChange = () => {
+    const newConfig: ViewConfig = { ...config };
+    if (
+      selectedMetrics.length > 0 &&
+      selectedMetrics.length !== metrics.length
+    ) {
+      newConfig.metrics = selectedMetrics;
+    } else {
+      delete newConfig.metrics;
+    }
+    if (tagFilters) {
+      newConfig.tags = tagFilters;
+    } else {
+      delete newConfig.tags;
+    }
+    dispatch("changeConfig", newConfig);
+  };
 
   const fetchComparison = async () => {
     try {
@@ -38,30 +62,49 @@
       comparison = await response.json();
 
       // get a list of all refs in the chosen results
-      masterRefs = Object.keys(comparison.chosen_results_for_chosen_experiment);
+      masterRefs = Object.keys(comparison.experiment_set?.results ?? {});
       applyFilter();
 
       // get a list of all metrics
       const allMetrics = [
-        ...(comparison.last_results_for_baseline_experiment
-          ? Object.values(
-              comparison.last_results_for_baseline_experiment
-            ).flatMap((result) => Object.keys(result.metrics))
+        ...(comparison.project_baseline?.results
+          ? Object.values(comparison.project_baseline.results).flatMap(
+              (result) => Object.keys(result.metrics)
+            )
           : []),
-        ...(comparison.baseline_results_for_chosen_experiment
-          ? Object.values(
-              comparison.baseline_results_for_chosen_experiment
-            ).flatMap((result) => Object.keys(result.metrics))
+        ...(comparison.experiment_baseline?.results
+          ? Object.values(comparison.experiment_baseline.results).flatMap(
+              (result) => Object.keys(result.metrics)
+            )
           : []),
-        ...(comparison.chosen_results_for_chosen_experiment
-          ? Object.values(
-              comparison.chosen_results_for_chosen_experiment
-            ).flatMap((result) => Object.keys(result.metrics))
+        ...(comparison.experiment_set?.results
+          ? Object.values(comparison.experiment_set.results).flatMap((result) =>
+              Object.keys(result.metrics)
+            )
           : []),
       ];
       metrics = [...new Set(allMetrics)].sort((a, b) =>
         sortMetrics(comparison.metric_definitions, a, b)
       );
+
+      // populate metric definitions for the filter
+      metricDefinitions = metrics
+        .map((name) => comparison.metric_definitions[name])
+        .filter((def) => def !== undefined);
+
+      // reset selectedMetrics when metric definitions change
+      if (config.metrics?.length) {
+        // Use metrics from config if available
+        selectedMetrics = config.metrics.filter((m) => metrics.includes(m));
+      } else if (metricDefinitions.length <= 10) {
+        selectedMetrics = metrics;
+      } else {
+        selectedMetrics = [];
+      }
+
+      // Mark as initialized after first load
+      await tick();
+      initialized = true;
 
       state = "loaded";
     } catch (error) {
@@ -86,6 +129,22 @@
     }
   };
 
+  const fetchBaselineDetails = async () => {
+    try {
+      state = "loading";
+      showBaselineResults = !showBaselineResults;
+      if (!baselineResults && comparison.experiment_baseline?.set) {
+        let url = `${prefix}/api/projects/${comparison.experiment_baseline.project}/experiments/${comparison.experiment_baseline.experiment}/sets/${comparison.experiment_baseline.set}`;
+        const response = await fetch(url);
+        baselineResults = await response.json();
+      }
+      state = "loaded";
+    } catch (error) {
+      console.error(error);
+      state = "error";
+    }
+  };
+
   const delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -95,8 +154,8 @@
     } else {
       filteredRefs = masterRefs.filter((ref) => {
         return filterFunc(
-          comparison.baseline_results_for_chosen_experiment[ref],
-          comparison.chosen_results_for_chosen_experiment[ref]
+          comparison.experiment_baseline?.results?.[ref],
+          comparison.experiment_set?.results?.[ref]
         );
       });
     }
@@ -128,8 +187,19 @@
   };
 
   var confirmBaseline = false;
+  let initialized = false;
 
-  $: fetchComparison(), showResults, tagFilters;
+  // Track selectedMetrics changes and emit config
+  $: if (initialized && selectedMetrics) {
+    emitConfigChange();
+  }
+
+  // Track tagFilters changes (triggered by TagsFilter apply button)
+  $: if (initialized && tagFilters !== undefined) {
+    emitConfigChange();
+  }
+
+  $: fetchComparison(), tagFilters;
 </script>
 
 <button class="link" on:click={unselectSet}>back</button>
@@ -172,14 +242,24 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="link" on:click={fetchDetails}>(toggle details)</button>
+  <button class="link" on:click={fetchDetails}>(toggle set iterations)</button>
+  <button class="link" on:click={fetchBaselineDetails}
+    >(toggle baseline iterations)</button
+  >
 </h3>
 
 {#if comparison}
   <div class="selection">
+    <MetricsFilter {metricDefinitions} bind:selectedMetrics />
+    <br />
     <TagsFilter {project} bind:querystring={tagFilters} />
     <br />
-    <FreeFilter on:filter={filter} {metrics} />
+    <FreeFilter
+      on:filter={filter}
+      {metrics}
+      filteredCount={filteredRefs.length}
+      totalCount={masterRefs.length}
+    />
   </div>
 {/if}
 
@@ -196,7 +276,7 @@
       <tr>
         <th>Source</th>
         <th>Ref</th>
-        {#each metrics as metric}
+        {#each selectedMetrics as metric}
           <th>{metric}</th>
         {/each}
       </tr>
@@ -206,19 +286,17 @@
         <tr class="experiment-baseline">
           <td
             ><nobr
-              >Project Baseline / {comparison
-                .last_results_for_baseline_experiment?.[ref]?.set ?? "-"}</nobr
+              >Project Baseline / {comparison.project_baseline?.set ??
+                "-"}</nobr
             ></td
           >
-          <td class="label">{ref}</td>
-          {#each metrics as metric}
+          <td class="label"><nobr>{ref}</nobr></td>
+          {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
-                result={comparison.last_results_for_baseline_experiment?.[ref]}
+                result={comparison.project_baseline?.results?.[ref]}
                 {metric}
-                baseline={comparison.baseline_results_for_chosen_experiment[
-                  ref
-                ]}
+                baseline={comparison.experiment_baseline?.results?.[ref]}
                 definition={comparison.metric_definitions[metric]}
               ></ComparisonTableMetric>
             </td>
@@ -227,50 +305,80 @@
         <tr class="project-baseline">
           <td
             ><nobr
-              >Experiment Baseline / {comparison
-                .baseline_results_for_chosen_experiment[ref]?.set ?? "-"}</nobr
+              >Experiment Baseline / {comparison.experiment_baseline?.set ??
+                "-"}</nobr
             ></td
           >
-          <td class="label">{ref}</td>
-          {#each metrics as metric}
+          <td class="label"><nobr>{ref}</nobr></td>
+          {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
-                result={comparison.baseline_results_for_chosen_experiment?.[
-                  ref
-                ]}
+                result={comparison.experiment_baseline?.results?.[ref]}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
               ></ComparisonTableMetric>
             </td>
           {/each}
         </tr>
+        {#if showBaselineResults && baselineResults}
+          {#each baselineResults.filter((x) => x.ref === ref) as result}
+            <tr>
+              <td>
+                <nobr>Baseline / {result.set}</nobr>
+                {#if result.inference_uri}
+                  <button
+                    class="link"
+                    on:click={() => window.open(result.inference_uri, "_blank")}
+                    >(inf)</button
+                  >
+                {/if}
+                {#if result.evaluation_uri}
+                  <button
+                    class="link"
+                    on:click={() =>
+                      window.open(result.evaluation_uri, "_blank")}
+                    >(eval)</button
+                  >
+                {/if}
+              </td>
+              <td class="label"><nobr>{result.ref}</nobr></td>
+              {#each selectedMetrics as metric}
+                <td>
+                  <ComparisonTableMetric
+                    {result}
+                    {metric}
+                    baseline={comparison.experiment_baseline?.results?.[ref]}
+                    showStdDev={false}
+                    showCount={false}
+                    definition={comparison.metric_definitions[metric]}
+                  ></ComparisonTableMetric>
+                </td>
+              {/each}
+            </tr>
+          {/each}
+        {/if}
         <tr class="set-aggregate">
           <td
             ><nobr
-              >Set Aggregate / {comparison.chosen_results_for_chosen_experiment[
-                ref
-              ]?.set ?? "MISSING"}</nobr
+              >Set Aggregate / {comparison.experiment_set?.set ??
+                "MISSING"}</nobr
             ></td
           >
-          <td class="label">{ref}</td>
-          {#each metrics as metric}
+          <td class="label"><nobr>{ref}</nobr></td>
+          {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
-                result={comparison.chosen_results_for_chosen_experiment[ref]}
+                result={comparison.experiment_set?.results?.[ref]}
                 {metric}
-                baseline={comparison.baseline_results_for_chosen_experiment[
-                  ref
-                ]}
+                baseline={comparison.experiment_baseline?.results?.[ref]}
                 definition={comparison.metric_definitions[metric]}
               ></ComparisonTableMetric>
             </td>
           {/each}
         </tr>
         <tr>
-          <td colspan={2 + metrics.length}>
-            <Annotations
-              result={comparison.chosen_results_for_chosen_experiment[ref]}
-            />
+          <td colspan={2 + selectedMetrics.length}>
+            <Annotations result={comparison.experiment_set?.[ref]} />
           </td>
         </tr>
         {#if showResults && results}
@@ -294,15 +402,13 @@
                   >
                 {/if}
               </td>
-              <td class="label">{result.ref}</td>
-              {#each metrics as metric}
+              <td class="label"><nobr>{result.ref}</nobr></td>
+              {#each selectedMetrics as metric}
                 <td>
                   <ComparisonTableMetric
                     {result}
                     {metric}
-                    baseline={comparison.baseline_results_for_chosen_experiment[
-                      ref
-                    ]}
+                    baseline={comparison.experiment_baseline?.results?.[ref]}
                     showStdDev={false}
                     showCount={false}
                     definition={comparison.metric_definitions[metric]}
@@ -368,6 +474,7 @@
   td.label {
     text-align: left;
     font-weight: bold;
+    padding-right: 3rem;
   }
 
   .selection {

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 
@@ -246,26 +248,6 @@ public class Experiment()
         return results;
     }
 
-    public Result? AggregateFirstSet()
-    {
-        return this.AggregateSet(this.Results?.FirstOrDefault()?.Set);
-    }
-
-    public Dictionary<string, Result>? AggregateFirstSetByRef()
-    {
-        return this.AggregateSetByRef(this.Results?.FirstOrDefault()?.Set);
-    }
-
-    public Result? AggregateLastSet()
-    {
-        return this.AggregateSet(this.Results?.LastOrDefault()?.Set);
-    }
-
-    public Dictionary<string, Result>? AggregateLastSetByRef()
-    {
-        return this.AggregateSetByRef(this.Results?.LastOrDefault()?.Set);
-    }
-
     public List<Result> AggregateAllSets()
     {
         var results = new List<Result>();
@@ -278,16 +260,6 @@ public class Experiment()
         }
 
         return results;
-    }
-
-    public Result? AggregateBaselineSet()
-    {
-        return this.AggregateSet(this.Baseline);
-    }
-
-    public Dictionary<string, Result>? AggregateBaselineSetByRef()
-    {
-        return this.AggregateSetByRef(this.Baseline);
     }
 
     public List<Result> GetAllResultsOfSet(string name)
@@ -356,6 +328,21 @@ public class Experiment()
             .Where(x => !string.IsNullOrEmpty(x))
             .Cast<string>()
             .ToList() ?? [];
+    }
+
+    public string? FirstSet
+    {
+        get => Results?.FirstOrDefault(r => !string.IsNullOrEmpty(r.Set))?.Set;
+    }
+
+    public string? LastSet
+    {
+        get => Results?.LastOrDefault(r => !string.IsNullOrEmpty(r.Set))?.Set;
+    }
+
+    public string? BaselineSet
+    {
+        get => this.Baseline;
     }
 
     public void Save()

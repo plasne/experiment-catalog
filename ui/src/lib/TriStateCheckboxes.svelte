@@ -21,9 +21,20 @@
         no.delete(label);
         break;
     }
+    // Reassign to trigger Svelte reactivity
+    yes = yes;
+    no = no;
   }
 </script>
 
 {#each options as option}
-  <TriStateCheckbox label={option} on:change={change} />
+  <TriStateCheckbox
+    label={option}
+    initialState={yes.has(option)
+      ? "include"
+      : no.has(option)
+        ? "exclude"
+        : "neither"}
+    on:change={change}
+  />
 {/each}

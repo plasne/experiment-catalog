@@ -9,6 +9,7 @@
   export let experiment: Experiment;
   export let setList: string;
   export let checked: string;
+  export let initialTags: string = "";
 
   let state: "loading" | "loaded" | "error" = "loading";
   let compareCount = 3;
@@ -76,7 +77,13 @@
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let comparison: Comparison;
   let metrics: string[] = [];
-  let tagFilters: string;
+  let tagFilters: string = initialTags;
+  let initialized = false;
+
+  // Emit tag changes after initialization
+  $: if (initialized && tagFilters !== undefined) {
+    dispatch("changeTags", tagFilters);
+  }
 
   const fetchComparison = async () => {
     try {
@@ -114,6 +121,7 @@
         metricsHighlighted = new Set(checked.split(","));
       }
 
+      initialized = true;
       state = "loaded";
     } catch (error) {
       console.error(error);
