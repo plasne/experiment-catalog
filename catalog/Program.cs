@@ -35,6 +35,8 @@ if (!string.IsNullOrEmpty(config.OPEN_TELEMETRY_CONNECTION_STRING))
 builder.Services.AddConfig();
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 builder.Services.AddSingleton<ISupportDocsService, AzureBlobSupportDocsService>();
+builder.Services.AddSingleton<CalculatePValuesService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CalculatePValuesService>());
 if (config.OPTIMIZE_EVERY_X_MINUTES > 0)
 {
     Console.WriteLine("ADDING SERVICE: AzureBlobStorageMaintenanceService");

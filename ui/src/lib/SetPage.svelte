@@ -378,7 +378,7 @@
         </tr>
         <tr>
           <td colspan={2 + selectedMetrics.length}>
-            <Annotations result={comparison.experiment_set?.[ref]} />
+            <Annotations entity={comparison.experiment_set?.[ref]} />
           </td>
         </tr>
         {#if showResults && results}

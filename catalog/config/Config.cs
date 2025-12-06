@@ -16,8 +16,12 @@ public class Config : IConfig
         this.AZURE_STORAGE_ACCOUNT_CONNSTRING = this.config.GetSecret<string>("AZURE_STORAGE_ACCOUNT_CONNSTRING").Result;
         this.CONCURRENCY = this.config.Get<string>("CONCURRENCY").AsInt(() => 4);
         this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE = this.config.Get<string>("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE").AsInt(() => 1024);
-        this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE = this.config.Get<string>("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE").AsInt(() => 10);
+        this.MINUTES_TO_BE_IDLE = this.config.Get<string>("MINUTES_TO_BE_IDLE").AsInt(() => 10);
+        this.MINUTES_TO_BE_RECENT = this.config.Get<string>("MINUTES_TO_BE_RECENT").AsInt(() => 480); // 8 hours
         this.OPTIMIZE_EVERY_X_MINUTES = this.config.Get<string>("OPTIMIZE_EVERY_X_MINUTES").AsInt(() => 0);
+        this.CALC_PVALUES_USING_X_SAMPLES = this.config.Get<string>("CALC_PVALUES_USING_X_SAMPLES").AsInt(() => 10000);
+        this.CALC_PVALUES_EVERY_X_MINUTES = this.config.Get<string>("CALC_PVALUES_EVERY_X_MINUTES").AsInt(() => 0);
+        this.MIN_ITERATIONS_TO_CALC_PVALUES = this.config.Get<string>("MIN_ITERATIONS_TO_CALC_PVALUES").AsInt(() => 5);
         this.PATH_TEMPLATE = this.config.Get<string>("PATH_TEMPLATE");
         this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS");
         this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS = this.config.GetSecret<string>("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS").Result;
@@ -29,6 +33,7 @@ public class Config : IConfig
             this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS = this.AZURE_STORAGE_ACCOUNT_CONNSTRING;
             this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS = this.AZURE_STORAGE_ACCOUNT_NAME;
         }
+        this.TEST_PROJECTS = this.config.Get<string>("TEST_PROJECTS").AsArray(() => new string[0]);
     }
 
     public int PORT { get; }
@@ -43,9 +48,17 @@ public class Config : IConfig
 
     public int REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE { get; }
 
-    public int REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE { get; }
+    public int MINUTES_TO_BE_IDLE { get; }
+
+    public int MINUTES_TO_BE_RECENT { get; }
 
     public int OPTIMIZE_EVERY_X_MINUTES { get; }
+
+    public int CALC_PVALUES_USING_X_SAMPLES { get; }
+
+    public int CALC_PVALUES_EVERY_X_MINUTES { get; }
+
+    public int MIN_ITERATIONS_TO_CALC_PVALUES { get; }
 
     public string PATH_TEMPLATE { get; }
 
@@ -54,6 +67,8 @@ public class Config : IConfig
     public string AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS { get; }
 
     public bool ENABLE_ANONYMOUS_DOWNLOAD { get; }
+
+    public string[] TEST_PROJECTS { get; }
 
     public void Validate()
     {
@@ -67,11 +82,16 @@ public class Config : IConfig
         }
         this.config.Require("CONCURRENCY", this.CONCURRENCY);
         this.config.Require("REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE", this.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE);
-        this.config.Require("REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE", this.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE);
+        this.config.Require("MINUTES_TO_BE_IDLE", this.MINUTES_TO_BE_IDLE);
+        this.config.Require("MINUTES_TO_BE_RECENT", this.MINUTES_TO_BE_RECENT);
         this.config.Require("OPTIMIZE_EVERY_X_MINUTES", this.OPTIMIZE_EVERY_X_MINUTES);
+        this.config.Require("CALC_PVALUES_USING_X_SAMPLES", this.CALC_PVALUES_USING_X_SAMPLES);
+        this.config.Require("CALC_PVALUES_EVERY_X_MINUTES", this.CALC_PVALUES_EVERY_X_MINUTES);
+        this.config.Require("MIN_ITERATIONS_TO_CALC_PVALUES", this.MIN_ITERATIONS_TO_CALC_PVALUES);
         this.config.Optional("PATH_TEMPLATE", this.PATH_TEMPLATE);
         this.config.Optional("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS", this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS);
         this.config.Optional("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS", this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS, hideValue: true);
         this.config.Optional("ENABLE_ANONYMOUS_DOWNLOAD", this.ENABLE_ANONYMOUS_DOWNLOAD.ToString());
+        this.config.Optional("TEST_PROJECTS", string.Join(",", this.TEST_PROJECTS));
     }
 }

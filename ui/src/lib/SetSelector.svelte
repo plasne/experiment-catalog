@@ -1,18 +1,26 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, tick } from "svelte";
 
-  export let result: Result;
-  export let results: Result[] = [];
+  export let entity: ComparisonEntity;
+  export let entities: ComparisonEntity[] = [];
 
   const dispatch = createEventDispatcher();
   let isOpen = false;
+  let dropdownMenu: HTMLElement;
 
-  const toggleDropdown = () => {
+  const toggleDropdown = async () => {
     isOpen = !isOpen;
+    if (isOpen) {
+      await tick();
+      const selectedElement = dropdownMenu?.querySelector(".selected");
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ block: "nearest" });
+      }
+    }
   };
 
-  const select = (selected: Result) => {
-    result = selected;
+  const select = (selected: ComparisonEntity) => {
+    entity = selected;
     isOpen = false;
     dispatch("select", selected);
   };
@@ -36,21 +44,29 @@
 
 <div class="dropdown-container" use:clickOutside>
   <button class="dropdown-header" on:click={toggleDropdown}
-    >{result ? result.set : "None"}</button
+    >{entity ? entity.set : "None"}</button
   >
   {#if isOpen}
-    <div class="dropdown-menu">
-      <button class="dropdown-button" on:click={() => select(null)}>
+    <div class="dropdown-menu" bind:this={dropdownMenu}>
+      <button
+        class="dropdown-button"
+        class:selected={!entity}
+        on:click={() => select(null)}
+      >
         <div class="dropdown-item">
           <div class="title">None</div>
         </div>
       </button>
-      {#each results as result}
-        <button class="dropdown-button" on:click={() => select(result)}>
+      {#each entities as e}
+        <button
+          class="dropdown-button"
+          class:selected={entity === e}
+          on:click={() => select(e)}
+        >
           <div class="dropdown-item">
-            <div class="title">{result.set}</div>
-            {#if result.annotations}
-              {#each result.annotations as annotation}
+            <div class="title">{e.set}</div>
+            {#if e.result?.annotations}
+              {#each e.result?.annotations as annotation}
                 <div>
                   {annotation.text}
                 </div>
@@ -92,6 +108,10 @@
     width: 100%;
     text-align: left;
     background-color: #ccc;
+  }
+
+  .dropdown-button.selected {
+    background-color: #a0c4e8;
   }
 
   .dropdown-item {

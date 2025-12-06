@@ -14,7 +14,7 @@
   let state: "loading" | "loaded" | "error" = "loading";
   let compareCount = 3;
   let controls = [];
-  let selected: Result[];
+  let selected: ComparisonEntity[];
   let metricsHighlighted: Set<string>;
 
   const dispatch = createEventDispatcher();
@@ -56,20 +56,59 @@
       for (var i = 0; i < Math.max(compareCount, setListSplit.length); i++) {
         const result =
           i < setListSplit.length
-            ? comparison.sets_for_experiment.find(
-                (result) => result.set === setListSplit[i]
-              )
+            ? comparison.sets.find((result) => result.set === setListSplit[i])
             : null;
         selected[i] = result;
       }
     } else {
-      selected = comparison.sets_for_experiment.slice(-compareCount);
+      selected = comparison.sets?.slice(-compareCount);
     }
     updateSetList();
   };
 
-  const select = (event: CustomEvent<{ index: number; result: Result }>) => {
-    selected[event.detail.index] = event.detail.result;
+  const select = (
+    event: CustomEvent<{ index: number; entity: ComparisonEntity }>
+  ) => {
+    selected[event.detail.index] = event.detail.entity;
+    updateSetList();
+  };
+
+  const addAnnotation = async (
+    event: CustomEvent<{
+      set: string;
+      annotation: Annotation;
+      project: string;
+      experiment: string;
+    }>
+  ) => {
+    const { set, annotation, project: proj, experiment: exp } = event.detail;
+    try {
+      const response = await fetch(
+        `${prefix}/api/projects/${proj}/experiments/${exp}/results`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            set,
+            annotations: [annotation],
+          }),
+        }
+      );
+      if (response.ok) {
+        fetchComparison();
+      } else {
+        console.error("Failed to add annotation:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Failed to add annotation:", error);
+    }
+  };
+
+  const selectLastSets = () => {
+    if (!comparison?.sets) return;
+    selected = comparison.sets.slice(-compareCount);
     updateSetList();
   };
 
@@ -97,15 +136,15 @@
 
       // get a list of metrics
       const allKeys = [
-        ...(comparison.baseline_result_for_project
-          ? Object.keys(comparison.baseline_result_for_project.metrics)
+        ...(comparison.project_baseline
+          ? Object.keys(comparison.project_baseline?.result?.metrics)
           : []),
-        ...(comparison.baseline_result_for_experiment
-          ? Object.keys(comparison.baseline_result_for_experiment.metrics)
+        ...(comparison.experiment_baseline
+          ? Object.keys(comparison.experiment_baseline?.result?.metrics)
           : []),
-        ...(comparison.sets_for_experiment
-          ? comparison.sets_for_experiment.flatMap((experiment) =>
-              Object.keys(experiment.metrics)
+        ...(comparison.sets
+          ? comparison.sets?.flatMap((experiment) =>
+              Object.keys(experiment.result?.metrics)
             )
           : []),
       ];
@@ -155,7 +194,8 @@
       <option value={30}>30</option>
       <option value={100}>100</option>
     </select>
-    <span>of {comparison.sets_for_experiment.length} permutations</span>
+    <span>of {comparison.sets?.length} permutations</span>
+    <button class="link" on:click={selectLastSets}>(show last)</button>
   </div>
 {/if}
 
@@ -175,26 +215,29 @@
         <th>
           <ComparisonTableHeader
             title="Project Baseline"
-            result={comparison.baseline_result_for_project}
+            entity={comparison.project_baseline}
             clickable={false}
+            on:addAnnotation={addAnnotation}
           />
         </th>
         <th>
           <ComparisonTableHeader
             title="Experiment Baseline"
-            result={comparison.baseline_result_for_experiment}
+            entity={comparison.experiment_baseline}
             clickable={false}
+            on:addAnnotation={addAnnotation}
           />
         </th>
-        {#each selected as result, index}
+        {#each selected as entity, index}
           <th>
             <ComparisonTableHeader
               {index}
               title=""
-              {result}
-              results={comparison.sets_for_experiment}
+              {entity}
+              entities={comparison.sets}
               on:drilldown={drilldown}
               on:select={select}
+              on:addAnnotation={addAnnotation}
             />
           </th>
         {/each}
@@ -213,27 +256,28 @@
           <td class="label">{metric}</td>
           <td
             ><ComparisonTableMetric
-              result={comparison.baseline_result_for_project}
-              baseline={comparison.baseline_result_for_experiment}
+              result={comparison.project_baseline?.result}
+              baseline={comparison.experiment_baseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
             /></td
           >
           <td
             ><ComparisonTableMetric
-              result={comparison.baseline_result_for_experiment}
+              result={comparison.experiment_baseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
             /></td
           >
-          {#each selected as result, index}
+          {#each selected as entity, index}
             <td
               ><ComparisonTableMetric
                 bind:this={controls[index]}
-                {result}
-                baseline={comparison.baseline_result_for_experiment}
+                result={entity?.result}
+                baseline={comparison.experiment_baseline?.result}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
+                pvalue={entity?.p_values?.[metric]?.value}
               /></td
             >
           {/each}

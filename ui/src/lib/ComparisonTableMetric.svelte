@@ -5,6 +5,7 @@
   export let definition: MetricDefinition = undefined;
   export let showStdDev: boolean = true;
   export let showCount: boolean = true;
+  export let pvalue: number | undefined = undefined;
 
   let isCount: boolean;
   let isCost: boolean;
@@ -142,6 +143,10 @@
     {#if showCount && isAvg}
       <span>x{result.metrics[metric].count}</span>
     {/if}
+
+    {#if pvalue != undefined && !Number.isNaN(pvalue) && Number.isFinite(pvalue)}
+      <span class="pvalue">p={pvalue.toFixed(2)}</span>
+    {/if}
   {:else}
     <span>-</span>
   {/if}
@@ -159,5 +164,15 @@
 
   .difp-green {
     color: #6a6;
+  }
+
+  .pvalue {
+    font-size: 0.85em;
+    font-style: italic;
+    color: #888;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-left: 4px;
   }
 </style>

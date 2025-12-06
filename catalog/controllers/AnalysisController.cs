@@ -15,6 +15,15 @@ namespace Catalog;
 [Route("api/analysis")]
 public class AnalysisController : ControllerBase
 {
+    [HttpPost("p-values")]
+    public IActionResult CalculatePValues(
+        [FromServices] CalculatePValuesService calculatePValuesService,
+        [FromBody] CalculatePValuesRequest request)
+    {
+        calculatePValuesService.Enqueue(request);
+        return StatusCode(201);
+    }
+
     [HttpPost("meaningful-tags")]
     public async Task<IActionResult> MeaningfulTags(
         [FromServices] IConfig config,
@@ -25,7 +34,6 @@ public class AnalysisController : ControllerBase
         var diffs = new List<TagDiff>();
 
         var experiment = await storageService.GetExperimentAsync(request.Project, request.Experiment, cancellationToken: cancellationToken);
-        experiment.Filter(request.Set);
 
         var baseline = request.CompareTo == MeaningfulTagsComparisonMode.Baseline
             ? await storageService.GetProjectBaselineAsync(request.Project, cancellationToken)
@@ -40,29 +48,25 @@ public class AnalysisController : ControllerBase
         var compareToDefault = 0.0M;
         if (request.CompareTo == MeaningfulTagsComparisonMode.Average)
         {
-            experiment.Save();
-            experiment.Filter(null, excludeTags);
-            var experimentResult = experiment.AggregateSet(request.Set);
+            var results = experiment.Filter(null, excludeTags);
+            var experimentResult = experiment.AggregateSet(request.Set, results);
             Metric? experimentMetric = null;
             experimentResult?.Metrics?.TryGetValue(request.Metric, out experimentMetric);
             compareToDefault = experimentMetric?.Value ?? 0.0M;
-            experiment.Restore();
         }
 
         foreach (var tag in includeTags)
         {
-            experiment.Save();
-            experiment.Filter([tag], excludeTags);
-            var experimentResult = experiment.AggregateSet(request.Set);
+            var experimentResults = experiment.Filter([tag], excludeTags);
+            var experimentResult = experiment.AggregateSet(request.Set, experimentResults);
             Metric? experimentTagMetric = null;
             experimentResult?.Metrics?.TryGetValue(request.Metric, out experimentTagMetric);
 
             decimal? compareTo = compareToDefault;
             if (baseline is not null)
             {
-                baseline.Save();
-                baseline.Filter([tag], excludeTags);
-                var baselineResult = baseline.AggregateSet(baseline.BaselineSet ?? baseline.LastSet);
+                var baselineResults = baseline.Filter([tag], excludeTags);
+                var baselineResult = baseline.AggregateSet(baseline.BaselineSet ?? baseline.LastSet, baselineResults);
                 Metric? baselineTagMetric = null;
                 baselineResult?.Metrics?.TryGetValue(request.Metric, out baselineTagMetric);
                 compareTo = baselineTagMetric?.Value;
@@ -79,9 +83,6 @@ public class AnalysisController : ControllerBase
                     Count = experimentTagMetric.Count,
                 });
             }
-
-            experiment.Restore();
-            baseline?.Restore();
         }
 
         return Ok(new MeaningfulTagsResponse { Tags = diffs.OrderBy(x => x.Impact) });

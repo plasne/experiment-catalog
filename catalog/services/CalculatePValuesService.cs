@@ -1,0 +1,659 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace Catalog;
+
+/// <summary>
+/// Background service that calculates p-values for experiment metrics using permutation tests.
+/// P-values help determine statistical significance when comparing experiment results against baselines.
+/// </summary>
+public class CalculatePValuesService(
+    IConfig config,
+    IStorageService storageService,
+    ILogger<CalculatePValuesService> logger
+) : BackgroundService
+{
+    private readonly Random random = new();
+    private readonly ConcurrentQueue<CalculatePValuesRequest> requestQueue = new();
+
+    /// <summary>
+    /// Enqueues a request for p-value calculation to be processed by the background service.
+    /// </summary>
+    /// <param name="request">The request containing project, experiment, and set information.</param>
+    public void Enqueue(CalculatePValuesRequest request)
+    {
+        requestQueue.Enqueue(request);
+        logger.LogInformation(
+            "enqueued p-value calculation request for '{Project}/{Experiment}'.",
+            request.Project, request.Experiment);
+    }
+
+    /// <summary>
+    /// Calculates p-values for all applicable metrics by comparing an experiment set against a baseline set.
+    /// Uses a permutation test (two-tailed) to determine statistical significance.
+    /// </summary>
+    /// <param name="baseline">The baseline experiment containing reference results.</param>
+    /// <param name="baselineSet">The specific set within the baseline experiment to compare against.</param>
+    /// <param name="experiment">The experiment being evaluated.</param>
+    /// <param name="experimentSet">The specific set within the experiment to evaluate.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>A PValues object containing p-values for each metric, or null if calculation fails.</returns>
+    public Task<PValues?> CalculateAsync(
+        Experiment baseline,
+        string? baselineSet,
+        Experiment experiment,
+        string? experimentSet,
+        CancellationToken cancellationToken = default)
+    {
+        // validate that both sets have results
+        var baselineResultCount = baseline.Results?.Count(x => x.Set == baselineSet);
+        var setResultCount = experiment.Results?.Count(x => x.Set == experimentSet);
+        if (baselineResultCount is null || setResultCount is null)
+        {
+            logger.LogWarning(
+                "cannot calculate p-values: missing results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
+                baselineSet, experimentSet);
+            return Task.FromResult<PValues?>(null);
+        }
+
+        // validate that metric definitions exist
+        if (experiment.MetricDefinitions is null || experiment.MetricDefinitions.Count == 0)
+        {
+            logger.LogWarning(
+                "cannot calculate p-values: experiment '{Experiment}' has no metric definitions.",
+                experiment.Name);
+            return Task.FromResult<PValues?>(null);
+        }
+
+        // initialize the p-values result object
+        var pvalues = new PValues
+        {
+            BaselineExperiment = baseline.Name,
+            BaselineSet = baselineSet,
+            Set = experimentSet,
+            BaselineResultCount = baselineResultCount ?? 0,
+            SetResultCount = setResultCount ?? 0,
+            NumSamples = config.CALC_PVALUES_USING_X_SAMPLES,
+            Metrics = new Dictionary<string, Metric>(),
+        };
+
+        // aggregate results by reference for both baseline and experiment sets
+        var baselineResult = baseline.AggregateSetByRef(baselineSet);
+        var experimentResult = experiment.AggregateSetByRef(experimentSet);
+        if (baselineResult is null || experimentResult is null)
+        {
+            logger.LogWarning(
+                "cannot calculate p-values: failed to aggregate results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
+                baselineSet, experimentSet);
+            return Task.FromResult<PValues?>(null);
+        }
+
+        // identify metrics eligible for p-value calculation (must use Average aggregation and not be tagged 'no-p')
+        var eligibleMetrics = GetEligibleMetrics(experimentResult, experiment.MetricDefinitions);
+
+        // calculate p-values for each eligible metric
+        foreach (var metric in eligibleMetrics)
+        {
+            var pvalue = CalculatePValueForMetric(
+                metric,
+                baselineResult,
+                experimentResult,
+                cancellationToken);
+            if (pvalue.HasValue)
+            {
+                pvalues.Metrics.Add(metric, new Metric { Value = pvalue.Value });
+            }
+        }
+
+        logger.LogDebug(
+            "calculated p-values for {MetricCount} metrics comparing '{Experiment}/{Set}' against baseline '{BaselineExperiment}/{BaselineSet}'.",
+            pvalues.Metrics.Count, experiment.Name, experimentSet, baseline.Name, baselineSet);
+
+        return Task.FromResult<PValues?>(pvalues);
+    }
+
+    /// <summary>
+    /// Identifies metrics that are eligible for p-value calculation.
+    /// A metric is eligible if it uses the Average aggregate function and is not tagged with 'no-p'.
+    /// </summary>
+    private IEnumerable<string> GetEligibleMetrics(
+        IDictionary<string, Result> experimentResult,
+        IDictionary<string, MetricDefinition> metricDefinitions)
+    {
+        return experimentResult.Values
+            .Where(x => x.Metrics is not null)
+            .SelectMany(x => x.Metrics!.Keys)
+            .Distinct()
+            .Where(metricName =>
+            {
+                metricDefinitions.TryGetValue(metricName, out var definition);
+
+                // exclude metrics tagged with 'no-p'
+                if (definition?.Tags?.Contains("no-p") == true)
+                    return false;
+
+                // only include metrics that use Average aggregation
+                return definition?.AggregateFunction == AggregateFunctions.Average;
+            });
+    }
+
+    /// <summary>
+    /// Calculates the p-value for a single metric using a paired permutation test (sign-flipping).
+    /// This test respects the paired structure of the data by randomly flipping the sign of each
+    /// paired difference to generate the null distribution.
+    /// </summary>
+    /// <returns>The calculated p-value, or null if there are no valid paired observations.</returns>
+    private decimal? CalculatePValueForMetric(
+        string metric,
+        IDictionary<string, Result> baselineResult,
+        IDictionary<string, Result> experimentResult,
+        CancellationToken cancellationToken)
+    {
+        // collect paired observations (values that exist in both baseline and experiment)
+        var (baselineValues, experimentValues) = CollectPairedObservations(
+            metric,
+            baselineResult,
+            experimentResult,
+            cancellationToken);
+
+        if (baselineValues.Count == 0)
+        {
+            logger.LogWarning("no valid paired observations found for metric '{Metric}'.", metric);
+            return null;
+        }
+
+        // only calculate p-values if there are enough paired observations
+        if (baselineValues.Count < config.MIN_ITERATIONS_TO_CALC_PVALUES)
+        {
+            logger.LogWarning(
+                "metric '{Metric}' has only {Count} paired observations; p-value may be unreliable (recommend >= {Min}); skipping.",
+                metric, baselineValues.Count, config.MIN_ITERATIONS_TO_CALC_PVALUES);
+            return null;
+        }
+
+        // calculate paired differences (experiment - baseline for each pair)
+        var pairedDifferences = baselineValues
+            .Zip(experimentValues, (b, e) => e - b)
+            .ToList();
+
+        // calculate the observed mean difference
+        var observedMeanDifference = pairedDifferences.Average();
+
+        // generate the null distribution using paired permutation test (sign-flipping)
+        var nullDistribution = GenerateNullDistributionPaired(
+            pairedDifferences,
+            cancellationToken);
+
+        // calculate two-tailed p-value: proportion of permuted differences as extreme as observed
+        // using (count + 1) / (n + 1) to ensure p-value is never exactly 0 and is more conservative
+        var extremeCount = nullDistribution.Count(diff => Math.Abs(diff) >= Math.Abs(observedMeanDifference));
+        var pvalue = (decimal)(extremeCount + 1) / (config.CALC_PVALUES_USING_X_SAMPLES + 1);
+
+        return pvalue;
+    }
+
+    /// <summary>
+    /// Collects paired observations for a metric from baseline and experiment results.
+    /// Only includes references that exist in both result sets with valid metric values.
+    /// </summary>
+    private (List<decimal> baselineValues, List<decimal> experimentValues) CollectPairedObservations(
+        string metric,
+        IDictionary<string, Result> baselineResult,
+        IDictionary<string, Result> experimentResult,
+        CancellationToken cancellationToken)
+    {
+        var baselineValues = new List<decimal>();
+        var experimentValues = new List<decimal>();
+
+        foreach (var reference in experimentResult.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // skip references not present in baseline
+            if (!baselineResult.ContainsKey(reference))
+                continue;
+
+            // try to get the metric value from baseline
+            Metric? baselineMetric = null;
+            baselineResult[reference].Metrics?.TryGetValue(metric, out baselineMetric);
+            if (baselineMetric?.Value is null)
+                continue;
+
+            // try to get the metric value from experiment
+            Metric? experimentMetric = null;
+            experimentResult[reference].Metrics?.TryGetValue(metric, out experimentMetric);
+            if (experimentMetric?.Value is null)
+                continue;
+
+            baselineValues.Add((decimal)baselineMetric.Value);
+            experimentValues.Add((decimal)experimentMetric.Value);
+        }
+
+        return (baselineValues, experimentValues);
+    }
+
+    /// <summary>
+    /// Generates a null distribution for a paired permutation test using sign-flipping.
+    /// For each permutation, randomly flips the sign of each paired difference (simulating
+    /// the null hypothesis that there's no systematic difference between conditions).
+    /// </summary>
+    private List<decimal> GenerateNullDistributionPaired(
+        List<decimal> pairedDifferences,
+        CancellationToken cancellationToken)
+    {
+        var nullDistribution = new List<decimal>(config.CALC_PVALUES_USING_X_SAMPLES);
+        var permutedDifferences = new decimal[pairedDifferences.Count];
+
+        for (var i = 0; i < config.CALC_PVALUES_USING_X_SAMPLES; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // randomly flip the sign of each paired difference
+            for (var j = 0; j < pairedDifferences.Count; j++)
+            {
+                // 50% chance to flip the sign (multiply by -1 or +1)
+                var sign = random.Next(2) == 0 ? -1 : 1;
+                permutedDifferences[j] = pairedDifferences[j] * sign;
+            }
+
+            // record the mean difference for this permutation
+            nullDistribution.Add(permutedDifferences.Average());
+        }
+
+        return nullDistribution;
+    }
+
+    /// <summary>
+    /// Represents a group of experiments within a project that need p-value calculation.
+    /// </summary>
+    private record ProjectGroup
+    {
+        public required string Name { get; set; }
+        public Experiment? Baseline { get; set; }
+        public IList<Experiment> Experiments { get; set; } = new List<Experiment>();
+    }
+
+    /// <summary>
+    /// Retrieves all recent experiments grouped by project that are candidates for p-value calculation.
+    /// An experiment is considered a candidate if it was recently modified but has been idle long enough.
+    /// </summary>
+    private async Task<IList<ProjectGroup>> GetRecentExperimentsByProjectAsync(CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("searching for recent experiments that need p-value calculation...");
+        var projectGroups = new List<ProjectGroup>();
+
+        // retrieve all projects
+        logger.LogDebug("fetching list of projects from storage...");
+        var projects = await storageService.GetProjectsAsync(cancellationToken);
+        logger.LogInformation("found {ProjectCount} projects to examine.", projects.Count);
+
+        foreach (var project in projects)
+        {
+            // skip test projects (they don't need p-value calculation)
+            if (config.TEST_PROJECTS.Contains(project.Name))
+            {
+                logger.LogDebug("skipping test project '{Project}'.", project.Name);
+                continue;
+            }
+
+            // retrieve the baseline experiment for this project
+            var baseline = await storageService.GetProjectBaselineAsync(project.Name, cancellationToken);
+
+            // check each experiment in the project for eligibility
+            var experiments = await storageService.GetExperimentsAsync(project.Name, cancellationToken);
+            foreach (var experiment in experiments)
+            {
+                if (!IsExperimentEligibleForPValueCalculation(experiment))
+                    continue;
+
+                // add to or create the project group
+                var projectGroup = projectGroups.FirstOrDefault(x => x.Name == project.Name);
+                if (projectGroup is null)
+                {
+                    projectGroup = new ProjectGroup
+                    {
+                        Name = project.Name,
+                        Baseline = baseline,
+                    };
+                    projectGroups.Add(projectGroup);
+                }
+
+                logger.LogDebug("found eligible experiment '{Project}/{Experiment}'.", projectGroup.Name, experiment.Name);
+                projectGroup.Experiments.Add(experiment);
+            }
+        }
+
+        logger.LogInformation(
+            "found {ExperimentCount} recent experiments across {ProjectCount} projects.",
+            projectGroups.Sum(x => x.Experiments.Count),
+            projectGroups.Count);
+
+        return projectGroups;
+    }
+
+    /// <summary>
+    /// Determines if an experiment is eligible for p-value calculation.
+    /// An experiment must be recently modified but idle for a minimum period.
+    /// </summary>
+    private bool IsExperimentEligibleForPValueCalculation(Experiment experiment)
+    {
+        // must have a modification timestamp
+        if (!experiment.Modified.HasValue)
+            return false;
+
+        // must have been modified recently (within the configured window)
+        var recentThreshold = DateTime.UtcNow.AddMinutes(-config.MINUTES_TO_BE_RECENT);
+        if (experiment.Modified.Value < recentThreshold)
+            return false;
+
+        // must have been idle for the minimum required period (no active changes)
+        var minutesSinceLastModified = (DateTimeOffset.UtcNow - experiment.Modified.Value).TotalMinutes;
+        if (minutesSinceLastModified < config.MINUTES_TO_BE_IDLE)
+            return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Main execution loop for the background service.
+    /// Processes queued requests and periodically scans for recent experiments that need p-value calculation.
+    /// </summary>
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var lastPeriodicScan = DateTime.MinValue;
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                // process any queued requests first
+                await ProcessQueuedRequestsAsync(stoppingToken);
+
+                // run periodic scan if enough time has passed
+                var minutesSinceLastScan = (DateTime.UtcNow - lastPeriodicScan).TotalMinutes;
+                if (config.CALC_PVALUES_EVERY_X_MINUTES > 0 && minutesSinceLastScan >= config.CALC_PVALUES_EVERY_X_MINUTES)
+                {
+                    logger.LogInformation("starting p-value calculation cycle...");
+                    await ProcessAllProjectsAsync(stoppingToken);
+                    logger.LogInformation("completed p-value calculation cycle.");
+                    lastPeriodicScan = DateTime.UtcNow;
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                logger.LogInformation("p-value calculation service is shutting down.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "an error occurred during p-value calculation cycle. will retry after delay.");
+            }
+
+            // short delay to check for new queued requests
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+        }
+    }
+
+    /// <summary>
+    /// Processes all queued p-value calculation requests.
+    /// </summary>
+    private async Task ProcessQueuedRequestsAsync(CancellationToken cancellationToken)
+    {
+        while (requestQueue.TryDequeue(out var request))
+        {
+            try
+            {
+                logger.LogInformation(
+                    "processing queued p-value calculation for '{Project}/{Experiment}'...",
+                    request.Project, request.Experiment);
+
+                await ProcessQueuedRequestAsync(request, cancellationToken);
+
+                logger.LogInformation(
+                    "completed queued p-value calculation for '{Project}/{Experiment}'.",
+                    request.Project, request.Experiment);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "failed to process queued p-value calculation for '{Project}/{Experiment}'.",
+                    request.Project, request.Experiment);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes a single queued p-value calculation request.
+    /// </summary>
+    private async Task ProcessQueuedRequestAsync(CalculatePValuesRequest request, CancellationToken cancellationToken)
+    {
+        // load the experiment with results
+        var experiment = await storageService.GetExperimentAsync(
+            request.Project,
+            request.Experiment,
+            cancellationToken: cancellationToken);
+
+        // load and attach metric definitions
+        experiment.MetricDefinitions = (await storageService.GetMetricsAsync(request.Project, cancellationToken))
+            .ToDictionary(x => x.Name);
+
+        // determine the baseline
+        var baseline = string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
+            ? await storageService.GetProjectBaselineAsync(request.Project, cancellationToken)
+            : experiment;
+        baseline.MetricDefinitions = experiment.MetricDefinitions;
+        var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
+        var baselineResultCount = baseline.Results?.Count(x => x.Set == baselineSet);
+
+        // process each set in the experiment
+        foreach (var set in experiment.Sets)
+        {
+            await ProcessSetAsync(
+                request.Project,
+                experiment,
+                set,
+                baseline,
+                baselineSet,
+                baselineResultCount,
+                cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Processes all projects, calculating missing p-values for recent experiments.
+    /// </summary>
+    private async Task ProcessAllProjectsAsync(CancellationToken cancellationToken)
+    {
+        var projectGroups = await GetRecentExperimentsByProjectAsync(cancellationToken);
+        foreach (var projectGroup in projectGroups)
+        {
+            await ProcessProjectGroupAsync(projectGroup, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Processes a single project group, calculating p-values for all eligible experiments.
+    /// </summary>
+    private async Task ProcessProjectGroupAsync(ProjectGroup projectGroup, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("processing project '{Project}' for missing p-values...", projectGroup.Name);
+
+        // validate project has required baseline and experiments
+        if (projectGroup.Baseline is null || projectGroup.Experiments.Count == 0)
+        {
+            logger.LogWarning(
+                "skipping project '{Project}': missing baseline or no experiments to process.",
+                projectGroup.Name);
+            return;
+        }
+
+        // load metric definitions for the project (shared across all experiments)
+        var metricDefinitions = (await storageService.GetMetricsAsync(projectGroup.Name, cancellationToken))
+            .ToDictionary(x => x.Name);
+
+        // process each recent experiment
+        foreach (var recentExperiment in projectGroup.Experiments)
+        {
+            await ProcessExperimentAsync(projectGroup, recentExperiment, metricDefinitions, cancellationToken);
+        }
+
+        logger.LogInformation("completed processing project '{Project}'.", projectGroup.Name);
+    }
+
+    /// <summary>
+    /// Processes a single experiment, calculating p-values for each set that needs them.
+    /// </summary>
+    private async Task ProcessExperimentAsync(
+        ProjectGroup projectGroup,
+        Experiment recentExperiment,
+        Dictionary<string, MetricDefinition> metricDefinitions,
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "processing experiment '{Project}/{Experiment}' for missing p-values...",
+            projectGroup.Name, recentExperiment.Name);
+
+        // attach metric definitions to the project baseline
+        projectGroup.Baseline!.MetricDefinitions = metricDefinitions;
+
+        // load the full experiment with results and existing p-values
+        var experiment = await storageService.GetExperimentAsync(
+            projectGroup.Name,
+            recentExperiment.Name,
+            cancellationToken: cancellationToken);
+        experiment.MetricDefinitions = metricDefinitions;
+
+        // determine the baseline experiment and set for comparison
+        var (baseline, baselineSet) = DetermineBaseline(projectGroup.Baseline, experiment);
+        if (baseline is null)
+        {
+            logger.LogWarning(
+                "skipping experiment '{Project}/{Experiment}': unable to determine baseline.",
+                projectGroup.Name, recentExperiment.Name);
+            return;
+        }
+
+        var baselineResultCount = baseline.Results?.Count(x => x.Set == baselineSet);
+
+        // process each set in the experiment
+        foreach (var set in experiment.Sets)
+        {
+            await ProcessSetAsync(
+                projectGroup.Name,
+                experiment,
+                set,
+                baseline,
+                baselineSet,
+                baselineResultCount,
+                cancellationToken);
+        }
+
+        logger.LogInformation(
+            "completed processing experiment '{Project}/{Experiment}'.",
+            projectGroup.Name, recentExperiment.Name);
+    }
+
+    /// <summary>
+    /// Determines the baseline experiment and set for comparison.
+    /// If the experiment references ':project', uses the project baseline; otherwise, uses the experiment itself.
+    /// </summary>
+    private (Experiment? baseline, string? baselineSet) DetermineBaseline(
+        Experiment projectBaseline,
+        Experiment experiment)
+    {
+        var usesProjectBaseline = string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase);
+
+        if (usesProjectBaseline)
+        {
+            // use the project-level baseline
+            var baselineSet = projectBaseline.BaselineSet ?? projectBaseline.LastSet;
+            return (projectBaseline, baselineSet);
+        }
+        else
+        {
+            // use the experiment's own baseline set
+            var baselineSet = experiment.BaselineSet ?? experiment.FirstSet;
+            return (experiment, baselineSet);
+        }
+    }
+
+    /// <summary>
+    /// Processes a single set within an experiment, calculating p-values if they don't already exist.
+    /// </summary>
+    private async Task ProcessSetAsync(
+        string projectName,
+        Experiment experiment,
+        string set,
+        Experiment baseline,
+        string? baselineSet,
+        int? baselineResultCount,
+        CancellationToken cancellationToken)
+    {
+        // skip if this set is the baseline set (can't compare baseline to itself)
+        if (baseline == experiment && set == baselineSet)
+        {
+            logger.LogDebug(
+                "skipping set '{Project}/{Experiment}/{Set}': this is the baseline set.",
+                projectName, experiment.Name, set);
+            return;
+        }
+
+        // check if p-values already exist with matching parameters
+        var setResultCount = experiment.Results?.Count(x => x.Set == set);
+        if (PValuesAlreadyExist(experiment, baseline.Name, baselineSet, set, baselineResultCount, setResultCount))
+        {
+            logger.LogDebug(
+                "set '{Project}/{Experiment}/{Set}' already has current p-values.",
+                projectName, experiment.Name, set);
+            return;
+        }
+
+        // calculate p-values for this set
+        logger.LogInformation(
+            "calculating p-values for set '{Project}/{Experiment}/{Set}'...",
+            projectName, experiment.Name, set);
+        var pvalues = await CalculateAsync(baseline, baselineSet, experiment, set, cancellationToken);
+        if (pvalues is not null)
+        {
+            await storageService.AddPValuesAsync(projectName, experiment.Name, pvalues, cancellationToken);
+            logger.LogInformation(
+                "successfully calculated and saved p-values ({count}) for set '{Project}/{Experiment}/{Set}'.",
+                pvalues.Metrics?.Count() ?? 0, projectName, experiment.Name, set);
+        }
+        else
+        {
+            logger.LogError(
+                "failed to calculate p-values for set '{Project}/{Experiment}/{Set}'.",
+                projectName, experiment.Name, set);
+        }
+    }
+
+    /// <summary>
+    /// Checks if valid p-values already exist for the given set with matching parameters.
+    /// P-values are considered stale if the result counts or sample size have changed.
+    /// </summary>
+    private bool PValuesAlreadyExist(
+        Experiment experiment,
+        string baselineName,
+        string? baselineSet,
+        string set,
+        int? baselineResultCount,
+        int? setResultCount)
+    {
+        return experiment.PValues?.Any(pv =>
+            pv.BaselineExperiment == baselineName &&
+            pv.BaselineSet == baselineSet &&
+            pv.Set == set &&
+            pv.BaselineResultCount == baselineResultCount &&
+            pv.SetResultCount == setResultCount &&
+            pv.NumSamples == config.CALC_PVALUES_USING_X_SAMPLES) ?? false;
+    }
+
+}

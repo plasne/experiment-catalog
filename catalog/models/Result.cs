@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 namespace Catalog;
 
-public class Result
+public class Result : StorageRecord
 {
     [JsonProperty("ref", NullValueHandling = NullValueHandling.Ignore)]
     public string? Ref { get; set; }
