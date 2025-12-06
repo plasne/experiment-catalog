@@ -4,15 +4,19 @@
 @experiment = pelasne_123
 @set = set-000
 
-## Get a list of projects
+
+### Get a list of projects
 GET {{baseURL}}/projects HTTP/1.1
+
+### Get a list of experiments
+GET {{baseURL}}/projects/{{project}}/experiments HTTP/1.1
 
 ### Create a new project
 POST {{baseURL}}/projects HTTP/1.1
 Content-Type: application/json
 
 {
-    "name": "{{project}}"
+    "name": "sprint03"
 }
 
 ### Create a baseline experiment
@@ -21,7 +25,7 @@ Content-Type: application/json
 
 {
     "name": "{{experiment}}",
-    "hypothesis": "project baseline"
+    "hypothesis": "Using a reasonable threshold may improve answer generation."
 }
 
 ### Mark this experiment as the baseline for the project
@@ -42,12 +46,12 @@ Content-Type: application/json
 }
 
 ### Create an experiment
-POST {{baseURL}}/projects/project-example/experiments HTTP/1.1
+POST {{baseURL}}/projects/{{project}}/experiments HTTP/1.1
 Content-Type: application/json
 
 {
     "name": "{{experiment}}",
-    "hypothesis": "I believe decreasing the temperature will give better results."
+    "hypothesis": "We believe that converting search queries into complete sentences might perform better with semantic search."
 }
 
 ### Mark a specific set as the baseline for the experiment
@@ -108,6 +112,53 @@ Content-Type: application/json
     "refs": [519, 568, 653, 102, 104, 115, 180, 235, 284]
 }
 
+### Get meaningful tags for an experiment, set, and metric vs. the baseline
+POST {{baseURL}}/analysis/meaningful-tags HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+	"set": "{{set}}",
+	"metric": "generation_correctness",
+	"exclude_tags": ["split:validation"]
+}
+
+### Get meaningful tags for an experiment, set, and metric comparing to zero
+POST {{baseURL}}/analysis/meaningful-tags HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+	"set": "{{set}}",
+	"metric": "generation_correctness",
+	"exclude_tags": ["split:validation"],
+	"compare_to": "zero"
+}
+
+### Get meaningful tags for an experiment, set, and metric comparing to the whole experiment average
+POST {{baseURL}}/analysis/meaningful-tags HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+	"set": "{{set}}",
+	"metric": "generation_correctness",
+	"exclude_tags": ["split:validation"],
+	"compare_to": "average"
+}
+
+### Enqueue a p-value analysis for an experiment
+POST {{baseURL}}/analysis/p-values HTTP/1.1
+Content-Type: application/json
+
+{
+	"project": "{{project}}",
+	"experiment": "{{experiment}}",
+}
+
 ### Get metric definitions
 GET {{baseURL}}/projects/{{project}}/metrics HTTP/1.1
 
@@ -116,113 +167,427 @@ PUT {{baseURL}}/projects/{{project}}/metrics HTTP/1.1
 Content-Type: application/json
 
 [
-    {
-        "name": "intent-accuracy",
-        "min": 0,
-        "max": 1,
-        "order": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "intent-recall",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "recall",
-    },
-    {
-        "name": "intent-precision",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "precision",
-    },
-    {
-        "name": "retrieval_ndcg_at_10",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "retrieval_precision_at_10",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "retrieval_recall_at_10",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "retrieval_f1_at_10",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_f1",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_recall",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_precision",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_correctness",
-        "min": 1,
-        "max": 5,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_similarity",
-        "min": 1,
-        "max": 5,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_toxicity",
-        "min": 0,
-        "max": 1,
-        "aggregate_function": "average",
-        "tags": ["lower-is-better"],
-    },
-    {
-        "name": "correctness",
-        "min": 1,
-        "max": 5,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "retrieval_context_relevance_at_10",
-        "min": 1,
-        "max": 5,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_answer_relevance",
-        "min": 1,
-        "max": 5,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "generation_groundedness",
-        "min": 1,
-        "max": 5,
-        "aggregate_function": "average",
-    },
-    {
-        "name": "eval_duration",
-        "aggregate_function": "average",
-        "tags": ["lower-is-better"],
-    }
+	{
+		"name": "retrieval_accuracy",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 100
+	},
+	{
+		"name": "retrieval_precision",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 110
+	},
+	{
+		"name": "retrieval_recall",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 120
+	},
+	{
+		"name": "retrieval_dcg",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 130
+	},
+	{
+		"name": "retrieval_f1",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 140
+	},
+	{
+		"name": "retrieval_mrr",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 150
+	},
+	{
+		"name": "retrieval_accuracy_bonus",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 200
+	},
+	{
+		"name": "retrieval_precision_bonus",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 210
+	},
+	{
+		"name": "retrieval_recall_bonus",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 220
+	},
+	{
+		"name": "retrieval_dcg_bonus",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 230
+	},
+	{
+		"name": "retrieval_f1_bonus",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 240
+	},
+	{
+		"name": "retrieval_mrr_bonus",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 250
+	},
+	{
+		"name": "retrieval_accuracy_helpcenter",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 300
+	},
+	{
+		"name": "retrieval_precision_helpcenter",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 310
+	},
+	{
+		"name": "retrieval_recall_helpcenter",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 320
+	},
+	{
+		"name": "retrieval_dcg_helpcenter",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 330
+	},
+	{
+		"name": "retrieval_f1_helpcenter",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 340
+	},
+	{
+		"name": "retrieval_mrr_helpcenter",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 350
+	},
+	{
+		"name": "retrieval_accuracy_article",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 400
+	},
+	{
+		"name": "retrieval_precision_article",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 410
+	},
+	{
+		"name": "retrieval_recall_article",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 420
+	},
+	{
+		"name": "retrieval_dcg_article",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 430
+	},
+	{
+		"name": "retrieval_f1_article",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 440
+	},
+	{
+		"name": "retrieval_mrr_article",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 450
+	},
+	{
+		"name": "generation_coherence",
+		"min": 1.0,
+		"max": 5.0,
+		"aggregate_function": "Average",
+		"order": 900
+	},
+	{
+		"name": "generation_fluency",
+		"min": 1.0,
+		"max": 5.0,
+		"aggregate_function": "Average",
+		"order": 910
+	},
+	{
+		"name": "generation_groundedness",
+		"min": 1.0,
+		"max": 5.0,
+		"aggregate_function": "Average",
+		"order": 920
+	},
+	{
+		"name": "generation_relevance",
+		"min": 1.0,
+		"max": 5.0,
+		"aggregate_function": "Average",
+		"order": 930
+	},
+	{
+		"name": "generation_similarity",
+		"min": 1.0,
+		"max": 5.0,
+		"aggregate_function": "Average",
+		"order": 940
+	},
+	{
+		"name": "generation_correctness",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 945
+	},
+	{
+		"name": "generation_faithfulness",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 950
+	},
+	{
+		"name": "generation_factual_correctness",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 960
+	},
+	{
+		"name": "generation_factuality_f1",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 970
+	},
+	{
+		"name": "generation_factuality_precision",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 971
+	},
+	{
+		"name": "generation_factuality_recall",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 972
+	},
+	{
+		"name": "generation_no_answer_correctness",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 974
+	},
+	{
+		"name": "generation_no_answer_recall",
+		"min": 0.0,
+		"max": 1.0,
+		"aggregate_function": "Average",
+		"order": 976
+	},
+	{
+		"name": "agent_call_success_percentage",
+		"aggregate_function": "Average",
+		"min": 0.0,
+		"max": 1.0,
+		"order": 980,
+		"tags": [
+			"no-p"
+		]
+	},
+	{
+		"name": "task_adherence",
+		"min": 1.0,
+		"max": 5.0,
+		"aggregate_function": "Average",
+		"order": 990
+	},
+	{
+		"name": "meta_inference_time",
+		"aggregate_function": "Average",
+		"order": 1000,
+		"tags": [
+			"lower-is-better",
+			"no-p"
+		]
+	},
+	{
+		"name": "meta_inference_completion_cost",
+		"aggregate_function": "Cost",
+		"order": 1010,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_inference_completion_tokens",
+		"aggregate_function": "Count",
+		"order": 1020,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_inference_prompt_cost",
+		"aggregate_function": "Cost",
+		"order": 1030,
+		"tags": [
+			"lower-is-better",
+			"cost"
+		]
+	},
+	{
+		"name": "meta_inference_prompt_tokens",
+		"aggregate_function": "Count",
+		"order": 1040,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_inference_tool_call_count",
+		"aggregate_function": "Count",
+		"order": 1050,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_eval_time",
+		"aggregate_function": "Average",
+		"order": 1100,
+		"tags": [
+			"lower-is-better",
+			"no-p"
+		]
+	},
+	{
+		"name": "meta_eval_completion_cost",
+		"aggregate_function": "Cost",
+		"order": 1110,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_eval_completion_tokens",
+		"aggregate_function": "Count",
+		"order": 1120,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_eval_prompt_cost",
+		"aggregate_function": "Cost",
+		"order": 1130,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "meta_eval_prompt_tokens",
+		"aggregate_function": "Count",
+		"order": 1140,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "generation_factual_correctness_error",
+		"aggregate_function": "Count",
+		"order": 1500,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "generation_faithfulness_error",
+		"aggregate_function": "Count",
+		"order": 1510,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "generation_factuality_f1_error",
+		"aggregate_function": "Count",
+		"order": 1520,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "generation_factuality_precision_error",
+		"aggregate_function": "Count",
+		"order": 1522,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "generation_factuality_recall_error",
+		"aggregate_function": "Count",
+		"order": 1524,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "generation_factuality_error",
+		"aggregate_function": "Count",
+		"order": 1526,
+		"tags": [
+			"lower-is-better"
+		]
+	},
+	{
+		"name": "task_adherence_error",
+		"aggregate_function": "Count",
+		"order": 1530,
+		"tags": [
+			"lower-is-better"
+		]
+	}
 ]

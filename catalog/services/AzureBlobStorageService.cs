@@ -9,6 +9,7 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -227,7 +228,7 @@ public class AzureBlobStorageService(
             {
                 try
                 {
-                    return LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
+                    return LoadExperimentAsync(containerClient, experimentName, includeResults: false, includeMetadata: true, cancellationToken: cancellationToken);
                 }
                 finally
                 {
@@ -287,7 +288,7 @@ public class AzureBlobStorageService(
         await appendBlobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
     }
 
-    public async Task AddResultAsync(string projectName, string experimentName, Result result, CancellationToken cancellationToken = default)
+    private async Task AddStorageRecord(string projectName, string experimentName, string json, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
 
@@ -302,15 +303,29 @@ public class AzureBlobStorageService(
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
         var response = await appendBlobClient.ExistsAsync(cancellationToken);
         if (!response.Value) throw new HttpException(404, "experiment not found.");
-        var serializedJson = JsonConvert.SerializeObject(result);
-        using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(serializedJson + "\n"));
+        using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(json + "\n"));
         await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
+    }
+
+    public async Task AddResultAsync(string projectName, string experimentName, Result result, CancellationToken cancellationToken = default)
+    {
+        result.X = "R";
+        var serializedJson = JsonConvert.SerializeObject(result);
+        await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
+    }
+
+    public async Task AddPValuesAsync(string projectName, string experimentName, PValues pvalues, CancellationToken cancellationToken = default)
+    {
+        pvalues.X = "P";
+        var serializedJson = JsonConvert.SerializeObject(pvalues);
+        await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
     }
 
     private static async Task<Experiment> LoadExperimentAsync(
         BlobContainerClient containerClient,
         string experimentName,
         bool includeResults = true,
+        bool includeMetadata = true,
         CancellationToken cancellationToken = default)
     {
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
@@ -327,26 +342,45 @@ public class AzureBlobStorageService(
         var experiment = JsonConvert.DeserializeObject<Experiment>(experimentLine)
             ?? throw new Exception("the experiment info was corrupt.");
 
-        // if we don't need to load the results, we're done
-        if (!includeResults) return experiment;
-
-        // all other lines are of type Result
-        var results = new List<Result>();
-        while (!streamReader.EndOfStream)
+        // load the results
+        if (includeResults)
         {
-            var resultLine = await streamReader.ReadLineAsync(cancellationToken);
-            if (resultLine is null) break;
-            var result = JsonConvert.DeserializeObject<Result>(resultLine);
-            if (result is null) continue;
-            results.Add(result);
+            experiment.Results = new List<Result>();
+            experiment.PValues = new List<PValues>();
+            while (!streamReader.EndOfStream)
+            {
+                var resultLine = await streamReader.ReadLineAsync(cancellationToken);
+                if (resultLine is null) break;
+                var result = JsonConvert.DeserializeObject<Result>(resultLine);
+                if (result is null) continue;
+
+                if (result.X == "P")
+                {
+                    var pvalues = JsonConvert.DeserializeObject<PValues>(resultLine);
+                    if (pvalues is null) continue;
+                    experiment.PValues.Add(pvalues);
+                }
+                else
+                {
+                    experiment.Results.Add(result);
+                }
+            }
         }
-        experiment.Results = results;
 
-        // determine which is the baseline
-        var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-        if (properties.Value.Metadata.TryGetValue("baseline", out var baseline))
+        // load the metadata
+        if (includeMetadata)
         {
-            experiment.Baseline = baseline;
+            var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            if (properties.Value.Metadata.TryGetValue("baseline", out var baseline))
+            {
+                experiment.Baseline = baseline;
+            }
+            experiment.Metadata = new Dictionary<string, object>
+            {
+                { "block_count", properties.Value.BlobCommittedBlockCount },
+                { "blob_size", properties.Value.ContentLength },
+            };
+            experiment.Modified = properties.Value.LastModified;
         }
 
         return experiment;
@@ -371,7 +405,7 @@ public class AzureBlobStorageService(
     public async Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
-        var experiment = await LoadExperimentAsync(containerClient, experimentName, includeResults, cancellationToken: cancellationToken);
+        var experiment = await LoadExperimentAsync(containerClient, experimentName, includeResults, includeResults, cancellationToken: cancellationToken);
         return experiment;
     }
 
@@ -466,20 +500,20 @@ public class AzureBlobStorageService(
         }
     }
 
-    private async Task<bool> ShouldBlobBeOptimizedAsync(AppendBlobClient appendBlobClient, string experimentName, CancellationToken cancellationToken)
+    private bool ShouldBlobBeOptimized(Experiment experiment, CancellationToken cancellationToken)
     {
-        var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-        var blockCount = properties.Value.BlobCommittedBlockCount;
-        var blobSize = properties.Value.ContentLength;
-        var minSinceLastModified = (DateTimeOffset.UtcNow - properties.Value.LastModified).TotalMinutes;
+        if (experiment.Metadata is null || !experiment.Modified.HasValue) return false;
+        var blockCount = (int)experiment.Metadata["block_count"];
+        var blobSize = (long)experiment.Metadata["blob_size"];
+        var minSinceLastModified = (DateTimeOffset.UtcNow - experiment.Modified.Value).TotalMinutes;
         this.logger.LogDebug(
             "experiment {e} had a block count of {x}, size of {y}, and was last modified {z} min ago.",
-            experimentName,
+            experiment.Name,
             blockCount,
             blobSize,
             minSinceLastModified);
         if (blockCount < 2) return false;
-        if (minSinceLastModified < this.config.REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE) return false;
+        if (minSinceLastModified < this.config.MINUTES_TO_BE_IDLE) return false;
         if ((blobSize / blockCount) >= this.config.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE * 1024) return false;
         return true;
     }
@@ -494,25 +528,18 @@ public class AzureBlobStorageService(
         this.logger.LogDebug("successfully obtained a list of {x} projects.", projects.Count);
         foreach (var project in projects)
         {
-            // look at each experiment
-            var containerClient = await this.ConnectAsync(project.Name!, cancellationToken);
-            this.logger.LogDebug("getting a list of experiments in project {p}...", project.Name);
-            await foreach (var blobItem in containerClient.GetBlobsAsync(cancellationToken: cancellationToken))
+            // look at each experiment in the project
+            var experiments = await this.GetExperimentsAsync(project.Name, cancellationToken);
+            foreach (var experiment in experiments)
             {
-                // skip things that aren't active experiments
-                if (!blobItem.Name.EndsWith(".jsonl")) continue;
-                if (blobItem.Name.Contains("-optimizing")) continue;
-                var experimentName = blobItem.Name[..^6];
-
-                // we want to optimize blobs that have more blocks than they should
-                var appendBlobClient = containerClient.GetAppendBlobClient(blobItem.Name);
-                var shouldOptimize = await this.ShouldBlobBeOptimizedAsync(appendBlobClient, experimentName, cancellationToken);
+                // determine if we should optimize the experiment
+                var shouldOptimize = this.ShouldBlobBeOptimized(experiment, cancellationToken);
                 if (!shouldOptimize) continue;
 
                 // optimize the experiment
                 try
                 {
-                    await this.OptimizeExperimentAsync(project.Name!, experimentName, cancellationToken);
+                    await this.OptimizeExperimentAsync(project.Name, experiment.Name, cancellationToken);
                 }
                 catch (Exception)
                 {

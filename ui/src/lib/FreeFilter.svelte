@@ -3,6 +3,8 @@
   const dispatch = createEventDispatcher();
 
   export let metrics: string[];
+  export let filteredCount: number = 0;
+  export let totalCount: number = 0;
 
   let buttonId = crypto.randomUUID();
   let filter: string;
@@ -19,11 +21,11 @@
       funcstr = funcstr
         .replace(
           new RegExp(`\\[baseline.${metric}\\]`, "gi"),
-          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : null)`,
+          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : null)`
         )
         .replace(
           new RegExp(`\\[${metric}\\]`, "gi"),
-          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`,
+          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`
         );
     }
     funcstr = funcstr.replace(/ref /gi, "result.ref");
@@ -32,7 +34,7 @@
     var func = new Function(
       "baseline",
       "result",
-      `try { return ${funcstr}; } catch (e) { console.warn("filter: " + e); return false; }`,
+      `try { return ${funcstr}; } catch (e) { console.warn("filter: " + e); return false; }`
     );
     dispatch("filter", func);
   }
@@ -48,6 +50,7 @@
   <textarea id={buttonId} bind:value={filter}></textarea>
   <button on:click={apply}>Apply</button>
   <button on:click={clear}>Clear</button>
+  <span class="count">{filteredCount} of {totalCount}</span>
 </div>
 
 <style>
@@ -57,5 +60,9 @@
   textarea {
     width: 60em;
     height: 5em;
+  }
+  .count {
+    margin-left: 1rem;
+    font-style: italic;
   }
 </style>

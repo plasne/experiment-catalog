@@ -6,41 +6,41 @@ The catalog is a C# API that allows you to create projects with experiments. It 
 
 To configure the solution, you must provide the following environment variables. You can do that by any means, but it is also supported to create a .env file at the root of the project.
 
-- __LOG_LEVEL__ [DEFAULT: Information]: The level of logging to use. The following options are available: Trace, Debug, Information, Warning, Error, Critical, None.
+- **LOG_LEVEL** [DEFAULT: Information]: The level of logging to use. The following options are available: Trace, Debug, Information, Warning, Error, Critical, None.
 
-- __ASPNETCORE_ENVIRONMENT__ [OPTIONAL]: This can be set to "Development" to change the behavior of __INCLUDE_CREDENTIAL_TYPES__.
+- **ASPNETCORE_ENVIRONMENT** [OPTIONAL]: This can be set to "Development" to change the behavior of **INCLUDE_CREDENTIAL_TYPES**.
 
-- __INCLUDE_CREDENTIAL_TYPES__ [CONDITIONAL]: This setting will determine how credentials are obtained to connect to the Azure Storage Account. If the __ASPNETCORE_ENVIRONMENT__ is set to "Development", then the default will be "azcli, env" otherwise, it will be "env, mi". This is a comma-separated list of the credential types to include. The following options are available: azcli, env, mi, token, vs, vscode, browser. Please see the [DefaultAzureCredentials](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential?view=azure-dotnet) documentation for how each of these work. For instance, if you use "env", you must supply an __AZURE_TENANT_ID__, __AZURE_CLIENT_ID__, and __AZURE_CLIENT_SECRET__.
+- **INCLUDE_CREDENTIAL_TYPES** [CONDITIONAL]: This setting will determine how credentials are obtained to connect to the Azure Storage Account. If the **ASPNETCORE_ENVIRONMENT** is set to "Development", then the default will be "azcli, env" otherwise, it will be "env, mi". This is a comma-separated list of the credential types to include. The following options are available: azcli, env, mi, token, vs, vscode, browser. Please see the [DefaultAzureCredentials](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential?view=azure-dotnet) documentation for how each of these work. For instance, if you use "env", you must supply an **AZURE_TENANT_ID**, **AZURE_CLIENT_ID**, and **AZURE_CLIENT_SECRET**.
 
-- __PORT__ [DEFAULT: 6010]: The port to run the HTTP API on.
+- **PORT** [DEFAULT: 6010]: The port to run the HTTP API on.
 
-- __OPEN_TELEMETRY_CONNECTION_STRING__ [OPTIONAL]: The connection string for the Open Telemetry service. Currently this only supports Application Insights.
+- **OPEN_TELEMETRY_CONNECTION_STRING** [OPTIONAL]: The connection string for the Open Telemetry service. Currently this only supports Application Insights.
 
-- __AZURE_STORAGE_ACCOUNT_NAME__ [REQUIRED]: The name of the Azure Storage account to use for storing the project containers. It is recommended to use a separate storage account for this purpose.
+- **AZURE_STORAGE_ACCOUNT_NAME** [REQUIRED]: The name of the Azure Storage account to use for storing the project containers. It is recommended to use a separate storage account for this purpose.
 
-- __CONCURRENCY__ [DEFAULT: 4]: The number of concurrent threads that can be used for processing requests (such as loading experiments).
+- **CONCURRENCY** [DEFAULT: 4]: The number of concurrent threads that can be used for processing requests (such as loading experiments).
 
-- __REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE__ [DEFAULT: 1024]: In order to improve performance, the catalog will compact smaller blocks in an experiment file into larger blocks. If the average of the block size is smaller than this threshold in KB, then the catalog will optimize the file. In other words, by default if the average block size is less than 1MB, then the catalog will optimize the file.
+- **REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE** [DEFAULT: 1024]: In order to improve performance, the catalog will compact smaller blocks in an experiment file into larger blocks. If the average of the block size is smaller than this threshold in KB, then the catalog will optimize the file. In other words, by default if the average block size is less than 1MB, then the catalog will optimize the file.
 
-- __REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE__ [DEFAULT: 10]: The number of minutes that must pass without new results coming into the catalog before it will optimize the file. This is to reduce the chance that the catalog is attempting to optimize the file while jobs are running. Any attempt to send results during optimization will fail with a 409 Conflict error.
+- **REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE** [DEFAULT: 10]: The number of minutes that must pass without new results coming into the catalog before it will optimize the file. This is to reduce the chance that the catalog is attempting to optimize the file while jobs are running. Any attempt to send results during optimization will fail with a 409 Conflict error.
 
-- __OPTIMIZE_EVERY_X_MINUTES__ [DEFAULT: 5]: The number of minutes that must pass since the last optimization attempts before the catalog will attempt to optimize anything again. After startup, the catalog will attempt to optimize the files after 5 minutes (default) and after finishing will wait another 5 minutes (default) before attempting to optimize again. Each file is checked against __REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE__ and __REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE__ to determine if it is eligible.
+- **OPTIMIZE_EVERY_X_MINUTES** [DEFAULT: 5]: The number of minutes that must pass since the last optimization attempts before the catalog will attempt to optimize anything again. After startup, the catalog will attempt to optimize the files after 5 minutes (default) and after finishing will wait another 5 minutes (default) before attempting to optimize again. Each file is checked against **REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE** and **REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE** to determine if it is eligible.
 
 ## Concepts
 
 The catalog is organized around the following concepts:
 
-- __Project__: A project is a collection of experiments that are all tied to the same baseline. During that project, you would expect that the grounding data and evaluation script/metrics/configuration would not change.
+- **Project**: A project is a collection of experiments that are all tied to the same baseline. During that project, you would expect that the grounding data and evaluation script/metrics/configuration would not change.
 
-- __Project Baseline__: A project baseline is a special experiment that is created for each project before experimentation is done. This experiment will have an experimentation run that can be used as a comparison point for all other experiments in the project. Did they get better or worse than this baseline?
+- **Project Baseline**: A project baseline is a special experiment that is created for each project before experimentation is done. This experiment will have an experimentation run that can be used as a comparison point for all other experiments in the project. Did they get better or worse than this baseline?
 
-- __Experiment__: Inside a project, developers will create experiments with a hypothesis. This experiment will have a number of evaluation runs to test code, configuration, workflow, etc. - the ultimate goal of which of is to prove or disprove the hypothesis.
+- **Experiment**: Inside a project, developers will create experiments with a hypothesis. This experiment will have a number of evaluation runs to test code, configuration, workflow, etc. - the ultimate goal of which of is to prove or disprove the hypothesis.
 
-- __Experiment Baseline__: The first evaluation run of an experiment is generally the baseline for that experiment. Before a developer starts changing things, they need to record what the performance of the system is. If the experiment is started right after the project is started, then this baseline is probably the same as the project baseline, but as code gets merged during the project there will be drift.
+- **Experiment Baseline**: The first evaluation run of an experiment is generally the baseline for that experiment. Before a developer starts changing things, they need to record what the performance of the system is. If the experiment is started right after the project is started, then this baseline is probably the same as the project baseline, but as code gets merged during the project there will be drift.
 
-- __Set__: A set is a collection of results that are all related to the same evaluation run. For instance, running 3 iterations of 12 ground truths might be considered a single set. If you later decided you needed 2 more iterations, you could add to the set.
+- **Set**: A set is a collection of results that are all related to the same evaluation run. For instance, running 3 iterations of 12 ground truths might be considered a single set. If you later decided you needed 2 more iterations, you could add to the set.
 
-- __Ref__: A ref is a reference to a entity that is being evaluated. Almost always this should be a reference to the ground truth. It is common that you might run multiple iterations of the same ground truth, using a ref is a way to aggregate those as well as compare the performance of ground truths across evaluation runs.
+- **Ref**: A ref is a reference to a entity that is being evaluated. Almost always this should be a reference to the ground truth. It is common that you might run multiple iterations of the same ground truth, using a ref is a way to aggregate those as well as compare the performance of ground truths across evaluation runs.
 
 ## Web UI
 

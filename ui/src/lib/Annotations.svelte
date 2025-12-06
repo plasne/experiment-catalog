@@ -1,9 +1,9 @@
 <script lang="ts">
-  export let result: Result;
+  export let entity: ComparisonEntity;
 </script>
 
-{#if result && result.annotations}
-  {#each result.annotations as annotation}
+{#if entity && entity.result?.annotations}
+  {#each entity.result?.annotations as annotation}
     <div class="annotation">
       {#if annotation.uri}
         <a class="link" href={annotation.uri} target="_blank"

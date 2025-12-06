@@ -1,14 +1,22 @@
 ### enqueue an evaluation job
-POST http://localhost:6030/api/evaluations HTTP/1.1
+POST http://localhost:7000/api/evaluations HTTP/1.1
 Content-Type: application/json
 
 {
-    "project": "baseline",
-    "experiment": "test",
-    "set": "ood-test-b",
-    "containers": ["data/ground_truth/gold/v1/test", "data/ground_truth/gold/v1/val"],
-    "queue": "pelasne-inference",
-    "iterations": 5
+    "project": "sprint03",
+    "experiment": "sprint03-end-baseline",
+    "set": "D",
+    "containers": ["groundtruths/sprint03"],
+    "queue": "inference",
+    "iterations": 5,
+    "inf_headers": {
+        "X-AGENT-ID": "asst_1IBTghs94XO4gsPrmwejMW9Q"
+    },
+    "eval_headers": {
+        "X-ENV-ENABLE-RETRIEVAL-IS-QUESTION": "true",
+        "X-ENV-RETRIEVAL-EXPECTED-CODES": "electron",
+        "X-ENV-RETRIEVAL-NUM-RESULTS": "5"
+    }
 }
 
 ### enqueue an evaluation job with headers
@@ -23,6 +31,10 @@ Content-Type: application/json
     "queue": "pelasne-inference",
     "iterations": 5,
     "inf_headers": {
-        "X-INTENT-PROMPT-FILE": "./templates/intent-prompt-always-out-of-domain.txt"
+        "X-AGENT-ID": "asst_Hkg1aWtdsXkTW8kEoud4n3mw"
     }
 }
+
+### get status of an evaluation job
+GET http://localhost:7000/api/evaluations/status HTTP/1.1
+Accept: application/json

@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO.Compression;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 
@@ -21,6 +24,9 @@ public class Experiment()
     [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
     public List<Result>? Results { get; set; }
 
+    [JsonProperty("p_values", NullValueHandling = NullValueHandling.Ignore)]
+    public List<PValues>? PValues { get; set; }
+
     [JsonProperty("baseline", NullValueHandling = NullValueHandling.Ignore)]
     public string? Baseline { get; set; }
 
@@ -28,10 +34,19 @@ public class Experiment()
     public List<Annotation>? Annotations { get; set; }
 
     [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
-    public DateTime Created { get; set; } = DateTime.UtcNow;
+    public DateTimeOffset Created { get; set; } = DateTimeOffset.UtcNow;
+
+    [JsonProperty("modified", NullValueHandling = NullValueHandling.Ignore)]
+    public DateTimeOffset? Modified { get; set; } = null;
 
     [JsonIgnore]
     public Dictionary<string, MetricDefinition>? MetricDefinitions { get; set; }
+
+    [JsonIgnore]
+    public List<Result>? Saved { get; set; }
+
+    [JsonIgnore]
+    public Dictionary<string, object>? Metadata { get; set; }
 
     private bool TryReduceAsCost(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
@@ -215,102 +230,79 @@ public class Experiment()
         return result;
     }
 
-    public Result? AggregateSet(string? set)
+    public Result? AggregateSet(string? set, IEnumerable<Result>? results = null)
     {
         if (string.IsNullOrEmpty(set)) return null;
-        if (this.Results is null) return null;
-        var filtered = this.Results.Where(x => x.Set == set);
+        results ??= this.Results;
+        if (results is null) return null;
+
+        var filtered = results.Where(x => x.Set == set);
         var result = this.Aggregate(filtered, false);
         result.Set = set;
         return result;
     }
 
-    public Dictionary<string, Result>? AggregateSetByRef(string? set)
+    public IDictionary<string, Result>? AggregateSetByRef(string? set, IEnumerable<Result>? results = null)
     {
         if (string.IsNullOrEmpty(set)) return null;
-        if (this.Results is null) return null;
-        var results = new Dictionary<string, Result>();
+        results ??= this.Results;
+        if (results is null) return null;
 
-        var filtered = this.Results.Where(x => x.Set == set && !string.IsNullOrEmpty(x.Ref));
+        var output = new Dictionary<string, Result>();
+        var filtered = results.Where(x => x.Set == set && !string.IsNullOrEmpty(x.Ref));
         foreach (var group in filtered.GroupBy(x => x.Ref))
         {
             var result = this.Aggregate(group, true);
             result.Ref = group.Key;
             result.Set = set;
-            results.Add(group.Key!, result);
+            output.Add(group.Key!, result);
         }
 
-        return results;
+        return output;
     }
 
-    public Result? AggregateFirstSet()
+    public IEnumerable<Result> AggregateAllSets(IEnumerable<Result>? results = null)
     {
-        return this.AggregateSet(this.Results?.FirstOrDefault()?.Set);
-    }
-
-    public Dictionary<string, Result>? AggregateFirstSetByRef()
-    {
-        return this.AggregateSetByRef(this.Results?.FirstOrDefault()?.Set);
-    }
-
-    public Result? AggregateLastSet()
-    {
-        return this.AggregateSet(this.Results?.LastOrDefault()?.Set);
-    }
-
-    public Dictionary<string, Result>? AggregateLastSetByRef()
-    {
-        return this.AggregateSetByRef(this.Results?.LastOrDefault()?.Set);
-    }
-
-    public List<Result> AggregateAllSets()
-    {
-        var results = new List<Result>();
-        if (this.Results is null) return results;
+        var output = new List<Result>();
+        results ??= this.Results;
+        if (results is null) return output;
 
         foreach (var set in this.Sets)
         {
-            var result = this.AggregateSet(set);
-            if (result is not null) results.Add(result);
+            var result = this.AggregateSet(set, results);
+            if (result is not null) output.Add(result);
         }
 
-        return results;
+        return output;
     }
 
-    public Result? AggregateBaselineSet()
+    public IEnumerable<Result>? AggregateSetByEachResult(string? set, IEnumerable<Result>? results = null)
     {
-        return this.AggregateSet(this.Baseline);
-    }
+        if (string.IsNullOrEmpty(set)) return null;
+        results ??= this.Results;
+        if (results is null) return null;
 
-    public Dictionary<string, Result>? AggregateBaselineSetByRef()
-    {
-        return this.AggregateSetByRef(this.Baseline);
-    }
-
-    public List<Result> GetAllResultsOfSet(string name)
-    {
-        var results = this.Results?.Where(x => x.Set == name).ToList() ?? [];
-        foreach (var result in results)
+        var filtered = results.Where(x => x.Set == set);
+        foreach (var result in filtered)
         {
-            if (result.Metrics is not null)
+            if (result.Metrics is null) continue;
+            foreach (var metric in result.Metrics)
             {
-                foreach (var metric in result.Metrics)
-                {
-                    var reduced = this.Reduce(metric.Key, new List<Metric> { metric.Value });
-                    result.Metrics[metric.Key] = reduced;
-                }
+                var reduced = this.Reduce(metric.Key, new List<Metric> { metric.Value });
+                result.Metrics[metric.Key] = reduced;
             }
         }
-        return results;
+
+        return filtered;
     }
 
 # pragma warning disable S3776 // Cognitive Complexity of this method is not too high
-    public void Filter(IEnumerable<Tag>? includeTags, IEnumerable<Tag>? excludeTags)
+    public IEnumerable<Result>? Filter(IEnumerable<Tag>? includeTags, IEnumerable<Tag>? excludeTags)
     {
         var hasIncludeTags = includeTags is not null && includeTags.Any();
         var hasExcludeTags = excludeTags is not null && excludeTags.Any();
-        if (!hasIncludeTags && !hasExcludeTags) return;
-        this.Results = this.Results?
+        if (!hasIncludeTags && !hasExcludeTags) return this.Results;
+        return this.Results?
             .Where(x =>
             {
                 var hasAnnotations = x.Annotations is not null && x.Annotations.Count > 0;
@@ -334,17 +326,32 @@ public class Experiment()
                 if (hasIncludeTags) return false;
                 if (hasExcludeTags) return true;
                 return true;
-            }).ToList();
+            });
     }
 # pragma warning restore S3776
 
-    public IList<string> Sets
+    public IEnumerable<string> Sets
     {
         get => this.Results?
             .Select(x => x.Set)
             .Distinct()
             .Where(x => !string.IsNullOrEmpty(x))
             .Cast<string>()
-            .ToList() ?? [];
+            ?? Enumerable.Empty<string>();
+    }
+
+    public string? FirstSet
+    {
+        get => Results?.FirstOrDefault(r => !string.IsNullOrEmpty(r.Set))?.Set;
+    }
+
+    public string? LastSet
+    {
+        get => Results?.LastOrDefault(r => !string.IsNullOrEmpty(r.Set))?.Set;
+    }
+
+    public string? BaselineSet
+    {
+        get => this.Baseline;
     }
 }

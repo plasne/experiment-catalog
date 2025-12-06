@@ -3,8 +3,9 @@
   const dispatch = createEventDispatcher();
 
   export let label: string;
+  export let initialState: "include" | "exclude" | "neither" = "neither";
 
-  let state: "include" | "exclude" | "neither" = "neither";
+  let state: "include" | "exclude" | "neither" = initialState;
   let buttonId = crypto.randomUUID();
 
   function toggle() {

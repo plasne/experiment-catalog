@@ -1,25 +1,26 @@
+# Build UI first in a Node.js container
+FROM --platform=$BUILDPLATFORM node:20-bookworm AS ui-build
+WORKDIR /ui
+COPY ui .
+RUN npm install
+RUN npm run build
+
 # create the build container
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG TARGETARCH
 LABEL stage=build
-WORKDIR /ui
-COPY ui .
-WORKDIR /catalog
-COPY catalog .
-RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -sL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean
-RUN ./refresh-ui.sh
+WORKDIR /api
+COPY api .
+RUN mkdir -p wwwroot/
+COPY --from=ui-build /ui/dist/ ./wwwroot/
 RUN dotnet publish -c Release -o out -a $TARGETARCH
 
 # create the runtime container
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 ARG INSTALL_AZURE_CLI=false
 WORKDIR /app
-COPY --from=build /catalog/out .
-COPY --from=build /catalog/wwwroot ./wwwroot
+COPY --from=build /api/out .
+COPY --from=build /api/wwwroot ./wwwroot
 
 # Conditionally install Azure CLI
 RUN if [ "$INSTALL_AZURE_CLI" = "true" ]; then \

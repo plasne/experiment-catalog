@@ -1,0 +1,33 @@
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+
+namespace Catalog;
+
+public enum MeaningfulTagsComparisonMode
+{
+    Baseline,
+    Zero,
+    Average
+}
+
+public class MeaningfulTagsRequest
+{
+    [JsonProperty("project", Required = Required.Always)]
+    public required string Project { get; set; }
+
+    [JsonProperty("experiment", Required = Required.Always)]
+    public required string Experiment { get; set; }
+
+    [JsonProperty("set", Required = Required.Always)]
+    public required string Set { get; set; }
+
+    [JsonProperty("metric", Required = Required.Always)]
+    public required string Metric { get; set; }
+
+    [JsonProperty("exclude_tags")]
+    public IEnumerable<string>? ExcludeTags { get; set; } = null;
+
+    [JsonProperty("compare_to")]
+    public MeaningfulTagsComparisonMode CompareTo { get; set; } = MeaningfulTagsComparisonMode.Baseline;
+}

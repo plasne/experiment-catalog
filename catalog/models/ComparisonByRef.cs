@@ -8,12 +8,12 @@ public class ComparisonByRef
     [JsonProperty("metric_definitions", NullValueHandling = NullValueHandling.Ignore)]
     public Dictionary<string, MetricDefinition>? MetricDefinitions { get; set; }
 
-    [JsonProperty("last_results_for_baseline_experiment", NullValueHandling = NullValueHandling.Ignore)]
-    public Dictionary<string, Result>? LastResultsForBaselineExperiment { get; set; }
+    [JsonProperty("project_baseline", NullValueHandling = NullValueHandling.Ignore)]
+    public ComparisonByRefEntity? ProjectBaseline { get; set; }
 
-    [JsonProperty("baseline_results_for_chosen_experiment", NullValueHandling = NullValueHandling.Ignore)]
-    public Dictionary<string, Result>? BaselineResultsForChosenExperiment { get; set; }
+    [JsonProperty("experiment_baseline", NullValueHandling = NullValueHandling.Ignore)]
+    public ComparisonByRefEntity? ExperimentBaseline { get; set; }
 
-    [JsonProperty("chosen_results_for_chosen_experiment", NullValueHandling = NullValueHandling.Ignore)]
-    public Dictionary<string, Result>? ChosenResultsForChosenExperiment { get; set; }
+    [JsonProperty("experiment_set", NullValueHandling = NullValueHandling.Ignore)]
+    public ComparisonByRefEntity? ExperimentSet { get; set; }
 }

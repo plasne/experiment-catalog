@@ -28,7 +28,7 @@ public class DownloadController : ControllerBase
         var result = await supportDocsService.GetSupportingDocumentAsync(url);
         var fileName = url.Substring(url.LastIndexOf('/') + 1);
         var contentType = GetContentType(fileName);
-        Response.Headers.Add("Content-Disposition", $"inline; filename=\"{fileName}\"");
+        Response.Headers["Content-Disposition"] = $"inline; filename=\"{fileName}\"";
         return File(result, contentType);
     }
 
