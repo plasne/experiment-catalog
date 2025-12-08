@@ -277,7 +277,6 @@
                 baseline={comparison.experiment_baseline?.result}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
-                pvalue={entity?.p_values?.[metric]?.value}
               /></td
             >
           {/each}

@@ -24,8 +24,8 @@ public class Experiment()
     [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
     public List<Result>? Results { get; set; }
 
-    [JsonProperty("p_values", NullValueHandling = NullValueHandling.Ignore)]
-    public List<PValues>? PValues { get; set; }
+    [JsonProperty("statistics", NullValueHandling = NullValueHandling.Ignore)]
+    public List<Statistics>? Statistics { get; set; }
 
     [JsonProperty("baseline", NullValueHandling = NullValueHandling.Ignore)]
     public string? Baseline { get; set; }

@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 namespace Catalog;
 
-public class PValues : StorageRecord
+public class Statistics : StorageRecord
 {
     [JsonProperty("baseline_experiment", NullValueHandling = NullValueHandling.Ignore)]
     public string? BaselineExperiment { get; set; }
@@ -24,6 +24,9 @@ public class PValues : StorageRecord
 
     [JsonProperty("num_samples")]
     public int NumSamples { get; set; }
+
+    [JsonProperty("confidence_level")]
+    public decimal ConfidenceLevel { get; set; }
 
     [JsonProperty("metrics", NullValueHandling = NullValueHandling.Ignore)]
     public Dictionary<string, Metric>? Metrics { get; set; }

@@ -3,5 +3,4 @@ interface ComparisonEntity {
     experiment: string,
     set?: string,
     result?: Result,
-    p_values?: PValues,
 }

@@ -5,7 +5,6 @@
   export let definition: MetricDefinition = undefined;
   export let showStdDev: boolean = true;
   export let showCount: boolean = true;
-  export let pvalue: number | undefined = undefined;
 
   let isCount: boolean;
   let isCost: boolean;
@@ -25,6 +24,9 @@
   let diff: number;
   let difp: number;
   let opacity: number;
+  let p_value: number;
+  let ci_lower: number;
+  let ci_upper: number;
 
   $: {
     diff =
@@ -50,6 +52,27 @@
           baseline.metrics[metric].normalized
         : undefined;
     opacity = 30 + Math.abs(difp) * (80 - 30) * 4;
+    p_value =
+      result &&
+      result.metrics &&
+      result.metrics[metric] &&
+      result.metrics[metric].p_value !== undefined
+        ? result.metrics[metric].p_value
+        : undefined;
+    ci_lower =
+      result &&
+      result.metrics &&
+      result.metrics[metric] &&
+      result.metrics[metric].ci_lower !== undefined
+        ? result.metrics[metric].ci_lower
+        : undefined;
+    ci_upper =
+      result &&
+      result.metrics &&
+      result.metrics[metric] &&
+      result.metrics[metric].ci_upper !== undefined
+        ? result.metrics[metric].ci_upper
+        : undefined;
   }
 </script>
 
@@ -79,6 +102,7 @@
       <span>({result.metrics[metric].std_dev.toFixed(3).toLocaleString()})</span
       >
     {/if}
+    {difp > 0 ? "+" : ""}{diff.toFixed(3)}
     {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
@@ -144,8 +168,14 @@
       <span>x{result.metrics[metric].count}</span>
     {/if}
 
-    {#if pvalue != undefined && !Number.isNaN(pvalue) && Number.isFinite(pvalue)}
-      <span class="pvalue">p={pvalue.toFixed(2)}</span>
+    {#if p_value != undefined && !Number.isNaN(p_value) && Number.isFinite(p_value)}
+      <span class="pvalue">p={p_value.toFixed(2)}</span>
+      {#if ci_lower != undefined && ci_upper != undefined}
+        <span class="pvalue"
+          >({ci_lower.toFixed(3).toLocaleString()} to
+          {ci_upper.toFixed(3).toLocaleString()})</span
+        >
+      {/if}
     {/if}
   {:else}
     <span>-</span>

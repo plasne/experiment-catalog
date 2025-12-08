@@ -314,10 +314,10 @@ public class AzureBlobStorageService(
         await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
     }
 
-    public async Task AddPValuesAsync(string projectName, string experimentName, PValues pvalues, CancellationToken cancellationToken = default)
+    public async Task AddStatisticsAsync(string projectName, string experimentName, Statistics statistics, CancellationToken cancellationToken = default)
     {
-        pvalues.X = "P";
-        var serializedJson = JsonConvert.SerializeObject(pvalues);
+        statistics.X = "P";
+        var serializedJson = JsonConvert.SerializeObject(statistics);
         await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
     }
 
@@ -346,7 +346,7 @@ public class AzureBlobStorageService(
         if (includeResults)
         {
             experiment.Results = new List<Result>();
-            experiment.PValues = new List<PValues>();
+            experiment.Statistics = new List<Statistics>();
             while (!streamReader.EndOfStream)
             {
                 var resultLine = await streamReader.ReadLineAsync(cancellationToken);
@@ -356,9 +356,9 @@ public class AzureBlobStorageService(
 
                 if (result.X == "P")
                 {
-                    var pvalues = JsonConvert.DeserializeObject<PValues>(resultLine);
-                    if (pvalues is null) continue;
-                    experiment.PValues.Add(pvalues);
+                    var statistics = JsonConvert.DeserializeObject<Statistics>(resultLine);
+                    if (statistics is null) continue;
+                    experiment.Statistics.Add(statistics);
                 }
                 else
                 {

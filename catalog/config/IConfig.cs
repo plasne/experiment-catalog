@@ -14,6 +14,8 @@ public interface IConfig
     int CALC_PVALUES_USING_X_SAMPLES { get; }
     int CALC_PVALUES_EVERY_X_MINUTES { get; }
     int MIN_ITERATIONS_TO_CALC_PVALUES { get; }
+    decimal CONFIDENCE_LEVEL { get; }
+    int PRECISION_FOR_CALC_VALUES { get; }
     string PATH_TEMPLATE { get; }
     string AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS { get; }
     string AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS { get; }

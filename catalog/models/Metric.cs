@@ -17,6 +17,15 @@ public class Metric
     [JsonProperty("std_dev", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? StdDev { get; set; }
 
+    [JsonProperty("p_value", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? PValue { get; set; }
+
+    [JsonProperty("ci_lower", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? CILower { get; set; }
+
+    [JsonProperty("ci_upper", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? CIUpper { get; set; }
+
     [JsonProperty("classification", NullValueHandling = NullValueHandling.Ignore)]
     public string? Classification { get; set; }
 }

@@ -150,8 +150,8 @@ Content-Type: application/json
 	"compare_to": "average"
 }
 
-### Enqueue a p-value analysis for an experiment
-POST {{baseURL}}/analysis/p-values HTTP/1.1
+### Enqueue a statistical analysis for an experiment
+POST {{baseURL}}/analysis/statistics HTTP/1.1
 Content-Type: application/json
 
 {

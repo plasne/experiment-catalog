@@ -22,6 +22,8 @@ public class Config : IConfig
         this.CALC_PVALUES_USING_X_SAMPLES = this.config.Get<string>("CALC_PVALUES_USING_X_SAMPLES").AsInt(() => 10000);
         this.CALC_PVALUES_EVERY_X_MINUTES = this.config.Get<string>("CALC_PVALUES_EVERY_X_MINUTES").AsInt(() => 0);
         this.MIN_ITERATIONS_TO_CALC_PVALUES = this.config.Get<string>("MIN_ITERATIONS_TO_CALC_PVALUES").AsInt(() => 5);
+        this.CONFIDENCE_LEVEL = this.config.Get<string>("CONFIDENCE_LEVEL").AsDecimal(() => 0.95m);
+        this.PRECISION_FOR_CALC_VALUES = this.config.Get<string>("PRECISION_FOR_CALC_VALUES").AsInt(() => 4);
         this.PATH_TEMPLATE = this.config.Get<string>("PATH_TEMPLATE");
         this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS");
         this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS = this.config.GetSecret<string>("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS").Result;
@@ -60,6 +62,10 @@ public class Config : IConfig
 
     public int MIN_ITERATIONS_TO_CALC_PVALUES { get; }
 
+    public decimal CONFIDENCE_LEVEL { get; }
+
+    public int PRECISION_FOR_CALC_VALUES { get; }
+
     public string PATH_TEMPLATE { get; }
 
     public string AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS { get; }
@@ -88,6 +94,8 @@ public class Config : IConfig
         this.config.Require("CALC_PVALUES_USING_X_SAMPLES", this.CALC_PVALUES_USING_X_SAMPLES);
         this.config.Require("CALC_PVALUES_EVERY_X_MINUTES", this.CALC_PVALUES_EVERY_X_MINUTES);
         this.config.Require("MIN_ITERATIONS_TO_CALC_PVALUES", this.MIN_ITERATIONS_TO_CALC_PVALUES);
+        this.config.Require("CONFIDENCE_LEVEL", this.CONFIDENCE_LEVEL.ToString());
+        this.config.Require("PRECISION_FOR_CALC_VALUES", this.PRECISION_FOR_CALC_VALUES.ToString());
         this.config.Optional("PATH_TEMPLATE", this.PATH_TEMPLATE);
         this.config.Optional("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS", this.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS);
         this.config.Optional("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS", this.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS, hideValue: true);

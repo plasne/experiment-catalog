@@ -66,4 +66,14 @@ public static class Ext
     {
         return divisor == 0 ? 0 : (decimal)dividend / (decimal)divisor;
     }
+
+    public static decimal AsDecimal(this string str, Func<decimal> dflt)
+    {
+        if (decimal.TryParse(str, out var result))
+        {
+            return result;
+        }
+
+        return dflt();
+    }
 }
