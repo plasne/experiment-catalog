@@ -164,7 +164,10 @@
       >
     {/if}
 
-    {#if showCount && isAvg}
+    {#if showCount && result.metrics[metric].count !== undefined}
+      {#if !isAvg}
+        <span>&nbsp;&nbsp;&nbsp;</span>
+      {/if}
       <span>x{result.metrics[metric].count}</span>
     {/if}
 
