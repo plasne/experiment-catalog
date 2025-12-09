@@ -3,6 +3,10 @@ export interface ViewConfig {
     checked_metrics?: string;   // metric highlighting (comma-separated)
     metrics?: string[];         // which metrics to display
     tags?: string;              // tag filter querystring
+    show_val?: boolean;         // toggle for actual value display
+    show_std?: boolean;         // toggle for standard deviation display
+    show_cnt?: boolean;         // toggle for count display
+    show_stats?: boolean;       // toggle for p-value and CI display
 }
 
 export function encodeConfig(config: ViewConfig): string | null {
@@ -11,6 +15,10 @@ export function encodeConfig(config: ViewConfig): string | null {
     if (config.checked_metrics) cleanConfig.checked_metrics = config.checked_metrics;
     if (config.metrics?.length) cleanConfig.metrics = config.metrics;
     if (config.tags) cleanConfig.tags = config.tags;
+    if (config.show_val !== undefined) cleanConfig.show_val = config.show_val;
+    if (config.show_std !== undefined) cleanConfig.show_std = config.show_std;
+    if (config.show_cnt !== undefined) cleanConfig.show_cnt = config.show_cnt;
+    if (config.show_stats !== undefined) cleanConfig.show_stats = config.show_stats;
 
     // Return null if config is empty
     if (Object.keys(cleanConfig).length === 0) return null;

@@ -10,6 +10,10 @@
   export let setList: string;
   export let checked: string;
   export let initialTags: string = "";
+  export let showActualValue: boolean = true;
+  export let showStdDev: boolean = true;
+  export let showCount: boolean = true;
+  export let showStatistics: boolean = true;
 
   let state: "loading" | "loaded" | "error" = "loading";
   let compareCount = 3;
@@ -260,6 +264,10 @@
               baseline={comparison.experiment_baseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
+              {showActualValue}
+              {showStdDev}
+              {showCount}
+              {showStatistics}
             /></td
           >
           <td
@@ -267,6 +275,10 @@
               result={comparison.experiment_baseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
+              {showActualValue}
+              {showStdDev}
+              {showCount}
+              {showStatistics}
             /></td
           >
           {#each selected as entity, index}
@@ -277,6 +289,10 @@
                 baseline={comparison.experiment_baseline?.result}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
+                {showActualValue}
+                {showStdDev}
+                {showCount}
+                {showStatistics}
               /></td
             >
           {/each}

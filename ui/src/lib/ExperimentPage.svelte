@@ -13,6 +13,10 @@
   // Local state initialized from config
   let checked: string = config.checked_metrics ?? "";
   let tags: string = config.tags ?? "";
+  let showActualValue: boolean = config.show_val ?? true;
+  let showStdDev: boolean = config.show_std ?? true;
+  let showCount: boolean = config.show_cnt ?? true;
+  let showStatistics: boolean = config.show_stats ?? true;
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -25,6 +29,27 @@
       newConfig.tags = tags;
     } else {
       delete newConfig.tags;
+    }
+    // Only store non-default values (defaults are true)
+    if (!showActualValue) {
+      newConfig.show_val = false;
+    } else {
+      delete newConfig.show_val;
+    }
+    if (!showStdDev) {
+      newConfig.show_std = false;
+    } else {
+      delete newConfig.show_std;
+    }
+    if (!showCount) {
+      newConfig.show_cnt = false;
+    } else {
+      delete newConfig.show_cnt;
+    }
+    if (!showStatistics) {
+      newConfig.show_stats = false;
+    } else {
+      delete newConfig.show_stats;
     }
     dispatch("changeConfig", newConfig);
   };
@@ -48,6 +73,10 @@
 
   const changeTags = (event: CustomEvent<string>) => {
     tags = event.detail;
+    emitConfigChange();
+  };
+
+  const onToggleChange = () => {
     emitConfigChange();
   };
 
@@ -244,6 +273,41 @@
     </p>
   </div>
 {/if}
+<div class="toggles">
+  <span class="label">Show:</span>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showActualValue}
+      on:change={onToggleChange}
+    />
+    Actual Value
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showStdDev}
+      on:change={onToggleChange}
+    />
+    Std Dev
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showCount}
+      on:change={onToggleChange}
+    />
+    Count
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showStatistics}
+      on:change={onToggleChange}
+    />
+    Statistics
+  </label>
+</div>
 {#if experiment.annotations}
   {#each experiment.annotations as annotation}
     <div>
@@ -260,6 +324,10 @@
     {setList}
     {checked}
     initialTags={tags}
+    {showActualValue}
+    {showStdDev}
+    {showCount}
+    {showStatistics}
     bind:this={comparisonTable}
     on:drilldown={selectSet}
     on:changeSetList={changeSetList}
@@ -289,6 +357,20 @@
   .statistics-details {
     margin-left: 1rem;
     line-height: 1.4;
+  }
+
+  .toggles {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .toggles label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
   }
 
   .table {
