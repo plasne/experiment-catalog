@@ -205,18 +205,23 @@ public class Experiment()
         var metrics = new Dictionary<string, List<Metric>>();
         foreach (var r in from)
         {
-            if (r.Created < first) first = r.Created;
-            if (r.Created > last) last = r.Created;
             if (r.Annotations is not null
                 && (includeAnnotationsWithRef || string.IsNullOrEmpty(r.Ref)))
             {
                 annotations.AddRange(r.Annotations);
             }
             if (r.Metrics is null) continue;
+            var hasMetric = false;
             foreach (var (key, metric) in r.Metrics)
             {
                 if (!metrics.ContainsKey(key)) metrics[key] = [];
                 metrics[key].Add(metric);
+                hasMetric = true;
+            }
+            if (hasMetric)
+            {
+                if (r.Created < first) first = r.Created;
+                if (r.Created > last) last = r.Created;
             }
         }
 
