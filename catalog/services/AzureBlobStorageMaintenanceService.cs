@@ -3,43 +3,102 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Catalog;
 
-public class AzureBlobStorageMaintenanceService : BackgroundService
+public class AzureBlobStorageMaintenanceService(
+    IConfig config,
+    IStorageService storageService,
+    ILogger<AzureBlobStorageMaintenanceService> logger
+) : BackgroundService
 {
-    private readonly IConfig config;
-    private readonly AzureBlobStorageService storageService;
-    private readonly ILogger<AzureBlobStorageMaintenanceService> logger;
-
-    public AzureBlobStorageMaintenanceService(
-        IConfig config,
-        IStorageService storageService,
-        ILogger<AzureBlobStorageMaintenanceService> logger)
-    {
-        this.config = config;
-        if (storageService is not AzureBlobStorageService azureBlobStorageService)
-        {
-            throw new Exception("AzureBlobStorageMaintenanceService can only be used in conjuction with AzureBlobStorageService.");
-        }
-        this.storageService = azureBlobStorageService;
-        this.logger = logger;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // check if the service is disabled
+        if (storageService is not AzureBlobStorageService azureBlobStorageService)
+        {
+            logger.LogInformation("AzureBlobStorageMaintenanceService is disabled because the storage service is not AzureBlobStorageService.");
+            return;
+        }
+        if (config.AZURE_STORAGE_OPTIMIZE_EVERY_X_MINUTES <= 0
+            && config.AZURE_STORAGE_CACHE_CLEANUP_EVERY_X_MINUTES <= 0)
+        {
+            logger.LogInformation("AzureBlobStorageMaintenanceService is disabled because both optimization and cache cleanup intervals are set to 0.");
+            return;
+        }
+
+        // init
+        var lastCacheCleanup = DateTime.UtcNow;
+        var lastOptimization = DateTime.UtcNow;
+
+        // main loop
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromMinutes(this.config.OPTIMIZE_EVERY_X_MINUTES), stoppingToken);
+            // run cache cleanup
             try
             {
-                await this.storageService.OptimizeAsync(stoppingToken);
+                var minutesSinceLastCacheCleanup = (DateTime.UtcNow - lastCacheCleanup).TotalMinutes;
+                if (config.AZURE_STORAGE_CACHE_CLEANUP_EVERY_X_MINUTES > 0
+                    && minutesSinceLastCacheCleanup >= config.AZURE_STORAGE_CACHE_CLEANUP_EVERY_X_MINUTES)
+                {
+                    await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        logger.LogInformation("starting AzureBlobStorageMaintenanceService cache cleanup...");
+                        await azureBlobStorageService.CleanupCacheAsync(stoppingToken);
+                        logger.LogInformation("completed AzureBlobStorageMaintenanceService cache cleanup.");
+                        lastCacheCleanup = DateTime.UtcNow;
+                    }
+                    finally
+                    {
+                        MaintenanceLock.Semaphore.Release();
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                logger.LogInformation("AzureBlobStorageMaintenanceService is shutting down.");
+                break;
             }
             catch (Exception ex)
             {
-                this.logger.LogError(ex, "there was an error during the optimize step in AzureBlobStorageMaintenanceService...");
-                // continue
+                logger.LogError(ex, "there was an error during the cache cleanup in AzureBlobStorageMaintenanceService...");
             }
+
+            // run optimization
+            try
+            {
+                var minutesSinceLastOptimization = (DateTime.UtcNow - lastOptimization).TotalMinutes;
+                if (config.AZURE_STORAGE_OPTIMIZE_EVERY_X_MINUTES > 0
+                    && minutesSinceLastOptimization >= config.AZURE_STORAGE_OPTIMIZE_EVERY_X_MINUTES)
+                {
+                    await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        logger.LogInformation("starting AzureBlobStorageMaintenanceService optimization...");
+                        await azureBlobStorageService.OptimizeAsync(stoppingToken);
+                        logger.LogInformation("completed AzureBlobStorageMaintenanceService optimization.");
+                        lastOptimization = DateTime.UtcNow;
+                    }
+                    finally
+                    {
+                        MaintenanceLock.Semaphore.Release();
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                logger.LogInformation("AzureBlobStorageMaintenanceService is shutting down.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "there was an error during optimization in AzureBlobStorageMaintenanceService...");
+            }
+
+            // short delay before checking again
+            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
         }
     }
 }

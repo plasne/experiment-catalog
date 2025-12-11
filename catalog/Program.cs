@@ -36,12 +36,8 @@ builder.Services.AddConfig();
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 builder.Services.AddSingleton<ISupportDocsService, AzureBlobSupportDocsService>();
 builder.Services.AddSingleton<CalculateStatisticsService>();
+builder.Services.AddHostedService<AzureBlobStorageMaintenanceService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CalculateStatisticsService>());
-if (config.OPTIMIZE_EVERY_X_MINUTES > 0)
-{
-    Console.WriteLine("ADDING SERVICE: AzureBlobStorageMaintenanceService");
-    builder.Services.AddHostedService<AzureBlobStorageMaintenanceService>();
-}
 
 // add controllers with swagger
 builder.Services.AddControllers().AddNewtonsoftJson();

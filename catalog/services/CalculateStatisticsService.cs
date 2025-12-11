@@ -424,35 +424,6 @@ public class CalculateStatisticsService(
     }
 
     /// <summary>
-    /// Processes all queued p-value calculation requests.
-    /// </summary>
-    private async Task ProcessQueuedRequestsAsync(CancellationToken cancellationToken)
-    {
-        while (requestQueue.TryDequeue(out var request))
-        {
-            try
-            {
-                logger.LogInformation(
-                    "processing queued p-value calculation for '{Project}/{Experiment}'...",
-                    request.Project, request.Experiment);
-
-                await ProcessQueuedRequestAsync(request, cancellationToken);
-
-                logger.LogInformation(
-                    "completed queued p-value calculation for '{Project}/{Experiment}'.",
-                    request.Project, request.Experiment);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(
-                    ex,
-                    "failed to process queued p-value calculation for '{Project}/{Experiment}'.",
-                    request.Project, request.Experiment);
-            }
-        }
-    }
-
-    /// <summary>
     /// Processes a single queued p-value calculation request.
     /// </summary>
     private async Task ProcessQueuedRequestAsync(CalculateStatisticsRequest request, CancellationToken cancellationToken)
@@ -686,33 +657,55 @@ public class CalculateStatisticsService(
     /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var lastPeriodicScan = DateTime.MinValue;
+        var lastPeriodicScan = DateTime.UtcNow;
 
+        // main loop
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                // process any queued requests first
-                await ProcessQueuedRequestsAsync(stoppingToken);
+                // process a single queued request if there is one each iteration
+                if (requestQueue.TryDequeue(out var request))
+                {
+                    await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        logger.LogInformation("processing queued statistical calculations for '{p}/{e}'...", request.Project, request.Experiment);
+                        await ProcessQueuedRequestAsync(request, stoppingToken);
+                        logger.LogInformation("completed queued statistical calculations for '{p}/{e}'.", request.Project, request.Experiment);
+                    }
+                    finally
+                    {
+                        MaintenanceLock.Semaphore.Release();
+                    }
+                }
 
                 // run periodic scan if enough time has passed
                 var minutesSinceLastScan = (DateTime.UtcNow - lastPeriodicScan).TotalMinutes;
                 if (config.CALC_PVALUES_EVERY_X_MINUTES > 0 && minutesSinceLastScan >= config.CALC_PVALUES_EVERY_X_MINUTES)
                 {
-                    logger.LogInformation("starting p-value calculation cycle...");
-                    await ProcessAllProjectsAsync(stoppingToken);
-                    logger.LogInformation("completed p-value calculation cycle.");
-                    lastPeriodicScan = DateTime.UtcNow;
+                    await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        logger.LogInformation("starting CalculateStatisticsService cycle...");
+                        await ProcessAllProjectsAsync(stoppingToken);
+                        logger.LogInformation("completed CalculateStatisticsService cycle.");
+                        lastPeriodicScan = DateTime.UtcNow;
+                    }
+                    finally
+                    {
+                        MaintenanceLock.Semaphore.Release();
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                logger.LogInformation("p-value calculation service is shutting down.");
+                logger.LogInformation("CalculateStatisticsService is shutting down.");
                 break;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "an error occurred during p-value calculation cycle. will retry after delay.");
+                logger.LogError(ex, "an error occurred during CalculateStatisticsService cycle. will retry after delay.");
             }
 
             // short delay to check for new queued requests
