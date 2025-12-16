@@ -3,9 +3,10 @@
   export let baseline: Result = undefined;
   export let metric: string;
   export let definition: MetricDefinition = undefined;
+  export let showActualValue: boolean = true;
   export let showStdDev: boolean = true;
   export let showCount: boolean = true;
-  export let pvalue: number | undefined = undefined;
+  export let showStatistics: boolean = true;
 
   let isCount: boolean;
   let isCost: boolean;
@@ -25,31 +26,35 @@
   let diff: number;
   let difp: number;
   let opacity: number;
+  let p_value: number;
+  let ci_lower: number;
+  let ci_upper: number;
 
   $: {
-    diff =
-      result &&
-      baseline &&
-      result.metrics &&
-      baseline.metrics &&
-      result.metrics[metric] &&
-      baseline.metrics[metric]
-        ? result.metrics[metric].value - baseline.metrics[metric].value
-        : 0;
+    // cache common property checks
+    const resultMetric = result?.metrics?.[metric];
+    const baselineMetric = baseline?.metrics?.[metric];
+    const hasValidMetrics = resultMetric && baselineMetric;
+
+    // calculate difference
+    diff = hasValidMetrics ? resultMetric.value - baselineMetric.value : 0;
+
+    // calculate percentage difference
     difp =
-      result &&
-      baseline &&
-      result.metrics &&
-      baseline.metrics &&
-      result.metrics[metric] &&
-      baseline.metrics[metric] &&
-      result.metrics[metric].normalized !== undefined &&
-      baseline.metrics[metric].normalized !== undefined
-        ? (result.metrics[metric].normalized -
-            baseline.metrics[metric].normalized) /
-          baseline.metrics[metric].normalized
+      hasValidMetrics &&
+      resultMetric.normalized !== undefined &&
+      baselineMetric.normalized !== undefined
+        ? (resultMetric.normalized - baselineMetric.normalized) /
+          baselineMetric.normalized
         : undefined;
-    opacity = 30 + Math.abs(difp) * (80 - 30) * 4;
+
+    // calculate opacity based on percentage difference
+    opacity = difp !== undefined ? 30 + Math.abs(difp) * (80 - 30) * 4 : 30;
+
+    // extract statistical values if available
+    p_value = resultMetric?.p_value;
+    ci_lower = resultMetric?.ci_lower;
+    ci_upper = resultMetric?.ci_upper;
   }
 </script>
 
@@ -74,6 +79,11 @@
           ? ">0.00"
           : result.metrics[metric].value.toFixed(3).toLocaleString()}</span
       >
+      {#if isAvg && showActualValue}
+        <span class="actual"
+          >&nbsp;{difp > 0 ? "+" : ""}{diff.toFixed(3)}&nbsp;</span
+        >
+      {/if}
     {/if}
     {#if showStdDev && isAvg && result.metrics[metric].std_dev !== undefined}
       <span>({result.metrics[metric].std_dev.toFixed(3).toLocaleString()})</span
@@ -140,12 +150,21 @@
       >
     {/if}
 
-    {#if showCount && isAvg}
+    {#if showCount && result.metrics[metric].count !== undefined}
+      {#if !isAvg}
+        <span>&nbsp;</span>
+      {/if}
       <span>x{result.metrics[metric].count}</span>
     {/if}
 
-    {#if pvalue != undefined && !Number.isNaN(pvalue) && Number.isFinite(pvalue)}
-      <span class="pvalue">p={pvalue.toFixed(2)}</span>
+    {#if showStatistics && p_value != undefined && !Number.isNaN(p_value) && Number.isFinite(p_value)}
+      <span class="pvalue">p={p_value.toFixed(2)}</span>
+      {#if ci_lower != undefined && ci_upper != undefined}
+        <span class="pvalue"
+          >({ci_lower.toFixed(3).toLocaleString()} to
+          {ci_upper.toFixed(3).toLocaleString()})</span
+        >
+      {/if}
     {/if}
   {:else}
     <span>-</span>
@@ -164,6 +183,10 @@
 
   .difp-green {
     color: #6a6;
+  }
+
+  .actual {
+    font-weight: lighter;
   }
 
   .pvalue {

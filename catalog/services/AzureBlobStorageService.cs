@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -228,7 +229,7 @@ public class AzureBlobStorageService(
             {
                 try
                 {
-                    return LoadExperimentAsync(containerClient, experimentName, includeResults: false, includeMetadata: true, cancellationToken: cancellationToken);
+                    return LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
                 }
                 finally
                 {
@@ -314,51 +315,60 @@ public class AzureBlobStorageService(
         await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
     }
 
-    public async Task AddPValuesAsync(string projectName, string experimentName, PValues pvalues, CancellationToken cancellationToken = default)
+    public async Task AddStatisticsAsync(string projectName, string experimentName, Statistics statistics, CancellationToken cancellationToken = default)
     {
-        pvalues.X = "P";
-        var serializedJson = JsonConvert.SerializeObject(pvalues);
+        statistics.X = "P";
+        var serializedJson = JsonConvert.SerializeObject(statistics);
         await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
     }
 
-    private static async Task<Experiment> LoadExperimentAsync(
+    private async Task<Experiment> LoadExperimentAsync(
         BlobContainerClient containerClient,
         string experimentName,
         bool includeResults = true,
-        bool includeMetadata = true,
         CancellationToken cancellationToken = default)
     {
-        var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
-        HttpRange range = includeResults ? default : new HttpRange(0, 4096);
-        var response = await appendBlobClient.DownloadAsync(range, cancellationToken: cancellationToken);
-        using var memoryStream = new MemoryStream();
-        await response.Value.Content.CopyToAsync(memoryStream, cancellationToken);
-        memoryStream.Position = 0;
-        using var streamReader = new StreamReader(memoryStream);
+        var blobName = $"{experimentName}.jsonl";
+        var appendBlobClient = containerClient.GetAppendBlobClient(blobName);
+        var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
 
-        // the first line is of type Experiment
+        // get content stream
+        await using var contentStream = await GetExperimentContentStreamAsync(
+            appendBlobClient,
+            containerClient.Name,
+            blobName,
+            properties.Value.ETag,
+            includeResults,
+            cancellationToken);
+
+        // parse the experiment info
+        using var streamReader = new StreamReader(contentStream, leaveOpen: true);
         var experimentLine = await streamReader.ReadLineAsync(cancellationToken)
             ?? throw new Exception("no experiment info was found in the file.");
         var experiment = JsonConvert.DeserializeObject<Experiment>(experimentLine)
             ?? throw new Exception("the experiment info was corrupt.");
 
-        // load the results
+        // parse lines
         if (includeResults)
         {
             experiment.Results = new List<Result>();
-            experiment.PValues = new List<PValues>();
+            experiment.Statistics = new List<Statistics>();
+
             while (!streamReader.EndOfStream)
             {
-                var resultLine = await streamReader.ReadLineAsync(cancellationToken);
-                if (resultLine is null) break;
-                var result = JsonConvert.DeserializeObject<Result>(resultLine);
+                var line = await streamReader.ReadLineAsync(cancellationToken);
+                if (line is null) break;
+
+                var result = JsonConvert.DeserializeObject<Result>(line);
                 if (result is null) continue;
 
                 if (result.X == "P")
                 {
-                    var pvalues = JsonConvert.DeserializeObject<PValues>(resultLine);
-                    if (pvalues is null) continue;
-                    experiment.PValues.Add(pvalues);
+                    var statistics = JsonConvert.DeserializeObject<Statistics>(line);
+                    if (statistics is not null)
+                    {
+                        experiment.Statistics.Add(statistics);
+                    }
                 }
                 else
                 {
@@ -367,23 +377,179 @@ public class AzureBlobStorageService(
             }
         }
 
-        // load the metadata
-        if (includeMetadata)
+        // add metadata
+        if (properties.Value.Metadata.TryGetValue("baseline", out var baseline))
         {
-            var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-            if (properties.Value.Metadata.TryGetValue("baseline", out var baseline))
-            {
-                experiment.Baseline = baseline;
-            }
-            experiment.Metadata = new Dictionary<string, object>
-            {
-                { "block_count", properties.Value.BlobCommittedBlockCount },
-                { "blob_size", properties.Value.ContentLength },
-            };
-            experiment.Modified = properties.Value.LastModified;
+            experiment.Baseline = baseline;
         }
+        experiment.Metadata = new Dictionary<string, object>
+        {
+            { "block_count", properties.Value.BlobCommittedBlockCount },
+            { "blob_size", properties.Value.ContentLength },
+        };
+        experiment.Modified = properties.Value.LastModified;
 
         return experiment;
+    }
+
+    private async Task<Stream> GetExperimentContentStreamAsync(
+        AppendBlobClient appendBlobClient,
+        string containerName,
+        string blobName,
+        ETag etag,
+        bool includeResults,
+        CancellationToken cancellationToken)
+    {
+        // try to use cached file if cache folder is configured
+        // NOTE: if we don't include results, we just pull from the blob directly
+        if (includeResults && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_CACHE_FOLDER))
+        {
+            //var sanitizedETag = etag.ToString().Trim('"').Replace("0x", "");
+            var sanitizedETag = etag.ToString().Trim('"');
+            var blobNameWithoutExt = Path.GetFileNameWithoutExtension(blobName);
+            var blobExt = Path.GetExtension(blobName);
+            var cachedFileTemplate = Path.Combine(this.config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_");
+            var cachedFilePath = Path.Combine(this.config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_{sanitizedETag}{blobExt}");
+            try
+            {
+                if (TryGetCachedFileStream(cachedFilePath, out var cachedStream))
+                {
+                    return cachedStream;
+                }
+                return await DownloadAndCacheBlobAsync(appendBlobClient, cachedFileTemplate, cachedFilePath, cancellationToken);
+            }
+            catch (IOException ex)
+            {
+                // cache file may have been deleted by maintenance or another process, fall back to blob
+                this.logger.LogWarning(ex, "cache contention detected for {file}, falling back to blob download.", cachedFilePath);
+            }
+        }
+
+        // no cache folder configured (or cache failed), download directly to memory
+        return await DownloadToMemoryAsync(appendBlobClient, includeResults, cancellationToken);
+    }
+
+    private bool TryGetCachedFileStream(
+        string cachedFilePath,
+        out Stream stream)
+    {
+        stream = Stream.Null;
+
+        if (!File.Exists(cachedFilePath))
+        {
+            this.logger.LogDebug("no cached file found for {file}, downloading from blob.", cachedFilePath);
+            return false;
+        }
+
+        this.logger.LogDebug("using cached file for {file}.", cachedFilePath);
+
+        // read entire file into memory for consistent, fast performance
+        // NOTE: this avoids slow line-by-line disk I/O and OS file cache variability
+        // NOTE: this may throw IOException if file is deleted between exists check and read (contention)
+        var fileBytes = File.ReadAllBytes(cachedFilePath);
+        stream = new MemoryStream(fileBytes, writable: false);
+        return true;
+    }
+
+    private async Task<Stream> DownloadToMemoryAsync(
+        AppendBlobClient appendBlobClient,
+        bool includeResults,
+        CancellationToken cancellationToken)
+    {
+        HttpRange range = includeResults ? default : new HttpRange(0, 4096);
+        var response = await appendBlobClient.DownloadAsync(range, cancellationToken: cancellationToken);
+        var memoryStream = new MemoryStream();
+        await response.Value.Content.CopyToAsync(memoryStream, cancellationToken);
+        memoryStream.Position = 0;
+        return memoryStream;
+    }
+
+    private async Task<Stream> DownloadAndCacheBlobAsync(
+        AppendBlobClient appendBlobClient,
+        string cachedFileTemplate,
+        string cachedFilePath,
+        CancellationToken cancellationToken)
+    {
+        var response = await appendBlobClient.DownloadAsync(cancellationToken: cancellationToken);
+
+        // ensure cache folder exists
+        var cacheFolder = Path.GetDirectoryName(cachedFilePath);
+        if (!string.IsNullOrEmpty(cacheFolder) && !Directory.Exists(cacheFolder))
+        {
+            Directory.CreateDirectory(cacheFolder);
+        }
+
+        // delete old cached files for this blob (different ETags)
+        if (!string.IsNullOrEmpty(cacheFolder))
+        {
+            var searchPattern = Path.GetFileName(cachedFileTemplate) + "*";
+            foreach (var oldFile in Directory.EnumerateFiles(cacheFolder, searchPattern))
+            {
+                try
+                {
+                    File.Delete(oldFile);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogWarning(ex, "failed to delete old cached file: {file}", oldFile);
+                }
+            }
+        }
+
+        // download to file
+        {
+            using var fileStream = new FileStream(cachedFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await response.Value.Content.CopyToAsync(fileStream, cancellationToken);
+        }
+
+        // read cached file into memory for consistent, fast performance
+        // NOTE: this may throw IOException if file is deleted by maintenance (contention)
+        var fileBytes = await File.ReadAllBytesAsync(cachedFilePath, cancellationToken);
+        return new MemoryStream(fileBytes, writable: false);
+    }
+
+    public async Task CleanupCacheAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(this.config.AZURE_STORAGE_CACHE_FOLDER))
+        {
+            return;
+        }
+
+        if (!Directory.Exists(this.config.AZURE_STORAGE_CACHE_FOLDER))
+        {
+            return;
+        }
+
+        var maxAge = TimeSpan.FromHours(this.config.AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS);
+        var cutoffTime = DateTime.UtcNow - maxAge;
+        var deletedCount = 0;
+
+        await Task.Run(() =>
+        {
+            foreach (var file in Directory.EnumerateFiles(this.config.AZURE_STORAGE_CACHE_FOLDER, "*", SearchOption.TopDirectoryOnly))
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var fileInfo = new FileInfo(file);
+                    if (fileInfo.LastWriteTimeUtc < cutoffTime)
+                    {
+                        fileInfo.Delete();
+                        deletedCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogWarning(ex, "failed to delete cached file: {File}", file);
+                }
+            }
+        }, cancellationToken);
+
+        if (deletedCount > 0)
+        {
+            this.logger.LogInformation("cleaned up {c} cached files older than {h} hours", deletedCount, this.config.AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS);
+        }
     }
 
     public async Task<Experiment> GetProjectBaselineAsync(string projectName, CancellationToken cancellationToken = default)
@@ -405,7 +571,7 @@ public class AzureBlobStorageService(
     public async Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
-        var experiment = await LoadExperimentAsync(containerClient, experimentName, includeResults, includeResults, cancellationToken: cancellationToken);
+        var experiment = await LoadExperimentAsync(containerClient, experimentName, includeResults, cancellationToken: cancellationToken);
         return experiment;
     }
 

@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace Catalog;
 
-public class CalculatePValuesRequest
+public class CalculateStatisticsRequest
 {
     [JsonProperty("project", Required = Required.Always)]
     public required string Project { get; set; }

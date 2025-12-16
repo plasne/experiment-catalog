@@ -13,6 +13,10 @@
   // Local state initialized from config
   let checked: string = config.checked_metrics ?? "";
   let tags: string = config.tags ?? "";
+  let showActualValue: boolean = config.show_val ?? true;
+  let showStdDev: boolean = config.show_std ?? true;
+  let showCount: boolean = config.show_cnt ?? true;
+  let showStatistics: boolean = config.show_stats ?? true;
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -25,6 +29,27 @@
       newConfig.tags = tags;
     } else {
       delete newConfig.tags;
+    }
+    // Only store non-default values (defaults are true)
+    if (!showActualValue) {
+      newConfig.show_val = false;
+    } else {
+      delete newConfig.show_val;
+    }
+    if (!showStdDev) {
+      newConfig.show_std = false;
+    } else {
+      delete newConfig.show_std;
+    }
+    if (!showCount) {
+      newConfig.show_cnt = false;
+    } else {
+      delete newConfig.show_cnt;
+    }
+    if (!showStatistics) {
+      newConfig.show_stats = false;
+    } else {
+      delete newConfig.show_stats;
     }
     dispatch("changeConfig", newConfig);
   };
@@ -48,6 +73,10 @@
 
   const changeTags = (event: CustomEvent<string>) => {
     tags = event.detail;
+    emitConfigChange();
+  };
+
+  const onToggleChange = () => {
     emitConfigChange();
   };
 
@@ -83,8 +112,8 @@
     }
   };
 
-  const computePValues = async () => {
-    const response = await fetch(`${prefix}/api/analysis/p-values`, {
+  const computeStatistics = async () => {
+    const response = await fetch(`${prefix}/api/analysis/statistics`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -95,8 +124,8 @@
       }),
     });
     if (response.ok) {
-      alert("Refresh in a few minutes to see the p-values.");
-      confirmComputePValues = false;
+      alert("Refresh in a few minutes to see the statistics.");
+      confirmComputeStatistics = false;
     }
   };
 
@@ -104,9 +133,9 @@
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let confirmUseTheProjectBaseline = false;
   let confirmSetAsProjectBaseline = false;
-  let confirmComputePValues = false;
+  let confirmComputeStatistics = false;
   let comparisonTable: ComparisonTable;
-  let pvalueOpen = false;
+  let statisticsOpen = false;
 </script>
 
 <button class="link" on:click={unselectExperiment}>back</button>
@@ -153,15 +182,15 @@
     <label style="display:inline-flex; align-items:center; gap:0.5rem;">
       <input
         type="checkbox"
-        bind:checked={confirmComputePValues}
-        aria-label="Confirm compute p-values"
+        bind:checked={confirmComputeStatistics}
+        aria-label="Confirm compute statistics"
       />
       <button
         class="link"
-        on:click={computePValues}
-        disabled={!confirmComputePValues}
+        on:click={computeStatistics}
+        disabled={!confirmComputeStatistics}
       >
-        compute p-values for this experiment
+        compute statistics for this experiment
       </button>
     </label>
   </span>
@@ -187,43 +216,98 @@
   <span class="label">Legend:</span>
   <span
     >[value] ([standard-deviation]) [change-vs-experiment-baseline]
-    x[number-of-values] p=[p-value]</span
+    x[number-of-values] p=[p-value] ([CI-lower] - [CI-upper])</span
   >
 </div>
-<div class="pvalue-row">
-  <button class="label pvalue-label" on:click={() => (pvalueOpen = !pvalueOpen)}
-    >P-value:</button
+<div class="statistics-row">
+  <button
+    class="label statistics-label"
+    on:click={() => (statisticsOpen = !statisticsOpen)}>Statistics:</button
   >
   <span
-    >A measure of statistical significance - low values (&lt; 0.05) suggest the
-    observed difference is unlikely due to chance alone.</span
+    >The p-value is the probability of seeing results this extreme by chance
+    alone; values below 0.05 indicate statistically significant differences. The
+    confidence interval shows the likely range of the true difference; if it
+    excludes zero, the difference is statistically significant.</span
   >
 </div>
-{#if pvalueOpen}
-  <div class="pvalue-details">
+{#if statisticsOpen}
+  <div class="statistics-details">
     <p>
-      The code calculates p-values using a paired permutation test with
-      sign-flipping. For each metric, it first collects paired observations
-      (values that exist in both baseline and experiment for the same
-      reference), then computes the paired differences (experiment - baseline).
-      The observed mean difference is calculated from these pairs. To generate
-      the null distribution, the test randomly flips the sign of each paired
-      difference (simulating the null hypothesis that there's no systematic
-      difference between conditions) across many permutations (configured via
-      CALC_PVALUES_USING_X_SAMPLES). The two-tailed p-value is then calculated
-      as the proportion of permuted mean differences that are as extreme or more
-      extreme than the observed mean difference, using the formula (extremeCount
-      + 1) / (numSamples + 1) to ensure the p-value is never exactly zero.
+      <b>P-Value Calculation (Paired Permutation Test):</b>
+      This service uses a paired permutation test with sign-flipping to calculate
+      p-values. For each pair of observations (one from the baseline, one from the
+      experiment), it computes the difference (experiment - baseline). Under the
+      null hypothesis that there's no systematic difference between conditions, each
+      paired difference is equally likely to be positive or negative. The test generates
+      a null distribution by randomly flipping the sign of each paired difference
+      thousands of times (CALC_PVALUES_USING_X_SAMPLES), calculating the mean for
+      each permutation. The p-value is then computed as the proportion of permuted
+      mean differences that are as extreme or more extreme than the observed mean
+      difference (two-tailed), using the formula (extremeCount + 1) / (numSamples
+      + 1) to ensure the p-value is never exactly zero.
     </p>
     <p style="margin-top: 0.5rem;">
-      <strong>What it means:</strong> A low p-value (typically &lt; 0.05) suggests
-      the observed difference between the experiment and baseline is unlikely to
-      have occurred by chance alone, indicating statistical significance. A high
-      p-value suggests the difference could reasonably be due to random variation,
-      meaning there's no strong evidence of a real effect.
+      <b>Confidence Interval Calculation (Bootstrap Resampling):</b>
+      The confidence interval is calculated using the bootstrap percentile method.
+      The service repeatedly resamples the paired differences with replacement, calculating
+      the mean of each bootstrap sample. After generating many bootstrap samples,
+      the confidence interval is determined by taking the appropriate percentiles
+      from the sorted bootstrap means (e.g., for a 95% CI, the 2.5th and 97.5th percentiles).
+      This non-parametric approach makes no assumptions about the underlying distribution
+      of the data.
+    </p>
+    <p style="margin-top: 0.5rem;">
+      <b>Interpretation and Use:</b>
+      Together, these statistics help users make informed decisions about whether
+      an experiment shows a meaningful improvement over the baseline. A low p-value
+      (typically &lt; 0.05) combined with a confidence interval that doesn't cross
+      zero provides strong evidence of a real effect. Users should consider both
+      metrics: the p-value tells you whether there's a significant difference, while
+      the confidence interval tells you the magnitude and direction of that difference.
+      For example, if comparing accuracy metrics between two models, a p-value of
+      0.02 with a CI of [0.5, 2.3] would indicate a statistically significant improvement
+      of roughly 0.5 to 2.3 units. However, users should also consider practical
+      significance—a statistically significant but tiny improvement may not be worth
+      pursuing in practice.
     </p>
   </div>
 {/if}
+<div class="toggles">
+  <span class="label">Show:</span>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showActualValue}
+      on:change={onToggleChange}
+    />
+    Actual Value
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showStdDev}
+      on:change={onToggleChange}
+    />
+    Std Dev
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showCount}
+      on:change={onToggleChange}
+    />
+    Count
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      bind:checked={showStatistics}
+      on:change={onToggleChange}
+    />
+    Statistics
+  </label>
+</div>
 {#if experiment.annotations}
   {#each experiment.annotations as annotation}
     <div>
@@ -240,6 +324,10 @@
     {setList}
     {checked}
     initialTags={tags}
+    {showActualValue}
+    {showStdDev}
+    {showCount}
+    {showStatistics}
     bind:this={comparisonTable}
     on:drilldown={selectSet}
     on:changeSetList={changeSetList}
@@ -256,7 +344,7 @@
     display: inline-block;
   }
 
-  .pvalue-label {
+  .statistics-label {
     cursor: pointer;
     text-decoration: underline;
     background: none;
@@ -266,9 +354,23 @@
     color: inherit;
   }
 
-  .pvalue-details {
+  .statistics-details {
     margin-left: 1rem;
     line-height: 1.4;
+  }
+
+  .toggles {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .toggles label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
   }
 
   .table {

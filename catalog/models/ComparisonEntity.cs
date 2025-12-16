@@ -17,9 +17,6 @@ public class ComparisonEntity
     [JsonProperty("result", NullValueHandling = NullValueHandling.Ignore)]
     public Result? Result { get; set; }
 
-    [JsonProperty("p_values", NullValueHandling = NullValueHandling.Ignore)]
-    public Dictionary<string, Metric>? PValues { get; set; }
-
     [JsonProperty("count", NullValueHandling = NullValueHandling.Ignore)]
     public int? Count { get; set; }
 }

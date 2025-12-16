@@ -52,11 +52,15 @@ public static class Ext
             });
     }
 
-    public static decimal StdDev<TSource>(
+    public static decimal? StdDev<TSource>(
         this IList<TSource> values,
         Func<TSource, decimal?> selector)
     {
-        var selectedValues = values.Select(v => selector(v)).OfType<decimal>().ToList();
+        var selectedValues = values.Select(v => selector(v)).OfType<decimal>();
+        if (!selectedValues.Any())
+        {
+            return null;
+        }
         double avg = Convert.ToDouble(selectedValues.Average());
         double stddev = Math.Sqrt(selectedValues.Average(v => Math.Pow(Convert.ToDouble(v) - avg, 2)));
         return Convert.ToDecimal(stddev);
@@ -64,6 +68,16 @@ public static class Ext
 
     public static decimal DivBy(this int dividend, int divisor)
     {
-        return divisor == 0 ? 0 : (decimal)dividend / (decimal)divisor;
+        return divisor == 0 ? 0m : (decimal)dividend / (decimal)divisor;
+    }
+
+    public static decimal AsDecimal(this string str, Func<decimal> dflt)
+    {
+        if (decimal.TryParse(str, out var result))
+        {
+            return result;
+        }
+
+        return dflt();
     }
 }

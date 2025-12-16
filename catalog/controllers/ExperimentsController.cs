@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
@@ -131,14 +132,17 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         // init
+        var watch = Stopwatch.StartNew();
         var comparison = new Comparison();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
+        logger.LogDebug("loaded tags and metric definitions in {ms} ms.", watch.ElapsedMilliseconds);
 
         // get the project baseline
         try
         {
+            watch.Restart();
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
             var baselineFiltered = baseline.Filter(includeTags, excludeTags);
@@ -151,6 +155,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
                 Result = baseline.AggregateSet(baselineSet, baselineFiltered),
                 Count = baseline.Results?.Count(x => x.Set == baselineSet), // unfiltered count
             };
+            logger.LogDebug("loaded project baseline in {ms} ms.", watch.ElapsedMilliseconds);
         }
         catch (Exception e)
         {
@@ -158,6 +163,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         // get the experiment baseline
+        watch.Restart();
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         var experimentBaselineSet = experiment.BaselineSet ?? experiment.FirstSet;
         var experimentFiltered = experiment.Filter(includeTags, excludeTags);
@@ -173,16 +179,15 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
                 Result = experiment.AggregateSet(experimentBaselineSet, experimentFiltered),
                 Count = experiment.Results?.Count(x => x.Set == experimentBaselineSet), // unfiltered count
             };
+        logger.LogDebug("loaded experiment baseline in {ms} ms.", watch.ElapsedMilliseconds);
 
         // get the sets
+        watch.Restart();
         comparison.Sets = experiment.AggregateAllSets(experimentFiltered)
-            .Select(x => new ComparisonEntity
+            .Select(x =>
             {
-                Project = projectName,
-                Experiment = experiment.Name,
-                Set = x.Set,
-                Result = x,
-                PValues = experiment.PValues?.LastOrDefault(y =>
+                // find matching statistics
+                var statistics = experiment.Statistics?.LastOrDefault(y =>
                 {
                     if (y.Set != x.Set) return false;
                     if (y.BaselineExperiment != comparison.ExperimentBaseline?.Experiment) return false;
@@ -190,9 +195,34 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
                     if (y.BaselineResultCount != comparison.ExperimentBaseline?.Count) return false;
                     if (y.SetResultCount != experiment.Results?.Count(z => z.Set == x.Set)) return false; // unfiltered count
                     if (y.NumSamples != config.CALC_PVALUES_USING_X_SAMPLES) return false;
+                    if (y.ConfidenceLevel != config.CONFIDENCE_LEVEL) return false;
                     return true;
-                })?.Metrics
+                });
+
+                // fold statistics into result metrics
+                if (statistics?.Metrics is not null && x.Metrics is not null)
+                {
+                    foreach (var (metricName, statisticsMetric) in statistics.Metrics)
+                    {
+                        if (x.Metrics.TryGetValue(metricName, out var resultMetric))
+                        {
+                            resultMetric.PValue = statisticsMetric.PValue;
+                            resultMetric.CILower = statisticsMetric.CILower;
+                            resultMetric.CIUpper = statisticsMetric.CIUpper;
+                        }
+                    }
+                }
+
+                return new ComparisonEntity
+                {
+                    Project = projectName,
+                    Experiment = experiment.Name,
+                    Set = x.Set,
+                    Result = x,
+                };
             });
+        logger.LogDebug("aggregated sets in {ms} ms.", watch.ElapsedMilliseconds);
+        watch.Stop();
 
         return Ok(comparison);
     }

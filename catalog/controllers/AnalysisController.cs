@@ -15,12 +15,12 @@ namespace Catalog;
 [Route("api/analysis")]
 public class AnalysisController : ControllerBase
 {
-    [HttpPost("p-values")]
-    public IActionResult CalculatePValues(
-        [FromServices] CalculatePValuesService calculatePValuesService,
-        [FromBody] CalculatePValuesRequest request)
+    [HttpPost("statistics")]
+    public IActionResult CalculateStatistics(
+        [FromServices] CalculateStatisticsService calculateStatisticsService,
+        [FromBody] CalculateStatisticsRequest request)
     {
-        calculatePValuesService.Enqueue(request);
+        calculateStatisticsService.Enqueue(request);
         return StatusCode(201);
     }
 

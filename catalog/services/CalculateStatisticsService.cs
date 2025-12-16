@@ -13,20 +13,19 @@ namespace Catalog;
 /// Background service that calculates p-values for experiment metrics using permutation tests.
 /// P-values help determine statistical significance when comparing experiment results against baselines.
 /// </summary>
-public class CalculatePValuesService(
+public class CalculateStatisticsService(
     IConfig config,
     IStorageService storageService,
-    ILogger<CalculatePValuesService> logger
+    ILogger<CalculateStatisticsService> logger
 ) : BackgroundService
 {
-    private readonly Random random = new();
-    private readonly ConcurrentQueue<CalculatePValuesRequest> requestQueue = new();
+    private readonly ConcurrentQueue<CalculateStatisticsRequest> requestQueue = new();
 
     /// <summary>
     /// Enqueues a request for p-value calculation to be processed by the background service.
     /// </summary>
     /// <param name="request">The request containing project, experiment, and set information.</param>
-    public void Enqueue(CalculatePValuesRequest request)
+    public void Enqueue(CalculateStatisticsRequest request)
     {
         requestQueue.Enqueue(request);
         logger.LogInformation(
@@ -35,7 +34,7 @@ public class CalculatePValuesService(
     }
 
     /// <summary>
-    /// Calculates p-values for all applicable metrics by comparing an experiment set against a baseline set.
+    /// Calculates statistics for all applicable metrics by comparing an experiment set against a baseline set.
     /// Uses a permutation test (two-tailed) to determine statistical significance.
     /// </summary>
     /// <param name="baseline">The baseline experiment containing reference results.</param>
@@ -43,8 +42,8 @@ public class CalculatePValuesService(
     /// <param name="experiment">The experiment being evaluated.</param>
     /// <param name="experimentSet">The specific set within the experiment to evaluate.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    /// <returns>A PValues object containing p-values for each metric, or null if calculation fails.</returns>
-    public Task<PValues?> CalculateAsync(
+    /// <returns>A Statistics object containing statistics for each metric, or null if calculation fails.</returns>
+    public Task<Statistics?> CalculateAsync(
         Experiment baseline,
         string? baselineSet,
         Experiment experiment,
@@ -59,7 +58,7 @@ public class CalculatePValuesService(
             logger.LogWarning(
                 "cannot calculate p-values: missing results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
                 baselineSet, experimentSet);
-            return Task.FromResult<PValues?>(null);
+            return Task.FromResult<Statistics?>(null);
         }
 
         // validate that metric definitions exist
@@ -68,11 +67,11 @@ public class CalculatePValuesService(
             logger.LogWarning(
                 "cannot calculate p-values: experiment '{Experiment}' has no metric definitions.",
                 experiment.Name);
-            return Task.FromResult<PValues?>(null);
+            return Task.FromResult<Statistics?>(null);
         }
 
         // initialize the p-values result object
-        var pvalues = new PValues
+        var statistics = new Statistics
         {
             BaselineExperiment = baseline.Name,
             BaselineSet = baselineSet,
@@ -80,6 +79,7 @@ public class CalculatePValuesService(
             BaselineResultCount = baselineResultCount ?? 0,
             SetResultCount = setResultCount ?? 0,
             NumSamples = config.CALC_PVALUES_USING_X_SAMPLES,
+            ConfidenceLevel = config.CONFIDENCE_LEVEL,
             Metrics = new Dictionary<string, Metric>(),
         };
 
@@ -89,33 +89,33 @@ public class CalculatePValuesService(
         if (baselineResult is null || experimentResult is null)
         {
             logger.LogWarning(
-                "cannot calculate p-values: failed to aggregate results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
+                "cannot calculate statistics: failed to aggregate results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
                 baselineSet, experimentSet);
-            return Task.FromResult<PValues?>(null);
+            return Task.FromResult<Statistics?>(null);
         }
 
         // identify metrics eligible for p-value calculation (must use Average aggregation and not be tagged 'no-p')
         var eligibleMetrics = GetEligibleMetrics(experimentResult, experiment.MetricDefinitions);
 
-        // calculate p-values for each eligible metric
+        // calculate p-values and confidence intervals for each eligible metric
         foreach (var metric in eligibleMetrics)
         {
-            var pvalue = CalculatePValueForMetric(
+            var metricStats = CalculateMetricStatistics(
                 metric,
                 baselineResult,
                 experimentResult,
                 cancellationToken);
-            if (pvalue.HasValue)
+            if (metricStats is not null)
             {
-                pvalues.Metrics.Add(metric, new Metric { Value = pvalue.Value });
+                statistics.Metrics.Add(metric, metricStats);
             }
         }
 
         logger.LogDebug(
-            "calculated p-values for {MetricCount} metrics comparing '{Experiment}/{Set}' against baseline '{BaselineExperiment}/{BaselineSet}'.",
-            pvalues.Metrics.Count, experiment.Name, experimentSet, baseline.Name, baselineSet);
+            "calculated statistics for {MetricCount} metrics comparing '{Experiment}/{Set}' against baseline '{BaselineExperiment}/{BaselineSet}'.",
+            statistics.Metrics.Count, experiment.Name, experimentSet, baseline.Name, baselineSet);
 
-        return Task.FromResult<PValues?>(pvalues);
+        return Task.FromResult<Statistics?>(statistics);
     }
 
     /// <summary>
@@ -144,12 +144,10 @@ public class CalculatePValuesService(
     }
 
     /// <summary>
-    /// Calculates the p-value for a single metric using a paired permutation test (sign-flipping).
-    /// This test respects the paired structure of the data by randomly flipping the sign of each
-    /// paired difference to generate the null distribution.
+    /// Calculates confidence interval and p-value for a single metric.
     /// </summary>
-    /// <returns>The calculated p-value, or null if there are no valid paired observations.</returns>
-    private decimal? CalculatePValueForMetric(
+    /// <returns>A Metric object with p-value and confidence interval, or null if calculation fails.</returns>
+    private Metric? CalculateMetricStatistics(
         string metric,
         IDictionary<string, Result> baselineResult,
         IDictionary<string, Result> experimentResult,
@@ -168,11 +166,11 @@ public class CalculatePValuesService(
             return null;
         }
 
-        // only calculate p-values if there are enough paired observations
+        // only calculate statistics if there are enough paired observations
         if (baselineValues.Count < config.MIN_ITERATIONS_TO_CALC_PVALUES)
         {
             logger.LogWarning(
-                "metric '{Metric}' has only {Count} paired observations; p-value may be unreliable (recommend >= {Min}); skipping.",
+                "metric '{Metric}' has only {Count} paired observations; statistics may be unreliable (recommend >= {Min}); skipping.",
                 metric, baselineValues.Count, config.MIN_ITERATIONS_TO_CALC_PVALUES);
             return null;
         }
@@ -182,20 +180,85 @@ public class CalculatePValuesService(
             .Zip(experimentValues, (b, e) => e - b)
             .ToList();
 
-        // calculate the observed mean difference
-        var observedMeanDifference = pairedDifferences.Average();
+        // calculate p-value using permutation test
+        var pvalue = CalculatePValue(pairedDifferences, cancellationToken);
 
+        // calculate confidence interval using bootstrap
+        var (ciLower, ciUpper) = CalculateConfidenceInterval(pairedDifferences, cancellationToken);
+
+        return new Metric
+        {
+            PValue = Math.Round(pvalue, config.PRECISION_FOR_CALC_VALUES),
+            CILower = Math.Round(ciLower, config.PRECISION_FOR_CALC_VALUES),
+            CIUpper = Math.Round(ciUpper, config.PRECISION_FOR_CALC_VALUES)
+        };
+    }
+
+    /// <summary>
+    /// Calculates the p-value using a paired permutation test (sign-flipping).
+    /// This test respects the paired structure of the data by randomly flipping the sign of each
+    /// paired difference to generate the null distribution.
+    /// </summary>
+    /// <returns>The calculated p-value.</returns>
+    private decimal CalculatePValue(
+        List<decimal> pairedDifferences,
+        CancellationToken cancellationToken)
+    {
         // generate the null distribution using paired permutation test (sign-flipping)
         var nullDistribution = GenerateNullDistributionPaired(
             pairedDifferences,
             cancellationToken);
 
+        // calculate the observed mean difference
+        var observedMeanDifference = pairedDifferences.Average();
+
         // calculate two-tailed p-value: proportion of permuted differences as extreme as observed
         // using (count + 1) / (n + 1) to ensure p-value is never exactly 0 and is more conservative
         var extremeCount = nullDistribution.Count(diff => Math.Abs(diff) >= Math.Abs(observedMeanDifference));
-        var pvalue = (decimal)(extremeCount + 1) / (config.CALC_PVALUES_USING_X_SAMPLES + 1);
+        return (decimal)(extremeCount + 1) / (config.CALC_PVALUES_USING_X_SAMPLES + 1);
+    }
 
-        return pvalue;
+    /// <summary>
+    /// Calculates the confidence interval for the mean difference using bootstrap resampling.
+    /// Uses the percentile method to determine the lower and upper bounds.
+    /// </summary>
+    /// <returns>A tuple containing the lower and upper confidence interval bounds.</returns>
+    private (decimal ciLower, decimal ciUpper) CalculateConfidenceInterval(
+        List<decimal> pairedDifferences,
+        CancellationToken cancellationToken)
+    {
+        var bootstrapMeans = new List<decimal>(config.CALC_PVALUES_USING_X_SAMPLES);
+        var n = pairedDifferences.Count;
+
+        // generate bootstrap samples and calculate mean for each
+        for (var i = 0; i < config.CALC_PVALUES_USING_X_SAMPLES; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // resample with replacement
+            decimal sum = 0;
+            for (var j = 0; j < n; j++)
+            {
+                var idx = Random.Shared.Next(n);
+                sum += pairedDifferences[idx];
+            }
+            bootstrapMeans.Add(sum / n);
+        }
+
+        // sort bootstrap means to find percentiles
+        bootstrapMeans.Sort();
+
+        // calculate percentile indices for the confidence interval
+        // e.g., for 95% CI: lower = 2.5th percentile, upper = 97.5th percentile
+        var alpha = 1m - config.CONFIDENCE_LEVEL;
+        var lowerIndex = (int)Math.Floor((double)(alpha / 2) * config.CALC_PVALUES_USING_X_SAMPLES);
+        var upperIndex = (int)Math.Ceiling((double)(1 - alpha / 2) * config.CALC_PVALUES_USING_X_SAMPLES) - 1;
+
+        // clamp indices to valid range
+        lowerIndex = Math.Max(0, Math.Min(lowerIndex, config.CALC_PVALUES_USING_X_SAMPLES - 1));
+        upperIndex = Math.Max(0, Math.Min(upperIndex, config.CALC_PVALUES_USING_X_SAMPLES - 1));
+
+        return (bootstrapMeans[lowerIndex], bootstrapMeans[upperIndex]);
     }
 
     /// <summary>
@@ -258,7 +321,7 @@ public class CalculatePValuesService(
             for (var j = 0; j < pairedDifferences.Count; j++)
             {
                 // 50% chance to flip the sign (multiply by -1 or +1)
-                var sign = random.Next(2) == 0 ? -1 : 1;
+                var sign = Random.Shared.Next(2) == 0 ? -1 : 1;
                 permutedDifferences[j] = pairedDifferences[j] * sign;
             }
 
@@ -361,78 +424,9 @@ public class CalculatePValuesService(
     }
 
     /// <summary>
-    /// Main execution loop for the background service.
-    /// Processes queued requests and periodically scans for recent experiments that need p-value calculation.
-    /// </summary>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        var lastPeriodicScan = DateTime.MinValue;
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                // process any queued requests first
-                await ProcessQueuedRequestsAsync(stoppingToken);
-
-                // run periodic scan if enough time has passed
-                var minutesSinceLastScan = (DateTime.UtcNow - lastPeriodicScan).TotalMinutes;
-                if (config.CALC_PVALUES_EVERY_X_MINUTES > 0 && minutesSinceLastScan >= config.CALC_PVALUES_EVERY_X_MINUTES)
-                {
-                    logger.LogInformation("starting p-value calculation cycle...");
-                    await ProcessAllProjectsAsync(stoppingToken);
-                    logger.LogInformation("completed p-value calculation cycle.");
-                    lastPeriodicScan = DateTime.UtcNow;
-                }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                logger.LogInformation("p-value calculation service is shutting down.");
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "an error occurred during p-value calculation cycle. will retry after delay.");
-            }
-
-            // short delay to check for new queued requests
-            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
-        }
-    }
-
-    /// <summary>
-    /// Processes all queued p-value calculation requests.
-    /// </summary>
-    private async Task ProcessQueuedRequestsAsync(CancellationToken cancellationToken)
-    {
-        while (requestQueue.TryDequeue(out var request))
-        {
-            try
-            {
-                logger.LogInformation(
-                    "processing queued p-value calculation for '{Project}/{Experiment}'...",
-                    request.Project, request.Experiment);
-
-                await ProcessQueuedRequestAsync(request, cancellationToken);
-
-                logger.LogInformation(
-                    "completed queued p-value calculation for '{Project}/{Experiment}'.",
-                    request.Project, request.Experiment);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(
-                    ex,
-                    "failed to process queued p-value calculation for '{Project}/{Experiment}'.",
-                    request.Project, request.Experiment);
-            }
-        }
-    }
-
-    /// <summary>
     /// Processes a single queued p-value calculation request.
     /// </summary>
-    private async Task ProcessQueuedRequestAsync(CalculatePValuesRequest request, CancellationToken cancellationToken)
+    private async Task ProcessQueuedRequestAsync(CalculateStatisticsRequest request, CancellationToken cancellationToken)
     {
         // load the experiment with results
         var experiment = await storageService.GetExperimentAsync(
@@ -607,7 +601,7 @@ public class CalculatePValuesService(
 
         // check if p-values already exist with matching parameters
         var setResultCount = experiment.Results?.Count(x => x.Set == set);
-        if (PValuesAlreadyExist(experiment, baseline.Name, baselineSet, set, baselineResultCount, setResultCount))
+        if (StatisticsAlreadyExist(experiment, baseline.Name, baselineSet, set, baselineResultCount, setResultCount))
         {
             logger.LogDebug(
                 "set '{Project}/{Experiment}/{Set}' already has current p-values.",
@@ -617,15 +611,15 @@ public class CalculatePValuesService(
 
         // calculate p-values for this set
         logger.LogInformation(
-            "calculating p-values for set '{Project}/{Experiment}/{Set}'...",
+            "calculating statistics for set '{Project}/{Experiment}/{Set}'...",
             projectName, experiment.Name, set);
-        var pvalues = await CalculateAsync(baseline, baselineSet, experiment, set, cancellationToken);
-        if (pvalues is not null)
+        var statistics = await CalculateAsync(baseline, baselineSet, experiment, set, cancellationToken);
+        if (statistics is not null)
         {
-            await storageService.AddPValuesAsync(projectName, experiment.Name, pvalues, cancellationToken);
+            await storageService.AddStatisticsAsync(projectName, experiment.Name, statistics, cancellationToken);
             logger.LogInformation(
-                "successfully calculated and saved p-values ({count}) for set '{Project}/{Experiment}/{Set}'.",
-                pvalues.Metrics?.Count() ?? 0, projectName, experiment.Name, set);
+                "successfully calculated and saved statistics ({count}) for set '{Project}/{Experiment}/{Set}'.",
+                statistics.Metrics?.Count() ?? 0, projectName, experiment.Name, set);
         }
         else
         {
@@ -637,9 +631,9 @@ public class CalculatePValuesService(
 
     /// <summary>
     /// Checks if valid p-values already exist for the given set with matching parameters.
-    /// P-values are considered stale if the result counts or sample size have changed.
+    /// P-values are considered stale if the result counts, sample size, or confidence level have changed.
     /// </summary>
-    private bool PValuesAlreadyExist(
+    private bool StatisticsAlreadyExist(
         Experiment experiment,
         string baselineName,
         string? baselineSet,
@@ -647,13 +641,75 @@ public class CalculatePValuesService(
         int? baselineResultCount,
         int? setResultCount)
     {
-        return experiment.PValues?.Any(pv =>
+        return experiment.Statistics?.Any(pv =>
             pv.BaselineExperiment == baselineName &&
             pv.BaselineSet == baselineSet &&
             pv.Set == set &&
             pv.BaselineResultCount == baselineResultCount &&
             pv.SetResultCount == setResultCount &&
-            pv.NumSamples == config.CALC_PVALUES_USING_X_SAMPLES) ?? false;
+            pv.NumSamples == config.CALC_PVALUES_USING_X_SAMPLES &&
+            pv.ConfidenceLevel == config.CONFIDENCE_LEVEL) ?? false;
     }
 
+    /// <summary>
+    /// Main execution loop for the background service.
+    /// Processes queued requests and periodically scans for recent experiments that need p-value calculation.
+    /// </summary>
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var lastPeriodicScan = DateTime.UtcNow;
+
+        // main loop
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                // process a single queued request if there is one each iteration
+                if (requestQueue.TryDequeue(out var request))
+                {
+                    await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        logger.LogInformation("processing queued statistical calculations for '{p}/{e}'...", request.Project, request.Experiment);
+                        await ProcessQueuedRequestAsync(request, stoppingToken);
+                        logger.LogInformation("completed queued statistical calculations for '{p}/{e}'.", request.Project, request.Experiment);
+                    }
+                    finally
+                    {
+                        MaintenanceLock.Semaphore.Release();
+                    }
+                }
+
+                // run periodic scan if enough time has passed
+                var minutesSinceLastScan = (DateTime.UtcNow - lastPeriodicScan).TotalMinutes;
+                if (config.CALC_PVALUES_EVERY_X_MINUTES > 0 && minutesSinceLastScan >= config.CALC_PVALUES_EVERY_X_MINUTES)
+                {
+                    await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        logger.LogInformation("starting CalculateStatisticsService cycle...");
+                        await ProcessAllProjectsAsync(stoppingToken);
+                        logger.LogInformation("completed CalculateStatisticsService cycle.");
+                        lastPeriodicScan = DateTime.UtcNow;
+                    }
+                    finally
+                    {
+                        MaintenanceLock.Semaphore.Release();
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                logger.LogInformation("CalculateStatisticsService is shutting down.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "an error occurred during CalculateStatisticsService cycle. will retry after delay.");
+            }
+
+            // short delay to check for new queued requests
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+        }
+    }
 }
