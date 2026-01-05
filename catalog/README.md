@@ -16,15 +16,45 @@ To configure the solution, you must provide the following environment variables.
 
 - **OPEN_TELEMETRY_CONNECTION_STRING** [OPTIONAL]: The connection string for the Open Telemetry service. Currently this only supports Application Insights.
 
-- **AZURE_STORAGE_ACCOUNT_NAME** [REQUIRED]: The name of the Azure Storage account to use for storing the project containers. It is recommended to use a separate storage account for this purpose.
+- **AZURE_STORAGE_ACCOUNT_NAME** [CONDITIONAL]: The name of the Azure Storage account to use for storing the project containers. Either this or **AZURE_STORAGE_ACCOUNT_CONNSTRING** must be set. It is recommended to use a separate storage account for this purpose.
+
+- **AZURE_STORAGE_ACCOUNT_CONNSTRING** [CONDITIONAL]: The connection string for the Azure Storage account. Either this or **AZURE_STORAGE_ACCOUNT_NAME** must be set.
 
 - **CONCURRENCY** [DEFAULT: 4]: The number of concurrent threads that can be used for processing requests (such as loading experiments).
 
 - **REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE** [DEFAULT: 1024]: In order to improve performance, the catalog will compact smaller blocks in an experiment file into larger blocks. If the average of the block size is smaller than this threshold in KB, then the catalog will optimize the file. In other words, by default if the average block size is less than 1MB, then the catalog will optimize the file.
 
-- **REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE** [DEFAULT: 10]: The number of minutes that must pass without new results coming into the catalog before it will optimize the file. This is to reduce the chance that the catalog is attempting to optimize the file while jobs are running. Any attempt to send results during optimization will fail with a 409 Conflict error.
+- **MINUTES_TO_BE_IDLE** [DEFAULT: 10]: The number of minutes that must pass without new results coming into the catalog before it will optimize the file. This is to reduce the chance that the catalog is attempting to optimize the file while jobs are running. Any attempt to send results during optimization will fail with a 409 Conflict error.
 
-- **OPTIMIZE_EVERY_X_MINUTES** [DEFAULT: 5]: The number of minutes that must pass since the last optimization attempts before the catalog will attempt to optimize anything again. After startup, the catalog will attempt to optimize the files after 5 minutes (default) and after finishing will wait another 5 minutes (default) before attempting to optimize again. Each file is checked against **REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE** and **REQUIRED_MIN_OF_IDLE_BEFORE_OPTIMIZE** to determine if it is eligible.
+- **MINUTES_TO_BE_RECENT** [DEFAULT: 480]: The number of minutes (8 hours default) to consider an experiment as "recent" for maintenance operations.
+
+- **AZURE_STORAGE_OPTIMIZE_EVERY_X_MINUTES** [DEFAULT: 0]: The number of minutes that must pass since the last optimization attempt before the catalog will attempt to optimize anything again. Set to 0 to disable automatic optimization. Each file is checked against **REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE** and **MINUTES_TO_BE_IDLE** to determine if it is eligible.
+
+- **CALC_PVALUES_USING_X_SAMPLES** [DEFAULT: 10000]: The number of samples to use when calculating p-values via bootstrap sampling.
+
+- **CALC_PVALUES_EVERY_X_MINUTES** [DEFAULT: 0]: The frequency in minutes to automatically calculate p-values. Set to 0 to disable.
+
+- **MIN_ITERATIONS_TO_CALC_PVALUES** [DEFAULT: 5]: The minimum number of iterations required before p-values can be calculated.
+
+- **CONFIDENCE_LEVEL** [DEFAULT: 0.95]: The confidence level to use for statistical calculations.
+
+- **PRECISION_FOR_CALC_VALUES** [DEFAULT: 4]: The number of decimal places to use for calculated values.
+
+- **PATH_TEMPLATE** [OPTIONAL]: A template string for constructing URIs to inference and evaluation output files. Use `{0}` as a placeholder for the URI.
+
+- **AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS** [OPTIONAL]: The name of a separate Azure Storage account for support documents. Defaults to the main storage account if ENABLE_ANONYMOUS_DOWNLOAD is true.
+
+- **AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS** [OPTIONAL]: The connection string for the support documents storage account.
+
+- **AZURE_STORAGE_CACHE_FOLDER** [OPTIONAL]: Local folder path to cache downloaded support documents.
+
+- **AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS** [DEFAULT: 168]: Maximum age in hours (7 days default) for cached support documents.
+
+- **AZURE_STORAGE_CACHE_CLEANUP_EVERY_X_MINUTES** [DEFAULT: 120]: Frequency in minutes to clean up old cached files.
+
+- **ENABLE_ANONYMOUS_DOWNLOAD** [DEFAULT: false]: Enable anonymous download of support documents via the `/api/download` endpoint.
+
+- **TEST_PROJECTS** [OPTIONAL]: A comma-separated list of project names to use for testing purposes.
 
 ## Concepts
 
@@ -44,10 +74,13 @@ The catalog is organized around the following concepts:
 
 ## Web UI
 
-The UI for the catalog is written in Svelte in the [UI](./ui) project. Generally, the UI is hosted inside the catalog and that means the UI must be built and copied into the catalog project. Running this command will do this...
+The UI for the catalog is written in Svelte in the [ui](../ui) folder. Generally, the UI is hosted inside the catalog and that means the UI must be built and copied into the catalog project. To build and copy the UI:
 
 ```bash
-./refresh-ui.sh
+cd ui
+npm install
+npm run build
+cp -r dist/* ../api/wwwroot/
 ```
 
 ## Create a project
@@ -68,7 +101,7 @@ You can call the API to create a baseline experiment like this...
 curl -i -X POST -d '{ "name": "project-baseline", "hypothesis": "my baseline" }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments
 ```
 
-This will create an experiment blob in the project container. You should create a baseline experiment like this for each project. This baseline gives you a way to compare your experimentation results versus a stable point in time. You can mark this experiment as the baseline like this...
+This will create an experiment blob in the project container. You should create a baseline experiment like this for each project. This baseline gives you a way to compare your experimentation results versus a stable point in time. You can mark this experiment as the project baseline like this...
 
 ```bash
 curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/project-baseline/baseline
@@ -77,7 +110,13 @@ curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/
 Finally, you can record any results you have for the baseline experiment like this...
 
 ```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "metrics": { "gpt-coherance": 2, "gpt-relevance": 3, "gpt-correctness": 2 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
+curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3, "gpt-correctness": 2 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
+```
+
+You can also include optional URIs to inference and evaluation output files:
+
+```bash
+curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "inference_uri": "path/to/inference.json", "evaluation_uri": "path/to/evaluation.json", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
 ```
 
 You do not have to pre-define any metrics, anything you want to send into the catalog will be accepted.
@@ -93,10 +132,10 @@ curl -i -X POST -d '{ "name": "experiment-000", "hypothesis": "I believe decreas
 Then to record results for that experiment, you can do it exactly like the baseline...
 
 ```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "beta", "metrics": { "gpt-coherance": 3, "gpt-relevance": 2, "gpt-correctness": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/experiment-000/results
+curl -i -X POST -d '{ "ref": "q1", "set": "beta", "metrics": { "gpt-coherence": 3, "gpt-relevance": 2, "gpt-correctness": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/experiment-000/results
 ```
 
-While generally the first evaluation run of an experiment is the baseline, you can record later evaluation runs as the baseline by...
+While generally the first evaluation run of an experiment is the baseline, you can set a different evaluation run as the baseline by...
 
 ```bash
 curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-baseline/baseline
@@ -105,7 +144,7 @@ curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/
 Alternatively, you can set the experiment baseline to the project baseline like this...
 
 ```bash
-curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/:project/baseline
+curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/:project/baseline
 ```
 
 ## Compare
@@ -114,6 +153,12 @@ Once you have some results for your experiment, you can compare them like this..
 
 ```bash
 curl -i http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare
+```
+
+You can filter the comparison to specific sets or filter by tags:
+
+```bash
+curl -i "http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare?sets=set1,set2&include-tags=tag1,tag2&exclude-tags=tag3"
 ```
 
 ## Annotate
@@ -125,6 +170,92 @@ curl -i -X POST -d '{ "set": "alpha", "annotations": [ { "text": "commit 3746hf"
 ```
 
 In that example, the commit number is being annotated so that the user could get back to the same code and configuration to repeat the experiment.
+
+## Additional API Endpoints
+
+### Tags
+
+List tags for a project:
+
+```bash
+curl -i http://localhost:6010/api/projects/project-example/tags
+```
+
+Add a tag to a project:
+
+```bash
+curl -i -X PUT -d '{ "name": "my-tag", "refs": ["q1", "q2", "q3"] }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/tags
+```
+
+### Metrics
+
+Get metric definitions for a project:
+
+```bash
+curl -i http://localhost:6010/api/projects/project-example/metrics
+```
+
+Add metric definitions to a project:
+
+```bash
+curl -i -X PUT -d '[{ "name": "gpt-coherence", "higherIsBetter": true }]' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/metrics
+```
+
+### Compare by Ref
+
+Compare results grouped by reference (ground truth):
+
+```bash
+curl -i http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-set/compare-by-ref
+```
+
+### Get Set Results
+
+Get individual results for a specific set:
+
+```bash
+curl -i http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-set
+```
+
+### Optimize
+
+Manually trigger optimization for an experiment:
+
+```bash
+curl -i -X PUT http://localhost:6010/api/projects/project-example/experiments/experiment-000/optimize
+```
+
+### Calculate Statistics
+
+Enqueue a statistics calculation request:
+
+```bash
+curl -i -X POST -d '{ "project": "project-example", "experiment": "experiment-000" }' -H "Content-Type: application/json" http://localhost:6010/api/analysis/statistics
+```
+
+### Meaningful Tags Analysis
+
+Analyze which tags have the most meaningful impact on a specific metric:
+
+```bash
+curl -i -X POST -d '{ "project": "project-example", "experiment": "experiment-000", "set": "my-set", "metric": "gpt-relevance", "compareTo": "Average" }' -H "Content-Type: application/json" http://localhost:6010/api/analysis/meaningful-tags
+```
+
+### Download Support Documents
+
+Download a support document (requires `ENABLE_ANONYMOUS_DOWNLOAD=true`):
+
+```bash
+curl -i "http://localhost:6010/api/download?url=container/path/to/file.json"
+```
+
+### Swagger Documentation
+
+The API includes Swagger documentation available at:
+
+```
+http://localhost:6010/swagger
+```
 
 ## Docker
 
@@ -138,9 +269,5 @@ This is necessary so that the UI can be built and injected into the catalog cont
 
 ## TODO
 
-- Add authentication for API.
-- Implement broker to be able to get to inference and evaluation output files.
-  - The UI needs to be updated to allow both inference and evaluation output files to be viewed.
 - Finish policy statements implementation.
-- Build a UI for creating projects, evaluations, set project baseline.
 - Unit testing/integration testing.
