@@ -1,40 +1,48 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { onMount } from "svelte";
   import ExperimentCard from "./ExperimentCard.svelte";
   import CreateExperimentModal from "./CreateExperimentModal.svelte";
 
-  export let project: Project;
-  let experiments: Experiment[] = [];
-  let state: "loading" | "loaded" | "error" = "loading";
-  let showCreateModal = false;
-  let createError = "";
+  interface Props {
+    project: Project;
+    onselect?: (experiment: Experiment) => void;
+    onunselectProject?: () => void;
+  }
+
+  let { project, onselect, onunselectProject }: Props = $props();
+
+  let experiments: Experiment[] = $state([]);
+  let loadingState: "loading" | "loaded" | "error" = $state("loading");
+  let showCreateModal = $state(false);
+  let createError = $state("");
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-  const dispatch = createEventDispatcher();
 
   const fetchExperiments = async () => {
     try {
-      state = "loading";
+      loadingState = "loading";
       const response = await fetch(
         `${prefix}/api/projects/${project.name}/experiments`
       );
       experiments = await response.json();
-      state = "loaded";
+      loadingState = "loaded";
     } catch (error) {
       console.error(error);
-      state = "error";
+      loadingState = "error";
     }
   };
 
-  $: fetchExperiments();
+  onMount(() => {
+    fetchExperiments();
+  });
 
-  const select = (event: CustomEvent<Experiment>) => {
-    dispatch("select", event.detail);
+  const select = (experiment: Experiment) => {
+    onselect?.(experiment);
   };
 
   const unselectProject = () => {
-    dispatch("unselectProject");
+    onunselectProject?.();
   };
 
   const openCreateModal = () => {
@@ -42,10 +50,11 @@
     showCreateModal = true;
   };
 
-  const handleCreateSubmit = async (
-    event: CustomEvent<{ name: string; hypothesis: string }>
-  ) => {
-    const { name, hypothesis } = event.detail;
+  const handleCreateSubmit = async (event: {
+    name: string;
+    hypothesis: string;
+  }) => {
+    const { name, hypothesis } = event;
     createError = "";
     try {
       const response = await fetch(
@@ -77,23 +86,23 @@
   };
 </script>
 
-<button class="link" on:click={unselectProject}>back</button>
+<button class="link" onclick={unselectProject}>back</button>
 <h1>Experiments in {project.name}</h1>
 <div class="actions">
-  <button class="link" on:click={openCreateModal}>+ create experiment</button>
+  <button class="link" onclick={openCreateModal}>+ create experiment</button>
 </div>
 
-{#if state === "loading"}
+{#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
     <img class="loading" alt="loading" src="/spinner.gif" />
   </div>
-{:else if state === "error"}
+{:else if loadingState === "error"}
   <div>Error loading experiments.</div>
 {:else}
   <div class="flex-container">
     {#each experiments as experiment (experiment.name)}
-      <ExperimentCard on:select={select} {experiment} />
+      <ExperimentCard onselect={select} {experiment} />
     {/each}
   </div>
 {/if}
@@ -102,8 +111,8 @@
   isOpen={showCreateModal}
   projectName={project.name}
   error={createError}
-  on:submit={handleCreateSubmit}
-  on:cancel={handleCreateCancel}
+  onsubmit={handleCreateSubmit}
+  oncancel={handleCreateCancel}
 />
 
 <style>

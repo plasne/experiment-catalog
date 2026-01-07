@@ -1,12 +1,23 @@
 <script lang="ts">
   import TriStateCheckbox from "./TriStateCheckbox.svelte";
 
-  export let options: string[] = [];
-  export let yes: Set<string> = new Set();
-  export let no: Set<string> = new Set();
+  interface Props {
+    options?: string[];
+    yes?: Set<string>;
+    no?: Set<string>;
+  }
 
-  function change(event: CustomEvent) {
-    const { label, state } = event.detail;
+  let {
+    options = [],
+    yes = $bindable(new Set()),
+    no = $bindable(new Set()),
+  }: Props = $props();
+
+  function change(event: {
+    label: string;
+    state: "include" | "exclude" | "neither";
+  }) {
+    const { label, state } = event;
     switch (state) {
       case "include":
         yes.add(label);
@@ -35,6 +46,6 @@
       : no.has(option)
         ? "exclude"
         : "neither"}
-    on:change={change}
+    onchange={change}
   />
 {/each}

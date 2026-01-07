@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  interface Props {
+    project: Project;
+    onselect?: (project: Project) => void;
+  }
 
-  export let project: Project;
-
-  const dispatch = createEventDispatcher();
+  let { project, onselect }: Props = $props();
 
   const select = () => {
-    dispatch("select", project);
+    onselect?.(project);
   };
 </script>
 
 <div class="card">
   <div class="title">
-    <button class="link" on:click={select}>{project.name}</button>
+    <button class="link" onclick={select}>{project.name}</button>
   </div>
 </div>
 

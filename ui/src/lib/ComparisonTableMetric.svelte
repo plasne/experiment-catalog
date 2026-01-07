@@ -1,61 +1,62 @@
 <script lang="ts">
-  export let result: Result;
-  export let baseline: Result = undefined;
-  export let metric: string;
-  export let definition: MetricDefinition = undefined;
-  export let showActualValue: boolean = true;
-  export let showStdDev: boolean = true;
-  export let showCount: boolean = true;
-  export let showStatistics: boolean = true;
-
-  let isCount: boolean;
-  let isCost: boolean;
-  let isAvg: boolean;
-  let lowerIsBetter: boolean;
-
-  $: {
-    isCount = definition && definition.aggregate_function === "Count";
-    isCost = definition && definition.aggregate_function === "Cost";
-    isAvg = !(isCount || isCost);
-    lowerIsBetter =
-      definition &&
-      definition.tags &&
-      definition.tags.includes("lower-is-better");
+  interface Props {
+    result: Result;
+    baseline?: Result;
+    metric: string;
+    definition?: MetricDefinition;
+    showActualValue?: boolean;
+    showStdDev?: boolean;
+    showCount?: boolean;
+    showStatistics?: boolean;
   }
 
-  let diff: number;
-  let difp: number;
-  let opacity: number;
-  let p_value: number;
-  let ci_lower: number;
-  let ci_upper: number;
+  let {
+    result,
+    baseline = undefined,
+    metric,
+    definition = undefined,
+    showActualValue = true,
+    showStdDev = true,
+    showCount = true,
+    showStatistics = true,
+  }: Props = $props();
 
-  $: {
-    // cache common property checks
+  let isCount: boolean = $derived(
+    definition && definition.aggregate_function === "Count"
+  );
+  let isCost: boolean = $derived(
+    definition && definition.aggregate_function === "Cost"
+  );
+  let isAvg: boolean = $derived(!(isCount || isCost));
+  let lowerIsBetter: boolean = $derived(
+    definition && definition.tags && definition.tags.includes("lower-is-better")
+  );
+
+  let diff: number = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
     const baselineMetric = baseline?.metrics?.[metric];
     const hasValidMetrics = resultMetric && baselineMetric;
+    return hasValidMetrics ? resultMetric.value - baselineMetric.value : 0;
+  });
 
-    // calculate difference
-    diff = hasValidMetrics ? resultMetric.value - baselineMetric.value : 0;
-
-    // calculate percentage difference
-    difp =
-      hasValidMetrics &&
+  let difp: number = $derived.by(() => {
+    const resultMetric = result?.metrics?.[metric];
+    const baselineMetric = baseline?.metrics?.[metric];
+    const hasValidMetrics = resultMetric && baselineMetric;
+    return hasValidMetrics &&
       resultMetric.normalized !== undefined &&
       baselineMetric.normalized !== undefined
-        ? (resultMetric.normalized - baselineMetric.normalized) /
+      ? (resultMetric.normalized - baselineMetric.normalized) /
           baselineMetric.normalized
-        : undefined;
+      : undefined;
+  });
 
-    // calculate opacity based on percentage difference
-    opacity = difp !== undefined ? 30 + Math.abs(difp) * (80 - 30) * 4 : 30;
-
-    // extract statistical values if available
-    p_value = resultMetric?.p_value;
-    ci_lower = resultMetric?.ci_lower;
-    ci_upper = resultMetric?.ci_upper;
-  }
+  let opacity: number = $derived(
+    difp !== undefined ? 30 + Math.abs(difp) * (80 - 30) * 4 : 30
+  );
+  let p_value: number = $derived(result?.metrics?.[metric]?.p_value);
+  let ci_lower: number = $derived(result?.metrics?.[metric]?.ci_lower);
+  let ci_upper: number = $derived(result?.metrics?.[metric]?.ci_upper);
 </script>
 
 <nobr>

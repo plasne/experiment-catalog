@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  interface Props {
+    isOpen?: boolean;
+    setName?: string;
+    onsubmit?: (annotation: Annotation) => void;
+    oncancel?: () => void;
+  }
 
-  export let isOpen = false;
-  export let setName: string = "";
+  let { isOpen = false, setName = "", onsubmit, oncancel }: Props = $props();
 
-  const dispatch = createEventDispatcher();
-
-  let annotationText = "";
-  let annotationUri = "";
+  let annotationText = $state("");
+  let annotationUri = $state("");
 
   const handleSubmit = () => {
     if (!annotationText.trim()) return;
@@ -20,12 +22,12 @@
       annotation.uri = annotationUri.trim();
     }
 
-    dispatch("submit", annotation);
+    onsubmit?.(annotation);
     resetForm();
   };
 
   const handleCancel = () => {
-    dispatch("cancel");
+    oncancel?.();
     resetForm();
   };
 
@@ -41,18 +43,19 @@
   };
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-  <div class="modal-backdrop" on:click={handleCancel} role="presentation">
-    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+  <div class="modal-backdrop" onclick={handleCancel} role="presentation">
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
     <div
       class="modal"
-      on:click|stopPropagation
+      onclick={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      tabindex="-1"
     >
       <h3 id="modal-title">Add Annotation to Set: {setName}</h3>
 
@@ -77,10 +80,10 @@
       </div>
 
       <div class="button-group">
-        <button class="cancel-btn" on:click={handleCancel}>Cancel</button>
+        <button class="cancel-btn" onclick={handleCancel}>Cancel</button>
         <button
           class="submit-btn"
-          on:click={handleSubmit}
+          onclick={handleSubmit}
           disabled={!annotationText.trim()}
         >
           Add Annotation

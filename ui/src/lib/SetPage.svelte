@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
   import MetricsFilter from "./MetricsFilter.svelte";
@@ -7,33 +7,75 @@
   import FreeFilter from "./FreeFilter.svelte";
   import { sortMetrics, type ViewConfig } from "./Tools";
 
-  export let project: Project;
-  export let experiment: Experiment;
-  export let setName: string;
-  export let config: ViewConfig = {};
+  interface Props {
+    project: Project;
+    experiment: Experiment;
+    setName: string;
+    config?: ViewConfig;
+    onunselectSet?: () => void;
+    onchangeConfig?: (config: ViewConfig) => void;
+  }
 
-  let state: "loading" | "loaded" | "error" = "loading";
+  let {
+    project,
+    experiment,
+    setName,
+    config = {},
+    onunselectSet,
+    onchangeConfig,
+  }: Props = $props();
 
-  const dispatch = createEventDispatcher();
+  let loadingState: "loading" | "loaded" | "error" = $state("loading");
 
   const unselectSet = () => {
-    dispatch("unselectSet");
+    onunselectSet?.();
   };
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-  let results: Result[];
-  let showResults = false;
-  let baselineResults: Result[];
-  let showBaselineResults = false;
-  let comparison: ComparisonByRef;
-  let masterRefs: string[] = [];
-  let filteredRefs: string[] = [];
-  let metrics: string[] = [];
-  let selectedMetrics: string[] = [];
-  let metricDefinitions: MetricDefinition[] = [];
-  let tagFilters: string = config.tags ?? "";
-  let filterFunc: Function;
+  let results: Result[] = $state();
+  let showResults = $state(false);
+  let baselineResults: Result[] = $state();
+  let showBaselineResults = $state(false);
+  let comparison: ComparisonByRef = $state();
+  let masterRefs: string[] = $state([]);
+  let filteredRefs: string[] = $state([]);
+  let metrics: string[] = $state([]);
+  let selectedMetrics: string[] = $state([]);
+  let metricDefinitions: MetricDefinition[] = $state([]);
+  let tagFilters: string = $state("");
+  let filterFunc: Function = $state();
+
+  // Pre-computed maps for O(1) lookup instead of O(n) filter in template
+  let resultsByRef: Map<string, Result[]> = $state(new Map());
+  let baselineResultsByRef: Map<string, Result[]> = $state(new Map());
+
+  // Build lookup maps when results change
+  const buildResultsMap = () => {
+    const map = new Map<string, Result[]>();
+    if (results) {
+      for (const result of results) {
+        if (!map.has(result.ref)) {
+          map.set(result.ref, []);
+        }
+        map.get(result.ref)!.push(result);
+      }
+    }
+    resultsByRef = map;
+  };
+
+  const buildBaselineResultsMap = () => {
+    const map = new Map<string, Result[]>();
+    if (baselineResults) {
+      for (const result of baselineResults) {
+        if (!map.has(result.ref)) {
+          map.set(result.ref, []);
+        }
+        map.get(result.ref)!.push(result);
+      }
+    }
+    baselineResultsByRef = map;
+  };
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -50,12 +92,12 @@
     } else {
       delete newConfig.tags;
     }
-    dispatch("changeConfig", newConfig);
+    onchangeConfig?.(newConfig);
   };
 
   const fetchComparison = async () => {
     try {
-      state = "loading";
+      loadingState = "loading";
       // get the comparison
       let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref?${tagFilters ?? ""}`;
       var response = await fetch(url);
@@ -106,42 +148,44 @@
       await tick();
       initialized = true;
 
-      state = "loaded";
+      loadingState = "loaded";
     } catch (error) {
       console.error(error);
-      state = "error";
+      loadingState = "error";
     }
   };
 
   const fetchDetails = async () => {
     try {
-      state = "loading";
+      loadingState = "loading";
       showResults = !showResults;
       if (!results) {
         let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}`;
         const response = await fetch(url);
         results = await response.json();
+        buildResultsMap();
       }
-      state = "loaded";
+      loadingState = "loaded";
     } catch (error) {
       console.error(error);
-      state = "error";
+      loadingState = "error";
     }
   };
 
   const fetchBaselineDetails = async () => {
     try {
-      state = "loading";
+      loadingState = "loading";
       showBaselineResults = !showBaselineResults;
       if (!baselineResults && comparison.experiment_baseline?.set) {
         let url = `${prefix}/api/projects/${comparison.experiment_baseline.project}/experiments/${comparison.experiment_baseline.experiment}/sets/${comparison.experiment_baseline.set}`;
         const response = await fetch(url);
         baselineResults = await response.json();
+        buildBaselineResultsMap();
       }
-      state = "loaded";
+      loadingState = "loaded";
     } catch (error) {
       console.error(error);
-      state = "error";
+      loadingState = "error";
     }
   };
 
@@ -161,13 +205,13 @@
     }
   };
 
-  const filter = async (event: CustomEvent<Function>) => {
-    state = "loading";
+  const filter = async (func: Function | undefined) => {
+    loadingState = "loading";
     await delay(0);
 
-    filterFunc = event.detail;
+    filterFunc = func;
     applyFilter();
-    state = "loaded";
+    loadingState = "loaded";
   };
 
   const setAsExperimentBaseline = async () => {
@@ -186,23 +230,31 @@
     }
   };
 
-  var confirmBaseline = false;
-  let initialized = false;
+  var confirmBaseline = $state(false);
+  let initialized = $state(false);
 
-  // Track selectedMetrics changes and emit config
-  $: if (initialized && selectedMetrics) {
+  // Called when metrics filter changes
+  const onMetricsChange = () => {
+    if (initialized) {
+      emitConfigChange();
+    }
+  };
+
+  // Called when tag filters change (via apply button in TagsFilter)
+  const onTagFiltersChange = (newTagFilters: string) => {
+    tagFilters = newTagFilters;
     emitConfigChange();
-  }
+    fetchComparison();
+  };
 
-  // Track tagFilters changes (triggered by TagsFilter apply button)
-  $: if (initialized && tagFilters !== undefined) {
-    emitConfigChange();
-  }
-
-  $: fetchComparison(), tagFilters;
+  // Initial fetch on mount
+  onMount(() => {
+    tagFilters = config.tags ?? "";
+    fetchComparison();
+  });
 </script>
 
-<button class="link" on:click={unselectSet}>back</button>
+<button class="link" onclick={unselectSet}>back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
@@ -215,7 +267,7 @@
       />
       <button
         class="link"
-        on:click={setAsExperimentBaseline}
+        onclick={setAsExperimentBaseline}
         disabled={!confirmBaseline}
       >
         set this permutation as the experiment baseline
@@ -242,20 +294,28 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="link" on:click={fetchDetails}>(toggle set iterations)</button>
-  <button class="link" on:click={fetchBaselineDetails}
+  <button class="link" onclick={fetchDetails}>(toggle set iterations)</button>
+  <button class="link" onclick={fetchBaselineDetails}
     >(toggle baseline iterations)</button
   >
 </h3>
 
 {#if comparison}
   <div class="selection">
-    <MetricsFilter {metricDefinitions} bind:selectedMetrics />
+    <MetricsFilter
+      {metricDefinitions}
+      bind:selectedMetrics
+      onchange={onMetricsChange}
+    />
     <br />
-    <TagsFilter {project} bind:querystring={tagFilters} />
+    <TagsFilter
+      {project}
+      bind:querystring={tagFilters}
+      onapply={onTagFiltersChange}
+    />
     <br />
     <FreeFilter
-      on:filter={filter}
+      onfilter={filter}
       {metrics}
       filteredCount={filteredRefs.length}
       totalCount={masterRefs.length}
@@ -263,12 +323,12 @@
   </div>
 {/if}
 
-{#if state === "loading"}
+{#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
     <img class="loading" alt="loading" src="/spinner.gif" />
   </div>
-{:else if state === "error"}
+{:else if loadingState === "error"}
   <div>Error loading data.</div>
 {:else if comparison}
   <table>
@@ -321,22 +381,21 @@
           {/each}
         </tr>
         {#if showBaselineResults && baselineResults}
-          {#each baselineResults.filter((x) => x.ref === ref) as result}
+          {#each baselineResultsByRef.get(ref) ?? [] as result}
             <tr>
               <td>
                 <nobr>Baseline / {result.set}</nobr>
                 {#if result.inference_uri}
                   <button
                     class="link"
-                    on:click={() => window.open(result.inference_uri, "_blank")}
+                    onclick={() => window.open(result.inference_uri, "_blank")}
                     >(inf)</button
                   >
                 {/if}
                 {#if result.evaluation_uri}
                   <button
                     class="link"
-                    on:click={() =>
-                      window.open(result.evaluation_uri, "_blank")}
+                    onclick={() => window.open(result.evaluation_uri, "_blank")}
                     >(eval)</button
                   >
                 {/if}
@@ -382,22 +441,21 @@
           </td>
         </tr>
         {#if showResults && results}
-          {#each results.filter((x) => x.ref === ref) as result}
+          {#each resultsByRef.get(ref) ?? [] as result}
             <tr>
               <td>
                 <nobr>Set / {result.set}</nobr>
                 {#if result.inference_uri}
                   <button
                     class="link"
-                    on:click={() => window.open(result.inference_uri, "_blank")}
+                    onclick={() => window.open(result.inference_uri, "_blank")}
                     >(inf)</button
                   >
                 {/if}
                 {#if result.evaluation_uri}
                   <button
                     class="link"
-                    on:click={() =>
-                      window.open(result.evaluation_uri, "_blank")}
+                    onclick={() => window.open(result.evaluation_uri, "_blank")}
                     >(eval)</button
                   >
                 {/if}

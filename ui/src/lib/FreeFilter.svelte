@@ -1,17 +1,24 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
-  const dispatch = createEventDispatcher();
+  interface Props {
+    metrics: string[];
+    filteredCount?: number;
+    totalCount?: number;
+    onfilter?: (func: Function | undefined) => void;
+  }
 
-  export let metrics: string[];
-  export let filteredCount: number = 0;
-  export let totalCount: number = 0;
+  let {
+    metrics,
+    filteredCount = 0,
+    totalCount = 0,
+    onfilter,
+  }: Props = $props();
 
   let buttonId = crypto.randomUUID();
-  let filter: string;
+  let filter: string = $state("");
 
   function apply() {
     if (!filter) {
-      dispatch("filter", undefined);
+      onfilter?.(undefined);
       return;
     }
 
@@ -21,11 +28,11 @@
       funcstr = funcstr
         .replace(
           new RegExp(`\\[baseline.${metric}\\]`, "gi"),
-          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : null)`
+          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : undefined)`
         )
         .replace(
           new RegExp(`\\[${metric}\\]`, "gi"),
-          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : null)`
+          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : undefined)`
         );
     }
     funcstr = funcstr.replace(/ref /gi, "result.ref");
@@ -36,7 +43,7 @@
       "result",
       `try { return ${funcstr}; } catch (e) { console.warn("filter: " + e); return false; }`
     );
-    dispatch("filter", func);
+    onfilter?.(func);
   }
 
   function clear() {
@@ -48,8 +55,8 @@
 <div class="top">
   <label for={buttonId}>filter:</label>
   <textarea id={buttonId} bind:value={filter}></textarea>
-  <button on:click={apply}>Apply</button>
-  <button on:click={clear}>Clear</button>
+  <button onclick={apply}>Apply</button>
+  <button onclick={clear}>Clear</button>
   <span class="count">{filteredCount} of {totalCount}</span>
 </div>
 

@@ -1,22 +1,49 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import ComparisonTable from "./ComparisonTable.svelte";
-  import { createEventDispatcher } from "svelte";
   import type { ViewConfig } from "./Tools";
 
-  export let project: Project;
-  export let experiment: Experiment;
-  export let setList: string;
-  export let config: ViewConfig = {};
+  interface Props {
+    project: Project;
+    experiment: Experiment;
+    setList: string;
+    config?: ViewConfig;
+    onunselectExperiment?: () => void;
+    onselectSet?: (set: string) => void;
+    onchangeSetList?: (setList: string) => void;
+    onchangeConfig?: (config: ViewConfig) => void;
+  }
 
-  const dispatch = createEventDispatcher();
+  let {
+    project,
+    experiment,
+    setList = $bindable(),
+    config = {},
+    onunselectExperiment,
+    onselectSet,
+    onchangeSetList,
+    onchangeConfig,
+  }: Props = $props();
 
-  // Local state initialized from config
-  let checked: string = config.checked_metrics ?? "";
-  let tags: string = config.tags ?? "";
-  let showActualValue: boolean = config.show_val ?? true;
-  let showStdDev: boolean = config.show_std ?? true;
-  let showCount: boolean = config.show_cnt ?? true;
-  let showStatistics: boolean = config.show_stats ?? true;
+  // Local state initialized from config (set in onMount to avoid warnings)
+  let checked: string = $state("");
+  let tags: string = $state("");
+  let showActualValue: boolean = $state(true);
+  let showStdDev: boolean = $state(true);
+  let showCount: boolean = $state(true);
+  let showStatistics: boolean = $state(true);
+  let ready: boolean = $state(false);
+
+  // Initialize from config on mount
+  onMount(() => {
+    checked = config.checked_metrics ?? "";
+    tags = config.tags ?? "";
+    showActualValue = config.show_val ?? true;
+    showStdDev = config.show_std ?? true;
+    showCount = config.show_cnt ?? true;
+    showStatistics = config.show_stats ?? true;
+    ready = true;
+  });
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -51,28 +78,28 @@
     } else {
       delete newConfig.show_stats;
     }
-    dispatch("changeConfig", newConfig);
+    onchangeConfig?.(newConfig);
   };
 
   const unselectExperiment = () => {
-    dispatch("unselectExperiment");
+    onunselectExperiment?.();
   };
 
-  const selectSet = (event: CustomEvent<string>) => {
-    dispatch("selectSet", event.detail);
+  const selectSet = (set: string) => {
+    onselectSet?.(set);
   };
 
-  const changeSetList = (event: CustomEvent<string>) => {
-    dispatch("changeSetList", event.detail);
+  const changeSetList = (newSetList: string) => {
+    onchangeSetList?.(newSetList);
   };
 
-  const changeChecked = (event: CustomEvent<string>) => {
-    checked = event.detail;
+  const changeChecked = (newChecked: string) => {
+    checked = newChecked;
     emitConfigChange();
   };
 
-  const changeTags = (event: CustomEvent<string>) => {
-    tags = event.detail;
+  const changeTags = (newTags: string) => {
+    tags = newTags;
     emitConfigChange();
   };
 
@@ -131,14 +158,14 @@
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-  let confirmUseTheProjectBaseline = false;
-  let confirmSetAsProjectBaseline = false;
-  let confirmComputeStatistics = false;
-  let comparisonTable: ComparisonTable;
-  let statisticsOpen = false;
+  let confirmUseTheProjectBaseline = $state(false);
+  let confirmSetAsProjectBaseline = $state(false);
+  let confirmComputeStatistics = $state(false);
+  let comparisonTable: ComparisonTable | undefined = $state();
+  let statisticsOpen = $state(false);
 </script>
 
-<button class="link" on:click={unselectExperiment}>back</button>
+<button class="link" onclick={unselectExperiment}>back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div>
@@ -151,7 +178,7 @@
       />
       <button
         class="link"
-        on:click={useTheProjectBaseline}
+        onclick={useTheProjectBaseline}
         disabled={!confirmUseTheProjectBaseline}
       >
         use the project baseline
@@ -169,7 +196,7 @@
       />
       <button
         class="link"
-        on:click={setAsProjectBaseline}
+        onclick={setAsProjectBaseline}
         disabled={!confirmSetAsProjectBaseline}
       >
         set this experiment as the project baseline
@@ -187,7 +214,7 @@
       />
       <button
         class="link"
-        on:click={computeStatistics}
+        onclick={computeStatistics}
         disabled={!confirmComputeStatistics}
       >
         compute statistics for this experiment
@@ -222,7 +249,7 @@
 <div class="statistics-row">
   <button
     class="label statistics-label"
-    on:click={() => (statisticsOpen = !statisticsOpen)}>Statistics:</button
+    onclick={() => (statisticsOpen = !statisticsOpen)}>Statistics:</button
   >
   <span
     >The p-value is the probability of seeing results this extreme by chance
@@ -279,7 +306,7 @@
     <input
       type="checkbox"
       bind:checked={showActualValue}
-      on:change={onToggleChange}
+      onchange={onToggleChange}
     />
     Actual Value
   </label>
@@ -287,23 +314,19 @@
     <input
       type="checkbox"
       bind:checked={showStdDev}
-      on:change={onToggleChange}
+      onchange={onToggleChange}
     />
     Std Dev
   </label>
   <label>
-    <input
-      type="checkbox"
-      bind:checked={showCount}
-      on:change={onToggleChange}
-    />
+    <input type="checkbox" bind:checked={showCount} onchange={onToggleChange} />
     Count
   </label>
   <label>
     <input
       type="checkbox"
       bind:checked={showStatistics}
-      on:change={onToggleChange}
+      onchange={onToggleChange}
     />
     Statistics
   </label>
@@ -318,22 +341,29 @@
 {/if}
 
 <div class="table">
-  <ComparisonTable
-    {project}
-    {experiment}
-    {setList}
-    {checked}
-    initialTags={tags}
-    {showActualValue}
-    {showStdDev}
-    {showCount}
-    {showStatistics}
-    bind:this={comparisonTable}
-    on:drilldown={selectSet}
-    on:changeSetList={changeSetList}
-    on:changeChecked={changeChecked}
-    on:changeTags={changeTags}
-  />
+  {#if ready}
+    <ComparisonTable
+      {project}
+      {experiment}
+      {setList}
+      {checked}
+      initialTags={tags}
+      {showActualValue}
+      {showStdDev}
+      {showCount}
+      {showStatistics}
+      bind:this={comparisonTable}
+      ondrilldown={selectSet}
+      onchangeSetList={changeSetList}
+      onchangeChecked={changeChecked}
+      onchangeTags={changeTags}
+    />
+  {:else}
+    <div>Loading...</div>
+    <div>
+      <img class="loading" alt="loading" src="/spinner.gif" />
+    </div>
+  {/if}
 </div>
 
 <style>
