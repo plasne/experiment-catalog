@@ -11,15 +11,15 @@
   import ProjectsList from "./lib/ProjectsList.svelte";
   import { onMount } from "svelte";
 
-  let state: "loading" | "loaded" | "error" = "loading";
-  let project: Project;
-  let experiment: Experiment;
-  let setList: string;
-  let setName: string;
-  let config: ViewConfig = {};
+  let loadingState: "loading" | "loaded" | "error" = $state("loading");
+  let project: Project = $state();
+  let experiment: Experiment = $state();
+  let setList: string = $state();
+  let setName: string = $state();
+  let config: ViewConfig = $state({});
 
-  const selectProject = (event: CustomEvent<Project>) => {
-    project = event.detail;
+  const selectProject = (selectedProject: Project) => {
+    project = selectedProject;
     updateURL(project.name);
   };
 
@@ -29,8 +29,8 @@
     updateURL();
   };
 
-  const selectExperiment = (event: CustomEvent<Experiment>) => {
-    experiment = event.detail;
+  const selectExperiment = (selectedExperiment: Experiment) => {
+    experiment = selectedExperiment;
     updateURL(project.name, experiment.name);
   };
 
@@ -40,23 +40,28 @@
     updateURL(project.name);
   };
 
-  const selectSet = (event: CustomEvent<string>) => {
-    setName = event.detail;
+  const selectSet = (selectedSet: string) => {
+    setName = selectedSet;
     updateURL(project.name, experiment.name, `set:${setName}`, config);
   };
 
   const unselectSet = () => {
     setName = undefined;
-    updateURL(project.name, experiment.name);
+    updateURL(
+      project.name,
+      experiment.name,
+      setList ? `sets:${setList}` : null,
+      config
+    );
   };
 
-  const changeSetList = (event: CustomEvent<string>) => {
-    setList = event.detail;
+  const changeSetList = (newSetList: string) => {
+    setList = newSetList;
     updateURL(project.name, experiment.name, `sets:${setList}`, config);
   };
 
-  const changeConfig = (event: CustomEvent<ViewConfig>) => {
-    config = event.detail;
+  const changeConfig = (newConfig: ViewConfig) => {
+    config = newConfig;
     if (setName) {
       updateURL(project.name, experiment.name, `set:${setName}`, config);
     } else if (setList) {
@@ -110,22 +115,22 @@
       config = {};
     }
 
-    state = "loaded";
+    loadingState = "loaded";
   }
 
   onMount(parseQueryString);
 </script>
 
 <main>
-  {#if state === "loading"}
+  {#if loadingState === "loading"}
     <div>Loading...</div>
     <div>
       <img class="loading" alt="loading" src="/spinner.gif" />
     </div>
   {:else if project && experiment && setName}
     <SetPage
-      on:unselectSet={unselectSet}
-      on:changeConfig={changeConfig}
+      onunselectSet={unselectSet}
+      onchangeConfig={changeConfig}
       {project}
       {experiment}
       {setName}
@@ -133,10 +138,10 @@
     />
   {:else if project && experiment}
     <ExperimentPage
-      on:unselectExperiment={unselectExperiment}
-      on:selectSet={selectSet}
-      on:changeSetList={changeSetList}
-      on:changeConfig={changeConfig}
+      onunselectExperiment={unselectExperiment}
+      onselectSet={selectSet}
+      onchangeSetList={changeSetList}
+      onchangeConfig={changeConfig}
       {project}
       {experiment}
       {setList}
@@ -144,11 +149,11 @@
     />
   {:else if project}
     <ExperimentsList
-      on:select={selectExperiment}
-      on:unselectProject={unselectProject}
+      onselect={selectExperiment}
+      onunselectProject={unselectProject}
       {project}
     />
   {:else}
-    <ProjectsList on:select={selectProject} />
+    <ProjectsList onselect={selectProject} />
   {/if}
 </main>

@@ -1,33 +1,40 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { onMount } from "svelte";
   import ProjectCard from "./ProjectCard.svelte";
   import CreateProjectModal from "./CreateProjectModal.svelte";
 
-  let projects: Project[] = [];
-  let state: "loading" | "loaded" | "error" = "loading";
-  let showCreateModal = false;
-  let createError = "";
+  interface Props {
+    onselect?: (project: Project) => void;
+  }
+
+  let { onselect }: Props = $props();
+
+  let projects: Project[] = $state([]);
+  let loadingState: "loading" | "loaded" | "error" = $state("loading");
+  let showCreateModal = $state(false);
+  let createError = $state("");
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-  const dispatch = createEventDispatcher();
 
   const fetchProjects = async () => {
     try {
-      state = "loading";
+      loadingState = "loading";
       const response = await fetch(`${prefix}/api/projects`);
       projects = await response.json();
-      state = "loaded";
+      loadingState = "loaded";
     } catch (error) {
       console.error(error);
-      state = "error";
+      loadingState = "error";
     }
   };
 
-  $: fetchProjects();
+  onMount(() => {
+    fetchProjects();
+  });
 
-  const select = (event: CustomEvent<Project>) => {
-    dispatch("select", event.detail);
+  const select = (project: Project) => {
+    onselect?.(project);
   };
 
   const openCreateModal = () => {
@@ -35,8 +42,8 @@
     showCreateModal = true;
   };
 
-  const handleCreateSubmit = async (event: CustomEvent<{ name: string }>) => {
-    const { name } = event.detail;
+  const handleCreateSubmit = async (event: { name: string }) => {
+    const { name } = event;
     createError = "";
     try {
       const response = await fetch(`${prefix}/api/projects`, {
@@ -67,20 +74,20 @@
 
 <h1>Projects</h1>
 <div class="actions">
-  <button class="link" on:click={openCreateModal}>+ create project</button>
+  <button class="link" onclick={openCreateModal}>+ create project</button>
 </div>
 
-{#if state === "loading"}
+{#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
     <img class="loading" alt="loading" src="/spinner.gif" />
   </div>
-{:else if state === "error"}
+{:else if loadingState === "error"}
   <div>Error loading experiments.</div>
 {:else}
   <div class="flex-container">
     {#each projects as project (project.name)}
-      <ProjectCard on:select={select} {project} />
+      <ProjectCard onselect={select} {project} />
     {/each}
   </div>
 {/if}
@@ -88,8 +95,8 @@
 <CreateProjectModal
   isOpen={showCreateModal}
   error={createError}
-  on:submit={handleCreateSubmit}
-  on:cancel={handleCreateCancel}
+  onsubmit={handleCreateSubmit}
+  oncancel={handleCreateCancel}
 />
 
 <style>

@@ -1,36 +1,56 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
+  import { onMount } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import { sortMetrics } from "./Tools";
 
-  export let project: Project;
-  export let experiment: Experiment;
-  export let setList: string;
-  export let checked: string;
-  export let initialTags: string = "";
-  export let showActualValue: boolean = true;
-  export let showStdDev: boolean = true;
-  export let showCount: boolean = true;
-  export let showStatistics: boolean = true;
+  interface Props {
+    project: Project;
+    experiment: Experiment;
+    setList: string;
+    checked: string;
+    initialTags?: string;
+    showActualValue?: boolean;
+    showStdDev?: boolean;
+    showCount?: boolean;
+    showStatistics?: boolean;
+    ondrilldown?: (set: string) => void;
+    onchangeSetList?: (setList: string) => void;
+    onchangeChecked?: (checked: string) => void;
+    onchangeTags?: (tags: string) => void;
+  }
 
-  let state: "loading" | "loaded" | "error" = "loading";
-  let compareCount = 3;
-  let controls = [];
-  let selected: ComparisonEntity[];
-  let metricsHighlighted: Set<string>;
+  let {
+    project,
+    experiment,
+    setList = $bindable(),
+    checked,
+    initialTags = "",
+    showActualValue = true,
+    showStdDev = true,
+    showCount = true,
+    showStatistics = true,
+    ondrilldown,
+    onchangeSetList,
+    onchangeChecked,
+    onchangeTags,
+  }: Props = $props();
 
-  const dispatch = createEventDispatcher();
+  let loadingState: "loading" | "loaded" | "error" = $state("loading");
+  let compareCount = $state(3);
+  let controls: ComparisonTableMetric[] = $state([]);
+  let selected: ComparisonEntity[] = $state();
+  let metricsHighlighted: Set<string> = $state();
 
-  const drilldown = (event: CustomEvent<string>) => {
-    dispatch("drilldown", event.detail);
+  const drilldown = (set: string) => {
+    ondrilldown?.(set);
   };
 
   const updateSetList = () => {
     if (!selected) return;
     setList = selected.map((result) => result?.set).join(",");
-    dispatch("changeSetList", setList);
+    onchangeSetList?.(setList);
   };
 
   const toggleRowCheck = (metric: string) => {
@@ -43,8 +63,8 @@
       metricsHighlighted.add(metric);
       metricsHighlighted = metricsHighlighted; // trigger reactivity
     }
-    checked = Array.from(metricsHighlighted).join(",");
-    dispatch("changeChecked", checked);
+    const newChecked = Array.from(metricsHighlighted).join(",");
+    onchangeChecked?.(newChecked);
   };
 
   const applySetList = () => {
@@ -70,22 +90,18 @@
     updateSetList();
   };
 
-  const select = (
-    event: CustomEvent<{ index: number; entity: ComparisonEntity }>
-  ) => {
-    selected[event.detail.index] = event.detail.entity;
+  const select = (event: { index: number; entity: ComparisonEntity }) => {
+    selected[event.index] = event.entity;
     updateSetList();
   };
 
-  const addAnnotation = async (
-    event: CustomEvent<{
-      set: string;
-      annotation: Annotation;
-      project: string;
-      experiment: string;
-    }>
-  ) => {
-    const { set, annotation, project: proj, experiment: exp } = event.detail;
+  const addAnnotation = async (event: {
+    set: string;
+    annotation: Annotation;
+    project: string;
+    experiment: string;
+  }) => {
+    const { set, annotation, project: proj, experiment: exp } = event;
     try {
       const response = await fetch(
         `${prefix}/api/projects/${proj}/experiments/${exp}/results`,
@@ -118,19 +134,21 @@
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-  let comparison: Comparison;
-  let metrics: string[] = [];
-  let tagFilters: string = initialTags;
-  let initialized = false;
+  let comparison: Comparison = $state();
+  let metrics: string[] = $state([]);
+  let tagFilters: string = $state("");
+  let initialized = $state(false);
 
-  // Emit tag changes after initialization
-  $: if (initialized && tagFilters !== undefined) {
-    dispatch("changeTags", tagFilters);
-  }
+  // Emit tag changes only when user changes tags (not on initialization)
+  const emitTagChange = (newTags: string) => {
+    if (initialized) {
+      onchangeTags?.(newTags);
+    }
+  };
 
   const fetchComparison = async () => {
     try {
-      state = "loading";
+      loadingState = "loading";
 
       // fetch comparison
       const response = await fetch(
@@ -165,10 +183,10 @@
       }
 
       initialized = true;
-      state = "loaded";
+      loadingState = "loaded";
     } catch (error) {
       console.error(error);
-      state = "error";
+      loadingState = "error";
     }
   };
 
@@ -176,14 +194,29 @@
     fetchComparison();
   }
 
-  $: fetchComparison(), tagFilters;
+  // Called when tag filters change (via apply button in TagsFilter)
+  const onTagFiltersApply = (newTagFilters: string) => {
+    tagFilters = newTagFilters;
+    emitTagChange(newTagFilters);
+    fetchComparison();
+  };
+
+  // Initialize and fetch on mount
+  onMount(() => {
+    tagFilters = initialTags;
+    fetchComparison();
+  });
 </script>
 
 {#if comparison}
   <div class="selection">
-    <TagsFilter {project} bind:querystring={tagFilters} />
+    <TagsFilter
+      {project}
+      bind:querystring={tagFilters}
+      onapply={onTagFiltersApply}
+    />
     <span>show at least</span>
-    <select bind:value={compareCount} on:change={applySetList}>
+    <select bind:value={compareCount} onchange={applySetList}>
       <option value={1}>1</option>
       <option value={2}>2</option>
       <option value={3}>3</option>
@@ -199,16 +232,16 @@
       <option value={100}>100</option>
     </select>
     <span>of {comparison.sets?.length} permutations</span>
-    <button class="link" on:click={selectLastSets}>(show last)</button>
+    <button class="link" onclick={selectLastSets}>(show last)</button>
   </div>
 {/if}
 
-{#if state === "loading"}
+{#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
     <img class="loading" alt="loading" src="/spinner.gif" />
   </div>
-{:else if state === "error"}
+{:else if loadingState === "error"}
   <div>Error loading comparison.</div>
 {:else if comparison}
   <table>
@@ -221,7 +254,7 @@
             title="Project Baseline"
             entity={comparison.project_baseline}
             clickable={false}
-            on:addAnnotation={addAnnotation}
+            onaddAnnotation={addAnnotation}
           />
         </th>
         <th>
@@ -229,7 +262,7 @@
             title="Experiment Baseline"
             entity={comparison.experiment_baseline}
             clickable={false}
-            on:addAnnotation={addAnnotation}
+            onaddAnnotation={addAnnotation}
           />
         </th>
         {#each selected as entity, index}
@@ -239,9 +272,9 @@
               title=""
               {entity}
               entities={comparison.sets}
-              on:drilldown={drilldown}
-              on:select={select}
-              on:addAnnotation={addAnnotation}
+              ondrilldown={drilldown}
+              onselect={select}
+              onaddAnnotation={addAnnotation}
             />
           </th>
         {/each}
@@ -254,7 +287,7 @@
             <input
               type="checkbox"
               checked={metricsHighlighted?.has(metric)}
-              on:change={() => toggleRowCheck(metric)}
+              onchange={() => toggleRowCheck(metric)}
             />
           </td>
           <td class="label">{metric}</td>

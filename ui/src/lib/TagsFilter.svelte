@@ -1,15 +1,21 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import TriStateCheckboxes from "./TriStateCheckboxes.svelte";
 
-  export let project: Project;
-  export let querystring: string;
+  interface Props {
+    project: Project;
+    querystring?: string;
+    onapply?: (querystring: string) => void;
+  }
+
+  let { project, querystring = $bindable(), onapply }: Props = $props();
 
   let prefix =
     window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-  let tags: string[] = [];
-  let yes: Set<string> = new Set();
-  let no: Set<string> = new Set();
-  let isCollapsed = true;
+  let tags: string[] = $state([]);
+  let yes: Set<string> = $state(new Set());
+  let no: Set<string> = $state(new Set());
+  let isCollapsed = $state(true);
 
   // Parse querystring to initialize yes/no sets
   function parseQuerystring() {
@@ -54,16 +60,19 @@
     ]
       .filter((s) => s)
       .join("&");
+    onapply?.(querystring);
   }
 
-  $: selectedCount = (yes?.size || 0) + (no?.size || 0);
+  let selectedCount = $derived((yes?.size || 0) + (no?.size || 0));
 
-  $: fetchTags();
+  onMount(() => {
+    fetchTags();
+  });
 </script>
 
 <div class="checkbox-container">
   {#if tags.length > 10}
-    <button class="link" on:click={() => (isCollapsed = !isCollapsed)}>
+    <button class="link" onclick={() => (isCollapsed = !isCollapsed)}>
       tags ({selectedCount}/{tags.length})
     </button>
   {:else}
@@ -71,7 +80,7 @@
   {/if}
   {#if tags.length <= 10 || !isCollapsed}
     <TriStateCheckboxes bind:yes bind:no options={tags} />
-    <button class="apply" on:click={apply}>apply</button>
+    <button class="apply" onclick={apply}>apply</button>
   {/if}
 </div>
 

@@ -1,12 +1,23 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
-  const dispatch = createEventDispatcher();
+  interface Props {
+    label: string;
+    initialState?: "include" | "exclude" | "neither";
+    onchange?: (detail: {
+      label: string;
+      state: "include" | "exclude" | "neither";
+    }) => void;
+  }
 
-  export let label: string;
-  export let initialState: "include" | "exclude" | "neither" = "neither";
+  let { label, initialState = "neither", onchange }: Props = $props();
 
-  let state: "include" | "exclude" | "neither" = initialState;
-  let buttonId = crypto.randomUUID();
+  let state: "include" | "exclude" | "neither" = $state("neither");
+  // Generate stable ID once per component instance
+  const buttonId = crypto.randomUUID();
+
+  // Sync state when initialState prop changes
+  $effect(() => {
+    state = initialState;
+  });
 
   function toggle() {
     switch (state) {
@@ -20,14 +31,18 @@
         state = "neither";
         break;
     }
-    dispatch("change", { label, state });
+    onchange?.({ label, state });
   }
 </script>
 
 <nobr>
-  <button id={buttonId} class="checkbox-wrapper {state}" on:click={toggle}
+  <button
+    id={buttonId}
+    class="checkbox-wrapper {state}"
+    onclick={toggle}
+    aria-labelledby="label-{buttonId}"
   ></button>
-  <label for={buttonId}>{label}</label> ;
+  <label id="label-{buttonId}" for={buttonId}>{label}</label> ;
 </nobr>
 
 <style>

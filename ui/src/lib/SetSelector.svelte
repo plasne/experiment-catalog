@@ -1,12 +1,16 @@
 <script lang="ts">
-  import { createEventDispatcher, tick } from "svelte";
+  import { tick } from "svelte";
 
-  export let entity: ComparisonEntity;
-  export let entities: ComparisonEntity[] = [];
+  interface Props {
+    entity: ComparisonEntity;
+    entities?: ComparisonEntity[];
+    onselect?: (entity: ComparisonEntity) => void;
+  }
 
-  const dispatch = createEventDispatcher();
-  let isOpen = false;
-  let dropdownMenu: HTMLElement;
+  let { entity = $bindable(), entities = [], onselect }: Props = $props();
+
+  let isOpen = $state(false);
+  let dropdownMenu: HTMLElement | undefined = $state();
 
   const toggleDropdown = async () => {
     isOpen = !isOpen;
@@ -22,7 +26,7 @@
   const select = (selected: ComparisonEntity) => {
     entity = selected;
     isOpen = false;
-    dispatch("select", selected);
+    onselect?.(selected);
   };
 
   function clickOutside(node: HTMLElement) {
@@ -43,7 +47,7 @@
 </script>
 
 <div class="dropdown-container" use:clickOutside>
-  <button class="dropdown-header" on:click={toggleDropdown}
+  <button class="dropdown-header" onclick={toggleDropdown}
     >{entity ? entity.set : "None"}</button
   >
   {#if isOpen}
@@ -51,7 +55,7 @@
       <button
         class="dropdown-button"
         class:selected={!entity}
-        on:click={() => select(null)}
+        onclick={() => select(null)}
       >
         <div class="dropdown-item">
           <div class="title">None</div>
@@ -61,7 +65,7 @@
         <button
           class="dropdown-button"
           class:selected={entity === e}
-          on:click={() => select(e)}
+          onclick={() => select(e)}
         >
           <div class="dropdown-item">
             <div class="title">{e.set}</div>

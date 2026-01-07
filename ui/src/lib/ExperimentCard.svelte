@@ -1,16 +1,18 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { createEventDispatcher } from "svelte";
 
-  export let experiment: Experiment;
+  interface Props {
+    experiment: Experiment;
+    onselect?: (experiment: Experiment) => void;
+  }
 
-  let titleRef;
-  let cardRef;
+  let { experiment, onselect }: Props = $props();
 
-  const dispatch = createEventDispatcher();
+  let titleRef: HTMLElement;
+  let cardRef: HTMLElement;
 
   const select = () => {
-    dispatch("select", experiment);
+    onselect?.(experiment);
   };
 
   onMount(() => {
@@ -23,12 +25,12 @@
 </script>
 
 <div class="title" bind:this={titleRef}>
-  <button class="link" on:click={select}>{experiment.name}</button>
+  <button class="link" onclick={select}>{experiment.name}</button>
 </div>
 
 <div class="card" bind:this={cardRef}>
   <div class="title">
-    <button class="link" on:click={select}>{experiment.name}</button>
+    <button class="link" onclick={select}>{experiment.name}</button>
   </div>
   <div class="hypothesis"><b>Hypothesis:</b> {experiment.hypothesis}</div>
 </div>

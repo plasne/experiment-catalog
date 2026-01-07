@@ -1,8 +1,17 @@
 <script lang="ts">
-  export let metricDefinitions: MetricDefinition[] = [];
-  export let selectedMetrics: string[] = [];
+  interface Props {
+    metricDefinitions?: MetricDefinition[];
+    selectedMetrics?: string[];
+    onchange?: () => void;
+  }
 
-  let isCollapsed = true;
+  let {
+    metricDefinitions = [],
+    selectedMetrics = $bindable([]),
+    onchange,
+  }: Props = $props();
+
+  let isCollapsed = $state(true);
 
   // Extract prefix from metric name (before first _ or -)
   function getPrefix(name: string): string {
@@ -11,7 +20,7 @@
   }
 
   // Group metrics by prefix
-  $: prefixes = (() => {
+  let prefixes = $derived.by(() => {
     const map = new Map<string, string[]>();
     for (const def of metricDefinitions) {
       const prefix = getPrefix(def.name);
@@ -21,14 +30,22 @@
       map.get(prefix)!.push(def.name);
     }
     return map;
-  })();
+  });
 
-  // Initialize selectedMetrics based on count
-  $: if (metricDefinitions.length > 0 && selectedMetrics.length === 0) {
-    if (metricDefinitions.length <= 10) {
-      selectedMetrics = metricDefinitions.map((d) => d.name);
+  // Initialize selectedMetrics based on count (only once when metrics first arrive)
+  let metricsInitialized = false;
+  $effect(() => {
+    if (
+      !metricsInitialized &&
+      metricDefinitions.length > 0 &&
+      selectedMetrics.length === 0
+    ) {
+      metricsInitialized = true;
+      if (metricDefinitions.length <= 10) {
+        selectedMetrics = metricDefinitions.map((d) => d.name);
+      }
     }
-  }
+  });
 
   function toggleMetric(metric: string) {
     if (selectedMetrics.includes(metric)) {
@@ -36,6 +53,7 @@
     } else {
       selectedMetrics = [...selectedMetrics, metric];
     }
+    onchange?.();
   }
 
   function togglePrefix(prefix: string) {
@@ -55,12 +73,13 @@
       }
       selectedMetrics = [...newSelected];
     }
+    onchange?.();
   }
 </script>
 
 <div class="metrics-filter">
   {#if metricDefinitions.length > 10}
-    <button class="link" on:click={() => (isCollapsed = !isCollapsed)}>
+    <button class="link" onclick={() => (isCollapsed = !isCollapsed)}>
       metrics ({selectedMetrics.length}/{metricDefinitions.length})
     </button>
   {:else}
@@ -70,9 +89,8 @@
     <div class="prefix-groups">
       {#each [...prefixes.entries()] as [prefix, metricsInPrefix]}
         <div class="prefix-group">
-          <button
-            class="link prefix-label"
-            on:click={() => togglePrefix(prefix)}>{prefix}</button
+          <button class="link prefix-label" onclick={() => togglePrefix(prefix)}
+            >{prefix}</button
           >
           <div class="metrics-list">
             {#each metricsInPrefix as metric}
@@ -80,7 +98,7 @@
                 <input
                   type="checkbox"
                   checked={selectedMetrics.includes(metric)}
-                  on:change={() => toggleMetric(metric)}
+                  onchange={() => toggleMetric(metric)}
                   id="metric-{metric}"
                 />
                 <label for="metric-{metric}">{metric}</label>

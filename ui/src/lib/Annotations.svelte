@@ -1,5 +1,9 @@
 <script lang="ts">
-  export let entity: ComparisonEntity;
+  interface Props {
+    entity: ComparisonEntity;
+  }
+
+  let { entity }: Props = $props();
 </script>
 
 {#if entity && entity.result?.annotations}
