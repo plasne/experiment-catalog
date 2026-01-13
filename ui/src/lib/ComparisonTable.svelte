@@ -57,11 +57,11 @@
     if (!metricsHighlighted) {
       metricsHighlighted = new Set<string>([metric]);
     } else if (metricsHighlighted.has(metric)) {
-      metricsHighlighted.delete(metric);
-      metricsHighlighted = metricsHighlighted; // trigger reactivity
+      const newSet = new Set(metricsHighlighted);
+      newSet.delete(metric);
+      metricsHighlighted = newSet;
     } else {
-      metricsHighlighted.add(metric);
-      metricsHighlighted = metricsHighlighted; // trigger reactivity
+      metricsHighlighted = new Set([...metricsHighlighted, metric]);
     }
     const newChecked = Array.from(metricsHighlighted).join(",");
     onchangeChecked?.(newChecked);

@@ -18,23 +18,26 @@
     state: "include" | "exclude" | "neither";
   }) {
     const { label, state } = event;
+    // Create new Sets to trigger Svelte reactivity properly
+    const newYes = new Set(yes);
+    const newNo = new Set(no);
     switch (state) {
       case "include":
-        yes.add(label);
-        no.delete(label);
+        newYes.add(label);
+        newNo.delete(label);
         break;
       case "exclude":
-        no.add(label);
-        yes.delete(label);
+        newNo.add(label);
+        newYes.delete(label);
         break;
       case "neither":
-        yes.delete(label);
-        no.delete(label);
+        newYes.delete(label);
+        newNo.delete(label);
         break;
     }
-    // Reassign to trigger Svelte reactivity
-    yes = yes;
-    no = no;
+    // Assign new Set instances to trigger reactivity
+    yes = newYes;
+    no = newNo;
   }
 </script>
 
