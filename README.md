@@ -14,9 +14,9 @@ The Experiment Catalog is designed for teams running iterative experiments—par
 
 There are some videos you can watch:
 
-- [Installation](https://youtu.be/KHsnsHpdq00?si=XsN7gJrInF1GvrO-)
-- [Usage](https://youtu.be/CFwjwU7okl0?si=007W84sZ3tyVRWI6)
-- [Configuration](https://youtu.be/-ZjgL27pGNk?si=WFFrDMWxGrQK3EZn)
+- [Installation](https://youtu.be/KHsnsHpdq00?si=XsN7gJrInF1GvrO-).............6:08
+- [Usage](https://youtu.be/CFwjwU7okl0?si=007W84sZ3tyVRWI6)..................30:56
+- [Configuration](https://youtu.be/-ZjgL27pGNk?si=WFFrDMWxGrQK3EZn).......16:36
 
 ## Architecture
 
