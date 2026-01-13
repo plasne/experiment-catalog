@@ -12,6 +12,12 @@ The Experiment Catalog is designed for teams running iterative experiments—par
 - Filter and drill down into specific ground-truth results
 - Annotate experiments with links to commits, configurations, or documentation
 
+There are some videos you can watch:
+
+- [Installation](https://youtu.be/KHsnsHpdq00?si=XsN7gJrInF1GvrO-)
+- [Usage](https://youtu.be/CFwjwU7okl0?si=007W84sZ3tyVRWI6)
+- [Configuration](https://youtu.be/-ZjgL27pGNk?si=WFFrDMWxGrQK3EZn)
+
 ## Architecture
 
 The application consists of several main components:
