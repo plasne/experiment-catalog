@@ -4,11 +4,12 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Client.Extensions.Msal;
+using NetBricks;
 
 namespace Catalog;
 
 public class AzureBlobStorageMaintenanceService(
-    IConfig config,
+    IConfigFactory<IConfig> configFactory,
     IStorageService storageService,
     ILogger<AzureBlobStorageMaintenanceService> logger
 ) : BackgroundService
@@ -21,6 +22,7 @@ public class AzureBlobStorageMaintenanceService(
             logger.LogInformation("AzureBlobStorageMaintenanceService is disabled because the storage service is not AzureBlobStorageService.");
             return;
         }
+        var config = await configFactory.GetAsync(stoppingToken);
         if (config.AZURE_STORAGE_OPTIMIZE_EVERY_X_MINUTES <= 0
             && config.AZURE_STORAGE_CACHE_CLEANUP_EVERY_X_MINUTES <= 0)
         {

@@ -10,7 +10,7 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG TARGETARCH
 LABEL stage=build
 WORKDIR /api
-COPY api .
+COPY catalog .
 RUN mkdir -p wwwroot/
 COPY --from=ui-build /ui/dist/ ./wwwroot/
 RUN dotnet publish -c Release -o out -a $TARGETARCH

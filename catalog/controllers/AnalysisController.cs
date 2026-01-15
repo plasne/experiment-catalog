@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure;
 using Microsoft.AspNetCore.Mvc;
+using NetBricks;
 
 namespace Catalog;
 
@@ -26,7 +27,6 @@ public class AnalysisController : ControllerBase
 
     [HttpPost("meaningful-tags")]
     public async Task<IActionResult> MeaningfulTags(
-        [FromServices] IConfig config,
         [FromServices] IStorageService storageService,
         [FromBody] MeaningfulTagsRequest request,
         CancellationToken cancellationToken)

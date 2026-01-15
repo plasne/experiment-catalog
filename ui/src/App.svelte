@@ -12,11 +12,61 @@
   import { onMount } from "svelte";
 
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
+  let authRequired: boolean = $state(false);
   let project: Project = $state();
   let experiment: Experiment = $state();
   let setList: string = $state();
   let setName: string = $state();
   let config: ViewConfig = $state({});
+
+  function getCookie(name: string): string | null {
+    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+    return match ? match[2] : null;
+  }
+
+  function setCookie(name: string, value: string, days: number = 1): void {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = `${name}=${value}; expires=${expires}; path=/`;
+  }
+
+  let prefix =
+    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
+
+  async function checkAuth(): Promise<boolean> {
+    // If we've previously determined auth is not required, skip the check
+    if (getCookie("auth_not_required") === "true") {
+      return true;
+    }
+
+    // Check with the server if auth is required
+    try {
+      const response = await fetch(`${prefix}/auth/status`, {
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (data.username) {
+        // User is authenticated, no need to show login
+        return true;
+      }
+      if (data.is_required) {
+        authRequired = true;
+        return false;
+      } else {
+        // Auth is not required, cache this so we don't call again
+        setCookie("auth_not_required", "true", 1);
+        return true;
+      }
+    } catch {
+      // If we can't reach the auth endpoint, assume auth is not required
+      return true;
+    }
+  }
+
+  function login(): void {
+    window.location.href = `${prefix}/auth/login?return-url=${encodeURIComponent(
+      window.location.href
+    )}`;
+  }
 
   const selectProject = (selectedProject: Project) => {
     project = selectedProject;
@@ -72,6 +122,13 @@
   };
 
   async function parseQueryString() {
+    // Check authentication first
+    const authSatisfied = await checkAuth();
+    if (!authSatisfied) {
+      loadingState = "loaded";
+      return;
+    }
+
     try {
       const params = new URLSearchParams(window.location.search);
       const qproject = params.get("project");
@@ -126,6 +183,11 @@
     <div>Loading...</div>
     <div>
       <img class="loading" alt="loading" src="/spinner.gif" />
+    </div>
+  {:else if authRequired}
+    <div class="auth-container">
+      <h2>Authentication Required</h2>
+      <button onclick={login}>Login</button>
     </div>
   {:else if project && experiment && setName}
     <SetPage

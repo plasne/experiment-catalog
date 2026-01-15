@@ -115,6 +115,7 @@
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       }
     );
     if (response.ok) {
@@ -131,6 +132,7 @@
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       }
     );
     if (response.ok) {
@@ -149,6 +151,7 @@
         project: project.name,
         experiment: experiment.name,
       }),
+      credentials: "include",
     });
     if (response.ok) {
       alert("Refresh in a few minutes to see the statistics.");

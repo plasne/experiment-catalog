@@ -100,7 +100,7 @@
       loadingState = "loading";
       // get the comparison
       let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref?${tagFilters ?? ""}`;
-      var response = await fetch(url);
+      var response = await fetch(url, { credentials: "include" });
       comparison = await response.json();
 
       // get a list of all refs in the chosen results
@@ -161,7 +161,7 @@
       showResults = !showResults;
       if (!results) {
         let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: "include" });
         results = await response.json();
         buildResultsMap();
       }
@@ -178,7 +178,7 @@
       showBaselineResults = !showBaselineResults;
       if (!baselineResults && comparison.experiment_baseline?.set) {
         let url = `${prefix}/api/projects/${comparison.experiment_baseline.project}/experiments/${comparison.experiment_baseline.experiment}/sets/${comparison.experiment_baseline.set}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: "include" });
         baselineResults = await response.json();
         buildBaselineResultsMap();
       }
@@ -222,6 +222,7 @@
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       }
     );
     if (response.ok) {

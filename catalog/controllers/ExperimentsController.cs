@@ -110,14 +110,14 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         string excludeTagsStr,
         CancellationToken cancellationToken)
     {
-        var includeTags = await storageService.GetTagsAsync(projectName, includeTagsStr.AsArray(() => []), cancellationToken);
-        var excludeTags = await storageService.GetTagsAsync(projectName, excludeTagsStr.AsArray(() => []), cancellationToken);
+        var includeTags = await storageService.GetTagsAsync(projectName, includeTagsStr.AsArray(() => [])!, cancellationToken);
+        var excludeTags = await storageService.GetTagsAsync(projectName, excludeTagsStr.AsArray(() => [])!, cancellationToken);
         return (includeTags, excludeTags);
     }
 
     [HttpGet("{experimentName}/compare")]
     public async Task<ActionResult<Comparison>> Compare(
-        [FromServices] IConfig config,
+        [FromServices] IConfigFactory<IConfig> configFactory,
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
@@ -161,6 +161,9 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         {
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
+
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
 
         // get the experiment baseline
         watch.Restart();
@@ -319,7 +322,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
     [HttpGet("{experimentName}/sets/{setName}")]
     public async Task<ActionResult<Comparison>> GetNamedSet(
-        [FromServices] IConfig config,
+        [FromServices] IConfigFactory<IConfig> configFactory,
         [FromServices] IStorageService storageService,
         [FromRoute] string projectName,
         [FromRoute] string experimentName,
@@ -343,6 +346,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             ?? Enumerable.Empty<Result>();
 
         // add the support docs
+        var config = await configFactory.GetAsync(cancellationToken);
         if (!string.IsNullOrEmpty(config.PATH_TEMPLATE))
         {
             foreach (var result in results)
