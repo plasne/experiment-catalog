@@ -42,7 +42,7 @@ To configure the solution, you must provide the following environment variables.
 
 - **PATH_TEMPLATE** [OPTIONAL]: A template string for constructing URIs to inference and evaluation output files. Use `{0}` as a placeholder for the URI.
 
-- **AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS** [OPTIONAL]: The name of a separate Azure Storage account for support documents. Defaults to the main storage account if ENABLE_ANONYMOUS_DOWNLOAD is true.
+- **AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS** [OPTIONAL]: The name of a separate Azure Storage account for support documents. Defaults to the main storage account if ENABLE_DOWNLOAD is true.
 
 - **AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS** [OPTIONAL]: The connection string for the support documents storage account.
 
@@ -52,9 +52,35 @@ To configure the solution, you must provide the following environment variables.
 
 - **AZURE_STORAGE_CACHE_CLEANUP_EVERY_X_MINUTES** [DEFAULT: 120]: Frequency in minutes to clean up old cached files.
 
-- **ENABLE_ANONYMOUS_DOWNLOAD** [DEFAULT: false]: Enable anonymous download of support documents via the `/api/download` endpoint.
+- **ENABLE_DOWNLOAD** [DEFAULT: false]: Enable download of support documents via the `/api/download` endpoint.
 
 - **TEST_PROJECTS** [OPTIONAL]: A comma-separated list of project names to use for testing purposes.
+
+### Authentication (OIDC/JWT)
+
+The catalog supports optional JWT authentication using any OIDC-compliant identity provider. If `OIDC_AUTHORITY` is not configured, the API allows anonymous access. More information about authentication methods can be found in [auth.md](auth.md).
+
+- **OIDC_AUTHORITY** [OPTIONAL]: The OIDC authority URL (e.g., `https://login.microsoftonline.com/{tenant}/v2.0` for Azure AD). If not set, authentication is disabled and anonymous access is allowed.
+
+- **OIDC_CLIENT_ID** [CONDITIONAL]: The client ID of the application registered with the OIDC provider. If `OIDC_AUTHORITY` is set, this must also be set.
+
+- **OIDC_CLIENT_SECRET** [CONDITIONAL]: The client secret of the application registered with the OIDC provider. If `OIDC_AUTHORITY` is set, this must also be set.
+
+- **OIDC_AUDIENCES** [OPTIONAL]: A comma-separated list of valid audience values. If provided, the `aud` claim in the token will be validated against these values.
+
+- **OIDC_ISSUERS** [OPTIONAL]: A comma-separated list of valid issuer URLs. If provided, the `iss` claim in the token will be validated against these values.
+
+- **OIDC_VALIDATE_LIFETIME** [DEFAULT: true]: Whether to validate the token's expiration.
+
+- **OIDC_CLOCK_SKEW_IN_MINUTES** [DEFAULT: 5]: The allowed clock skew in minutes when validating token lifetimes.
+
+- **OIDC_NAME_CLAIM_TYPE** [DEFAULT: name]: The claim type to use for the user's name (e.g., `preferred_username`, `name`, `email`).
+
+- **OIDC_ROLE_CLAIM_TYPE** [DEFAULT: roles]: The claim type to use for the user's roles (e.g., `roles`, `groups`).
+
+- **OIDC_VALIDATE_COOKIE** [DEFAULT: id_token]: The cookie name from which to extract the JWT token for validation. This will be used if a bearer token is not found in the Authorization header.
+
+- **OIDC_VALIDATE_HEADER** [DEFAULT: X-MS-TOKEN-AAD-ID-TOKEN]: The HTTP header from which to extract the JWT token for validation. This will be used if a bearer token is not found in the Authorization header or the specified cookie.
 
 ## Concepts
 
@@ -243,7 +269,7 @@ curl -i -X POST -d '{ "project": "project-example", "experiment": "experiment-00
 
 ### Download Support Documents
 
-Download a support document (requires `ENABLE_ANONYMOUS_DOWNLOAD=true`):
+Download a support document (requires `ENABLE_DOWNLOAD=true`):
 
 ```bash
 curl -i "http://localhost:6010/api/download?url=container/path/to/file.json"
@@ -253,7 +279,7 @@ curl -i "http://localhost:6010/api/download?url=container/path/to/file.json"
 
 The API includes Swagger documentation available at:
 
-```
+```text
 http://localhost:6010/swagger
 ```
 

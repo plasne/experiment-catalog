@@ -1,5 +1,5 @@
 @baseURL = http://localhost:6010/api
-@project = sprint-05-24
+@project = amltest
 @baseline = baseline
 @experiment = pelasne_123
 @set = set-000

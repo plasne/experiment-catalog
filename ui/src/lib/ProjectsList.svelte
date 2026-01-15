@@ -20,7 +20,9 @@
   const fetchProjects = async () => {
     try {
       loadingState = "loading";
-      const response = await fetch(`${prefix}/api/projects`);
+      const response = await fetch(`${prefix}/api/projects`, {
+        credentials: "include",
+      });
       projects = await response.json();
       loadingState = "loaded";
     } catch (error) {
@@ -52,6 +54,7 @@
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name }),
+        credentials: "include",
       });
       if (response.ok) {
         showCreateModal = false;

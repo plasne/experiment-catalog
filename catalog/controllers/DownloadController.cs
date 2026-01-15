@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using NetBricks;
 
 namespace Catalog;
 
@@ -11,13 +13,15 @@ public class DownloadController : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Download(
-        [FromServices] IConfig config,
+        [FromServices] IConfigFactory<IConfig> configFactory,
         [FromServices] ISupportDocsService supportDocsService,
-        [FromQuery] string url)
+        [FromQuery] string url,
+        CancellationToken cancellationToken)
     {
-        if (!config.ENABLE_ANONYMOUS_DOWNLOAD)
+        var config = await configFactory.GetAsync(cancellationToken);
+        if (!config.ENABLE_DOWNLOAD)
         {
-            return StatusCode(503, "Anonymous download is disabled.");
+            return StatusCode(503, "Download is disabled.");
         }
 
         if (url is null)

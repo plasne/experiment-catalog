@@ -53,7 +53,8 @@ export async function loadExperiment(projectName: string, experimentName: string
     let prefix =
         window.location.hostname === "localhost" ? "http://localhost:6010" : "";
     const response = await fetch(
-        `${prefix}/api/projects/${projectName}/experiments/${experimentName}`
+        `${prefix}/api/projects/${projectName}/experiments/${experimentName}`,
+        { credentials: "include" }
     );
     var experiment = await response.json();
     return experiment

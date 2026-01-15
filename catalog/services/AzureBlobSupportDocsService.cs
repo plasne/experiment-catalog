@@ -10,36 +10,35 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 using Newtonsoft.Json;
 
 namespace Catalog;
 
 public class AzureBlobSupportDocsService(
-    IConfig config,
+    IConfigFactory<IConfig> configFactory,
     DefaultAzureCredential defaultAzureCredential,
+    ConcurrencyService concurrencyService,
     ILogger<AzureBlobStorageService> logger) : ISupportDocsService
 {
-    private readonly IConfig config = config;
-    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
-    private readonly ILogger<AzureBlobStorageService> logger = logger;
-    private readonly SemaphoreSlim connectLock = new(1, 1);
-    private readonly SemaphoreSlim concurrency = new(config.CONCURRENCY, config.CONCURRENCY);
-
     private BlobServiceClient? blobServiceClient;
 
-    private BlobServiceClient GetBlobServiceClientAsync()
+    private async Task<BlobServiceClient> GetBlobServiceClientAsync(CancellationToken cancellationToken = default)
     {
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
+
         // create the blob service client using connection string if it doesn't exist
-        if (this.blobServiceClient is null && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS))
+        if (this.blobServiceClient is null && !string.IsNullOrEmpty(config.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS))
         {
-            this.blobServiceClient = new BlobServiceClient(this.config.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS);
+            this.blobServiceClient = new BlobServiceClient(config.AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS);
         }
 
         // create the blob service client using account name if it doesn't exist
-        if (this.blobServiceClient is null && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS))
+        if (this.blobServiceClient is null && !string.IsNullOrEmpty(config.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS))
         {
-            string blobServiceUri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS}.blob.core.windows.net";
-            this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
+            string blobServiceUri = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS}.blob.core.windows.net";
+            this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), defaultAzureCredential);
         }
 
         // throw if no connection string or account name was provided
@@ -53,14 +52,16 @@ public class AzureBlobSupportDocsService(
 
     private async Task<BlobServiceClient> ConnectAsync(CancellationToken cancellationToken = default)
     {
+        var connectLock = await concurrencyService.GetConnectLock(cancellationToken);
         try
         {
-            await this.connectLock.WaitAsync(cancellationToken);
-            return GetBlobServiceClientAsync();
+            await connectLock.WaitAsync(cancellationToken);
+            var client = await GetBlobServiceClientAsync();
+            return client;
         }
         finally
         {
-            this.connectLock.Release();
+            connectLock.Release();
         }
     }
 
@@ -71,7 +72,7 @@ public class AzureBlobSupportDocsService(
         // verify the URL is for the correct storage account
         if (!url.StartsWith($"https://{client.AccountName}.blob.core.windows.net/", StringComparison.OrdinalIgnoreCase))
         {
-            throw new HttpException(400, "the URL does not point to the storage account used for the supporting documents.");
+            throw new HttpException(400, $"the URL does not point to the storage account used for the supporting documents (https://{client.AccountName}.blob.core.windows.net/).");
         }
 
         // extract container name and blob name from the URI path
@@ -85,7 +86,7 @@ public class AzureBlobSupportDocsService(
         // log the attempt
         var containerName = pathSegments[0];
         var blobName = pathSegments[1];
-        this.logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
+        logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
 
         // download the blob
         var containerClient = client.GetBlobContainerClient(containerName);
@@ -94,7 +95,7 @@ public class AzureBlobSupportDocsService(
         using var memoryStream = new MemoryStream();
         await response.Value.Content.CopyToAsync(memoryStream);
         var result = memoryStream.ToArray();
-        this.logger.LogDebug("successfully downloaded blob {b} from container {c}.", blobName, containerName);
+        logger.LogDebug("successfully downloaded blob {b} from container {c}.", blobName, containerName);
         return result;
     }
 }

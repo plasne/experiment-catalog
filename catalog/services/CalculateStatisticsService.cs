@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 
 namespace Catalog;
 
@@ -14,7 +15,7 @@ namespace Catalog;
 /// P-values help determine statistical significance when comparing experiment results against baselines.
 /// </summary>
 public class CalculateStatisticsService(
-    IConfig config,
+    IConfigFactory<IConfig> configFactory,
     IStorageService storageService,
     ILogger<CalculateStatisticsService> logger
 ) : BackgroundService
@@ -43,7 +44,7 @@ public class CalculateStatisticsService(
     /// <param name="experimentSet">The specific set within the experiment to evaluate.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>A Statistics object containing statistics for each metric, or null if calculation fails.</returns>
-    public Task<Statistics?> CalculateAsync(
+    public async Task<Statistics?> CalculateAsync(
         Experiment baseline,
         string? baselineSet,
         Experiment experiment,
@@ -58,7 +59,7 @@ public class CalculateStatisticsService(
             logger.LogWarning(
                 "cannot calculate p-values: missing results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
                 baselineSet, experimentSet);
-            return Task.FromResult<Statistics?>(null);
+            return null;
         }
 
         // validate that metric definitions exist
@@ -67,8 +68,11 @@ public class CalculateStatisticsService(
             logger.LogWarning(
                 "cannot calculate p-values: experiment '{Experiment}' has no metric definitions.",
                 experiment.Name);
-            return Task.FromResult<Statistics?>(null);
+            return null;
         }
+
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
 
         // initialize the p-values result object
         var statistics = new Statistics
@@ -91,7 +95,7 @@ public class CalculateStatisticsService(
             logger.LogWarning(
                 "cannot calculate statistics: failed to aggregate results for baseline set '{BaselineSet}' or experiment set '{ExperimentSet}'.",
                 baselineSet, experimentSet);
-            return Task.FromResult<Statistics?>(null);
+            return null;
         }
 
         // identify metrics eligible for p-value calculation (must use Average aggregation and not be tagged 'no-p')
@@ -100,7 +104,7 @@ public class CalculateStatisticsService(
         // calculate p-values and confidence intervals for each eligible metric
         foreach (var metric in eligibleMetrics)
         {
-            var metricStats = CalculateMetricStatistics(
+            var metricStats = await CalculateMetricStatisticsAsync(
                 metric,
                 baselineResult,
                 experimentResult,
@@ -115,7 +119,7 @@ public class CalculateStatisticsService(
             "calculated statistics for {MetricCount} metrics comparing '{Experiment}/{Set}' against baseline '{BaselineExperiment}/{BaselineSet}'.",
             statistics.Metrics.Count, experiment.Name, experimentSet, baseline.Name, baselineSet);
 
-        return Task.FromResult<Statistics?>(statistics);
+        return statistics;
     }
 
     /// <summary>
@@ -147,24 +151,28 @@ public class CalculateStatisticsService(
     /// Calculates confidence interval and p-value for a single metric.
     /// </summary>
     /// <returns>A Metric object with p-value and confidence interval, or null if calculation fails.</returns>
-    private Metric? CalculateMetricStatistics(
+    private async Task<Metric?> CalculateMetricStatisticsAsync(
         string metric,
         IDictionary<string, Result> baselineResult,
         IDictionary<string, Result> experimentResult,
         CancellationToken cancellationToken)
     {
         // collect paired observations (values that exist in both baseline and experiment)
-        var (baselineValues, experimentValues) = CollectPairedObservations(
+        var (baselineValues, experimentValues) = await CollectPairedObservationsAsync(
             metric,
             baselineResult,
             experimentResult,
             cancellationToken);
 
+        // check for paired observations
         if (baselineValues.Count == 0)
         {
             logger.LogWarning("no valid paired observations found for metric '{Metric}'.", metric);
             return null;
         }
+
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
 
         // only calculate statistics if there are enough paired observations
         if (baselineValues.Count < config.MIN_ITERATIONS_TO_CALC_PVALUES)
@@ -181,10 +189,10 @@ public class CalculateStatisticsService(
             .ToList();
 
         // calculate p-value using permutation test
-        var pvalue = CalculatePValue(pairedDifferences, cancellationToken);
+        var pvalue = await CalculatePValueAsync(pairedDifferences, cancellationToken);
 
         // calculate confidence interval using bootstrap
-        var (ciLower, ciUpper) = CalculateConfidenceInterval(pairedDifferences, cancellationToken);
+        var (ciLower, ciUpper) = await CalculateConfidenceIntervalAsync(pairedDifferences, cancellationToken);
 
         return new Metric
         {
@@ -200,12 +208,12 @@ public class CalculateStatisticsService(
     /// paired difference to generate the null distribution.
     /// </summary>
     /// <returns>The calculated p-value.</returns>
-    private decimal CalculatePValue(
+    private async Task<decimal> CalculatePValueAsync(
         List<decimal> pairedDifferences,
         CancellationToken cancellationToken)
     {
         // generate the null distribution using paired permutation test (sign-flipping)
-        var nullDistribution = GenerateNullDistributionPaired(
+        var nullDistribution = await GenerateNullDistributionPairedAsync(
             pairedDifferences,
             cancellationToken);
 
@@ -215,6 +223,7 @@ public class CalculateStatisticsService(
         // calculate two-tailed p-value: proportion of permuted differences as extreme as observed
         // using (count + 1) / (n + 1) to ensure p-value is never exactly 0 and is more conservative
         var extremeCount = nullDistribution.Count(diff => Math.Abs(diff) >= Math.Abs(observedMeanDifference));
+        var config = await configFactory.GetAsync(cancellationToken);
         return (decimal)(extremeCount + 1) / (config.CALC_PVALUES_USING_X_SAMPLES + 1);
     }
 
@@ -223,10 +232,13 @@ public class CalculateStatisticsService(
     /// Uses the percentile method to determine the lower and upper bounds.
     /// </summary>
     /// <returns>A tuple containing the lower and upper confidence interval bounds.</returns>
-    private (decimal ciLower, decimal ciUpper) CalculateConfidenceInterval(
+    private async Task<(decimal ciLower, decimal ciUpper)> CalculateConfidenceIntervalAsync(
         List<decimal> pairedDifferences,
         CancellationToken cancellationToken)
     {
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
+
         var bootstrapMeans = new List<decimal>(config.CALC_PVALUES_USING_X_SAMPLES);
         var n = pairedDifferences.Count;
 
@@ -265,7 +277,7 @@ public class CalculateStatisticsService(
     /// Collects paired observations for a metric from baseline and experiment results.
     /// Only includes references that exist in both result sets with valid metric values.
     /// </summary>
-    private (List<decimal> baselineValues, List<decimal> experimentValues) CollectPairedObservations(
+    private Task<(List<decimal> baselineValues, List<decimal> experimentValues)> CollectPairedObservationsAsync(
         string metric,
         IDictionary<string, Result> baselineResult,
         IDictionary<string, Result> experimentResult,
@@ -298,7 +310,7 @@ public class CalculateStatisticsService(
             experimentValues.Add((decimal)experimentMetric.Value);
         }
 
-        return (baselineValues, experimentValues);
+        return Task.FromResult((baselineValues, experimentValues));
     }
 
     /// <summary>
@@ -306,10 +318,11 @@ public class CalculateStatisticsService(
     /// For each permutation, randomly flips the sign of each paired difference (simulating
     /// the null hypothesis that there's no systematic difference between conditions).
     /// </summary>
-    private List<decimal> GenerateNullDistributionPaired(
+    private async Task<List<decimal>> GenerateNullDistributionPairedAsync(
         List<decimal> pairedDifferences,
         CancellationToken cancellationToken)
     {
+        var config = await configFactory.GetAsync(cancellationToken);
         var nullDistribution = new List<decimal>(config.CALC_PVALUES_USING_X_SAMPLES);
         var permutedDifferences = new decimal[pairedDifferences.Count];
 
@@ -356,10 +369,13 @@ public class CalculateStatisticsService(
         var projects = await storageService.GetProjectsAsync(cancellationToken);
         logger.LogInformation("found {ProjectCount} projects to examine.", projects.Count);
 
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
+
         foreach (var project in projects)
         {
             // skip test projects (they don't need p-value calculation)
-            if (config.TEST_PROJECTS.Contains(project.Name))
+            if (config.TEST_PROJECTS is not null && config.TEST_PROJECTS.Contains(project.Name))
             {
                 logger.LogDebug("skipping test project '{Project}'.", project.Name);
                 continue;
@@ -372,8 +388,8 @@ public class CalculateStatisticsService(
             var experiments = await storageService.GetExperimentsAsync(project.Name, cancellationToken);
             foreach (var experiment in experiments)
             {
-                if (!IsExperimentEligibleForPValueCalculation(experiment))
-                    continue;
+                var isEligible = await IsExperimentEligibleForPValueCalculationAsync(experiment, cancellationToken);
+                if (!isEligible) continue;
 
                 // add to or create the project group
                 var projectGroup = projectGroups.FirstOrDefault(x => x.Name == project.Name);
@@ -404,11 +420,14 @@ public class CalculateStatisticsService(
     /// Determines if an experiment is eligible for p-value calculation.
     /// An experiment must be recently modified but idle for a minimum period.
     /// </summary>
-    private bool IsExperimentEligibleForPValueCalculation(Experiment experiment)
+    private async Task<bool> IsExperimentEligibleForPValueCalculationAsync(Experiment experiment, CancellationToken cancellationToken = default)
     {
         // must have a modification timestamp
         if (!experiment.Modified.HasValue)
             return false;
+
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
 
         // must have been modified recently (within the configured window)
         var recentThreshold = DateTime.UtcNow.AddMinutes(-config.MINUTES_TO_BE_RECENT);
@@ -601,7 +620,11 @@ public class CalculateStatisticsService(
 
         // check if p-values already exist with matching parameters
         var setResultCount = experiment.Results?.Count(x => x.Set == set);
-        if (StatisticsAlreadyExist(experiment, baseline.Name, baselineSet, set, baselineResultCount, setResultCount))
+        var alreadyExists = await StatisticsAlreadyExistAsync(
+            experiment, baseline.Name, baselineSet,
+            set, baselineResultCount, setResultCount,
+            cancellationToken);
+        if (alreadyExists)
         {
             logger.LogDebug(
                 "set '{Project}/{Experiment}/{Set}' already has current p-values.",
@@ -633,14 +656,18 @@ public class CalculateStatisticsService(
     /// Checks if valid p-values already exist for the given set with matching parameters.
     /// P-values are considered stale if the result counts, sample size, or confidence level have changed.
     /// </summary>
-    private bool StatisticsAlreadyExist(
+    private async Task<bool> StatisticsAlreadyExistAsync(
         Experiment experiment,
         string baselineName,
         string? baselineSet,
         string set,
         int? baselineResultCount,
-        int? setResultCount)
+        int? setResultCount,
+        CancellationToken cancellationToken = default)
     {
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
+
         return experiment.Statistics?.Any(pv =>
             pv.BaselineExperiment == baselineName &&
             pv.BaselineSet == baselineSet &&
@@ -658,6 +685,9 @@ public class CalculateStatisticsService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var lastPeriodicScan = DateTime.UtcNow;
+
+        // get configuration
+        var config = await configFactory.GetAsync(stoppingToken);
 
         // main loop
         while (!stoppingToken.IsCancellationRequested)

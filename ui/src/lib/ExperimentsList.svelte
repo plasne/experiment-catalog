@@ -23,7 +23,8 @@
     try {
       loadingState = "loading";
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments`
+        `${prefix}/api/projects/${project.name}/experiments`,
+        { credentials: "include" }
       );
       experiments = await response.json();
       loadingState = "loaded";
@@ -65,6 +66,7 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ name, hypothesis }),
+          credentials: "include",
         }
       );
       if (response.ok) {

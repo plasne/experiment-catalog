@@ -114,6 +114,7 @@
             set,
             annotations: [annotation],
           }),
+          credentials: "include",
         }
       );
       if (response.ok) {
@@ -152,7 +153,8 @@
 
       // fetch comparison
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`
+        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
+        { credentials: "include" }
       );
       comparison = await response.json();
 

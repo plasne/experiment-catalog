@@ -45,7 +45,8 @@
   const fetchTags = async () => {
     try {
       const response = await fetch(
-        `${prefix}/api/projects/${project.name}/tags`
+        `${prefix}/api/projects/${project.name}/tags`,
+        { credentials: "include" }
       );
       tags = await response.json();
     } catch (error) {

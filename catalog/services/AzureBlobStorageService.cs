@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,36 +13,35 @@ using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 using Newtonsoft.Json;
 
 namespace Catalog;
 
 public class AzureBlobStorageService(
-    IConfig config,
+    IConfigFactory<IConfig> configFactory,
     DefaultAzureCredential defaultAzureCredential,
+    ConcurrencyService concurrencyService,
     ILogger<AzureBlobStorageService> logger) : IStorageService
 {
-    private readonly IConfig config = config;
-    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
-    private readonly ILogger<AzureBlobStorageService> logger = logger;
-    private readonly SemaphoreSlim connectLock = new(1, 1);
-    private readonly SemaphoreSlim concurrency = new(config.CONCURRENCY, config.CONCURRENCY);
-
     private BlobServiceClient? blobServiceClient;
 
-    private BlobServiceClient GetBlobServiceClientAsync()
+    private async Task<BlobServiceClient> GetBlobServiceClientAsync(CancellationToken cancellationToken = default)
     {
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
+
         // create the blob service client using connection string if it doesn't exist
-        if (this.blobServiceClient is null && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_ACCOUNT_CONNSTRING))
+        if (this.blobServiceClient is null && !string.IsNullOrEmpty(config.AZURE_STORAGE_ACCOUNT_CONNSTRING))
         {
-            this.blobServiceClient = new BlobServiceClient(this.config.AZURE_STORAGE_ACCOUNT_CONNSTRING);
+            this.blobServiceClient = new BlobServiceClient(config.AZURE_STORAGE_ACCOUNT_CONNSTRING);
         }
 
         // create the blob service client using account name if it doesn't exist
-        if (this.blobServiceClient is null && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_ACCOUNT_NAME))
+        if (this.blobServiceClient is null && !string.IsNullOrEmpty(config.AZURE_STORAGE_ACCOUNT_NAME))
         {
-            string blobServiceUri = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-            this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), this.defaultAzureCredential);
+            string blobServiceUri = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+            this.blobServiceClient = new BlobServiceClient(new Uri(blobServiceUri), defaultAzureCredential);
         }
 
         // throw if no connection string or account name was provided
@@ -55,25 +55,28 @@ public class AzureBlobStorageService(
 
     private async Task<BlobServiceClient> ConnectAsync(CancellationToken cancellationToken = default)
     {
+        var connectLock = await concurrencyService.GetConnectLock(cancellationToken);
         try
         {
-            await this.connectLock.WaitAsync(cancellationToken);
-            return GetBlobServiceClientAsync();
+            await connectLock.WaitAsync(cancellationToken);
+            var client = await GetBlobServiceClientAsync(cancellationToken);
+            return client;
         }
         finally
         {
-            this.connectLock.Release();
+            connectLock.Release();
         }
     }
 
     private async Task<BlobContainerClient> ConnectAsync(string projectName, CancellationToken cancellationToken = default)
     {
+        var connectLock = await concurrencyService.GetConnectLock(cancellationToken);
         try
         {
-            await this.connectLock.WaitAsync(cancellationToken);
+            await connectLock.WaitAsync(cancellationToken);
 
             // create the service client
-            this.blobServiceClient = GetBlobServiceClientAsync();
+            this.blobServiceClient = await GetBlobServiceClientAsync(cancellationToken);
 
             // create the container client
             var containerClient = this.blobServiceClient.GetBlobContainerClient(projectName);
@@ -88,7 +91,7 @@ public class AzureBlobStorageService(
         }
         finally
         {
-            this.connectLock.Release();
+            connectLock.Release();
         }
     }
 
@@ -160,11 +163,12 @@ public class AzureBlobStorageService(
     public async Task<IList<Tag>> GetTagsAsync(string projectName, IEnumerable<string> tags, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var concurrencyLock = await concurrencyService.GetConcurrencyLock(cancellationToken);
 
         var tasks = new List<Task<Tag>>();
         foreach (var tag in tags)
         {
-            await this.concurrency.WaitAsync(cancellationToken);
+            await concurrencyLock.WaitAsync(cancellationToken);
             tasks.Add(Task.Run(() =>
             {
                 try
@@ -173,7 +177,7 @@ public class AzureBlobStorageService(
                 }
                 finally
                 {
-                    this.concurrency.Release();
+                    concurrencyLock.Release();
                 }
             }));
         }
@@ -221,10 +225,11 @@ public class AzureBlobStorageService(
         }
 
         // load the experiments
+        var concurrencyLock = await concurrencyService.GetConcurrencyLock(cancellationToken);
         var tasks = new List<Task<Experiment>>();
         foreach (var experimentName in experimentNames)
         {
-            await this.concurrency.WaitAsync(cancellationToken);
+            await concurrencyLock.WaitAsync(cancellationToken);
             tasks.Add(Task.Run(() =>
             {
                 try
@@ -233,7 +238,7 @@ public class AzureBlobStorageService(
                 }
                 finally
                 {
-                    this.concurrency.Release();
+                    concurrencyLock.Release();
                 }
             }));
         }
@@ -354,11 +359,9 @@ public class AzureBlobStorageService(
             experiment.Results = new List<Result>();
             experiment.Statistics = new List<Statistics>();
 
-            while (!streamReader.EndOfStream)
+            string? line;
+            while ((line = await streamReader.ReadLineAsync(cancellationToken)) is not null)
             {
-                var line = await streamReader.ReadLineAsync(cancellationToken);
-                if (line is null) break;
-
                 var result = JsonConvert.DeserializeObject<Result>(line);
                 if (result is null) continue;
 
@@ -400,16 +403,19 @@ public class AzureBlobStorageService(
         bool includeResults,
         CancellationToken cancellationToken)
     {
+        // get configuration
+        var config = await configFactory.GetAsync(cancellationToken);
+
         // try to use cached file if cache folder is configured
         // NOTE: if we don't include results, we just pull from the blob directly
-        if (includeResults && !string.IsNullOrEmpty(this.config.AZURE_STORAGE_CACHE_FOLDER))
+        if (includeResults && !string.IsNullOrEmpty(config.AZURE_STORAGE_CACHE_FOLDER))
         {
             //var sanitizedETag = etag.ToString().Trim('"').Replace("0x", "");
             var sanitizedETag = etag.ToString().Trim('"');
             var blobNameWithoutExt = Path.GetFileNameWithoutExtension(blobName);
             var blobExt = Path.GetExtension(blobName);
-            var cachedFileTemplate = Path.Combine(this.config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_");
-            var cachedFilePath = Path.Combine(this.config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_{sanitizedETag}{blobExt}");
+            var cachedFileTemplate = Path.Combine(config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_");
+            var cachedFilePath = Path.Combine(config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_{sanitizedETag}{blobExt}");
             try
             {
                 if (TryGetCachedFileStream(cachedFilePath, out var cachedStream))
@@ -421,7 +427,7 @@ public class AzureBlobStorageService(
             catch (IOException ex)
             {
                 // cache file may have been deleted by maintenance or another process, fall back to blob
-                this.logger.LogWarning(ex, "cache contention detected for {file}, falling back to blob download.", cachedFilePath);
+                logger.LogWarning(ex, "cache contention detected for {file}, falling back to blob download.", cachedFilePath);
             }
         }
 
@@ -437,11 +443,11 @@ public class AzureBlobStorageService(
 
         if (!File.Exists(cachedFilePath))
         {
-            this.logger.LogDebug("no cached file found for {file}, downloading from blob.", cachedFilePath);
+            logger.LogDebug("no cached file found for {file}, downloading from blob.", cachedFilePath);
             return false;
         }
 
-        this.logger.LogDebug("using cached file for {file}.", cachedFilePath);
+        logger.LogDebug("using cached file for {file}.", cachedFilePath);
 
         // read entire file into memory for consistent, fast performance
         // NOTE: this avoids slow line-by-line disk I/O and OS file cache variability
@@ -491,7 +497,7 @@ public class AzureBlobStorageService(
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogWarning(ex, "failed to delete old cached file: {file}", oldFile);
+                    logger.LogWarning(ex, "failed to delete old cached file: {file}", oldFile);
                 }
             }
         }
@@ -510,23 +516,25 @@ public class AzureBlobStorageService(
 
     public async Task CleanupCacheAsync(CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(this.config.AZURE_STORAGE_CACHE_FOLDER))
+        var config = await configFactory.GetAsync(cancellationToken);
+
+        if (string.IsNullOrEmpty(config.AZURE_STORAGE_CACHE_FOLDER))
         {
             return;
         }
 
-        if (!Directory.Exists(this.config.AZURE_STORAGE_CACHE_FOLDER))
+        if (!Directory.Exists(config.AZURE_STORAGE_CACHE_FOLDER))
         {
             return;
         }
 
-        var maxAge = TimeSpan.FromHours(this.config.AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS);
+        var maxAge = TimeSpan.FromHours(config.AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS);
         var cutoffTime = DateTime.UtcNow - maxAge;
         var deletedCount = 0;
 
         await Task.Run(() =>
         {
-            foreach (var file in Directory.EnumerateFiles(this.config.AZURE_STORAGE_CACHE_FOLDER, "*", SearchOption.TopDirectoryOnly))
+            foreach (var file in Directory.EnumerateFiles(config.AZURE_STORAGE_CACHE_FOLDER, "*", SearchOption.TopDirectoryOnly))
             {
                 if (cancellationToken.IsCancellationRequested) break;
 
@@ -541,14 +549,14 @@ public class AzureBlobStorageService(
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogWarning(ex, "failed to delete cached file: {File}", file);
+                    logger.LogWarning(ex, "failed to delete cached file: {File}", file);
                 }
             }
         }, cancellationToken);
 
         if (deletedCount > 0)
         {
-            this.logger.LogInformation("cleaned up {c} cached files older than {h} hours", deletedCount, this.config.AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS);
+            logger.LogInformation("cleaned up {c} cached files older than {h} hours", deletedCount, config.AZURE_STORAGE_CACHE_MAX_AGE_IN_HOURS);
         }
     }
 
@@ -578,7 +586,7 @@ public class AzureBlobStorageService(
     private async Task CopyAsync(AppendBlobClient sourceBlobClient, AppendBlobClient targetBlobClient, CancellationToken cancellationToken = default)
     {
         // log beginning of copy operation
-        this.logger.LogInformation("attempting to copy {s} to {t}...", sourceBlobClient.Uri, targetBlobClient.Uri);
+        logger.LogInformation("attempting to copy {s} to {t}...", sourceBlobClient.Uri, targetBlobClient.Uri);
         var count = 0;
 
         // get the metadata
@@ -590,11 +598,9 @@ public class AzureBlobStorageService(
         var content = new StringBuilder();
 
         // read from the source blob
-        while (!reader.EndOfStream)
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
         {
-            // read and append line
-            var line = await reader.ReadLineAsync(cancellationToken);
-            if (line is null) break;
             if (content.Length + line.Length < 4 * 1024 * 1024)
             {
                 content.Append(line + "\n");
@@ -621,7 +627,7 @@ public class AzureBlobStorageService(
         await targetBlobClient.SetMetadataAsync(properties.Value.Metadata, cancellationToken: cancellationToken);
 
         // log end of copy operation
-        this.logger.LogInformation(
+        logger.LogInformation(
             "successfully copied {s} to {t} (now with {x} blocks).",
             sourceBlobClient.Uri,
             targetBlobClient.Uri,
@@ -632,7 +638,7 @@ public class AzureBlobStorageService(
     {
         try
         {
-            this.logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName);
+            logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName);
 
             // open the source blob
             var containerClient = await this.ConnectAsync(projectName, cancellationToken);
@@ -657,41 +663,42 @@ public class AzureBlobStorageService(
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
 
-            this.logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
+            logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
         }
         catch (Exception ex)
         {
-            this.logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
+            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
             throw;
         }
     }
 
-    private bool ShouldBlobBeOptimized(Experiment experiment, CancellationToken cancellationToken)
+    private async Task<bool> ShouldBlobBeOptimizedAsync(Experiment experiment, CancellationToken cancellationToken)
     {
         if (experiment.Metadata is null || !experiment.Modified.HasValue) return false;
         var blockCount = (int)experiment.Metadata["block_count"];
         var blobSize = (long)experiment.Metadata["blob_size"];
         var minSinceLastModified = (DateTimeOffset.UtcNow - experiment.Modified.Value).TotalMinutes;
-        this.logger.LogDebug(
+        logger.LogDebug(
             "experiment {e} had a block count of {x}, size of {y}, and was last modified {z} min ago.",
             experiment.Name,
             blockCount,
             blobSize,
             minSinceLastModified);
         if (blockCount < 2) return false;
-        if (minSinceLastModified < this.config.MINUTES_TO_BE_IDLE) return false;
-        if ((blobSize / blockCount) >= this.config.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE * 1024) return false;
+        var config = await configFactory.GetAsync(cancellationToken);
+        if (minSinceLastModified < config.MINUTES_TO_BE_IDLE) return false;
+        if ((blobSize / blockCount) >= config.REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE * 1024) return false;
         return true;
     }
 
     public async Task OptimizeAsync(CancellationToken cancellationToken = default)
     {
-        this.logger.LogDebug("starting optimize operation...");
+        logger.LogDebug("starting optimize operation...");
 
         // look at each project
-        this.logger.LogDebug("attempting to get a list of projects...");
+        logger.LogDebug("attempting to get a list of projects...");
         var projects = await this.GetProjectsAsync(cancellationToken);
-        this.logger.LogDebug("successfully obtained a list of {x} projects.", projects.Count);
+        logger.LogDebug("successfully obtained a list of {x} projects.", projects.Count);
         foreach (var project in projects)
         {
             // look at each experiment in the project
@@ -699,7 +706,7 @@ public class AzureBlobStorageService(
             foreach (var experiment in experiments)
             {
                 // determine if we should optimize the experiment
-                var shouldOptimize = this.ShouldBlobBeOptimized(experiment, cancellationToken);
+                var shouldOptimize = await this.ShouldBlobBeOptimizedAsync(experiment, cancellationToken);
                 if (!shouldOptimize) continue;
 
                 // optimize the experiment
@@ -714,6 +721,6 @@ public class AzureBlobStorageService(
             }
         }
 
-        this.logger.LogDebug("completed optimize operation.");
+        logger.LogDebug("completed optimize operation.");
     }
 }
