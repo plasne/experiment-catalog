@@ -359,11 +359,9 @@ public class AzureBlobStorageService(
             experiment.Results = new List<Result>();
             experiment.Statistics = new List<Statistics>();
 
-            while (!streamReader.EndOfStream)
+            string? line;
+            while ((line = await streamReader.ReadLineAsync(cancellationToken)) is not null)
             {
-                var line = await streamReader.ReadLineAsync(cancellationToken);
-                if (line is null) break;
-
                 var result = JsonConvert.DeserializeObject<Result>(line);
                 if (result is null) continue;
 
@@ -600,11 +598,9 @@ public class AzureBlobStorageService(
         var content = new StringBuilder();
 
         // read from the source blob
-        while (!reader.EndOfStream)
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
         {
-            // read and append line
-            var line = await reader.ReadLineAsync(cancellationToken);
-            if (line is null) break;
             if (content.Length + line.Length < 4 * 1024 * 1024)
             {
                 content.Append(line + "\n");
