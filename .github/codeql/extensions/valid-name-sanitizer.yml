@@ -1,33 +1,21 @@
 extensions:
+  # Mark ValidNameAttribute.IsValid as a barrier/sanitizer for log injection
+  # The attribute validates input contains only safe characters:
+  # letters, digits, hyphens, underscores, periods, and colons
+  # If IsValid returns true, the input is guaranteed safe
   - addsTo:
       pack: codeql/csharp-all
-      extensible: summaryModel
+      extensible: barrierModel
     data:
-      # Mark ValidNameAttribute as a sanitizer - parameters decorated with this attribute
-      # are validated to contain only safe characters (letters, digits, hyphens, underscores, periods, colons)
+      # Parameters: namespace, type, subtypes, name, signature, ext, output, kind, provenance
       - [
           "Catalog",
           "ValidNameAttribute",
-          True,
+          true,
           "IsValid",
           "(System.Object)",
           "",
           "Argument[0]",
-          "ReturnValue",
-          "taint",
-          "manual",
-        ]
-
-  - addsTo:
-      pack: codeql/csharp-all
-      extensible: neutralModel
-    data:
-      # Parameters with ValidNameAttribute are sanitized inputs
-      - [
-          "Catalog",
-          "ValidNameAttribute",
-          "IsValid",
-          "(System.Object)",
-          "summary",
+          "log-injection",
           "manual",
         ]

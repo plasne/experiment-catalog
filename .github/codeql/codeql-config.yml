@@ -1,4 +1,6 @@
 name: "CodeQL Config"
 
-model-packs:
-  - .github/codeql/extensions/valid-name-sanitizer.yml
+# Use local extension pack to mark ValidNameAttribute as a sanitizer
+packs:
+  csharp:
+    - ./.github/codeql/extensions
