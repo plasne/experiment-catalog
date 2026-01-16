@@ -638,7 +638,7 @@ public class AzureBlobStorageService(
     {
         try
         {
-            logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName);
+            logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName); // lgtm[cs/log-forging]
 
             // open the source blob
             var containerClient = await this.ConnectAsync(projectName, cancellationToken);
@@ -663,11 +663,11 @@ public class AzureBlobStorageService(
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
 
-            logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
+            logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName); // lgtm[cs/log-forging]
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
+            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName); // lgtm[cs/log-forging]
             throw;
         }
     }
