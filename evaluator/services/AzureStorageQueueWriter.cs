@@ -131,7 +131,7 @@ public class AzureStorageQueueWriter(
 
                     // enqueue blobs from that container
                     var prefix = containerAndPath.Length == 2 ? containerAndPath[1] : null;
-                    await foreach (var blob in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: stoppingToken))
+                    await foreach (var blob in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix: prefix, cancellationToken: stoppingToken))
                     {
                         await this.EnqueueBlobAsync(containerClient, blob, enqueueRequest, queueClient, stoppingToken);
                     }
