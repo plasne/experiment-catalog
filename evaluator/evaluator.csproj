@@ -16,7 +16,7 @@
     <PackageReference Include="Jsonata.Net.Native" Version="2.6.1" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.4" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.20" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.23" />
     <PackageReference Include="NetBricks" Version="1.9.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="OpenTelemetry" Version="1.8.1" />
