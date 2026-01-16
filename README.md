@@ -86,7 +86,7 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Node.js 20+](https://nodejs.org/)
 - [Python 3.9+](https://www.python.org/) (for tags utility)
 - [Docker](https://www.docker.com/) (for containerized deployment)

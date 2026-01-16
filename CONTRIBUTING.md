@@ -59,7 +59,7 @@ If you are interested in writing code to fix issues or add features, please read
 
 Before you begin, ensure you have the following installed:
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) - for the backend APIs (catalog and evaluator)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) - for the backend APIs (catalog and evaluator)
 - [Node.js 20+](https://nodejs.org/) - for the frontend UI
 - [Python 3.10+](https://www.python.org/) - for the evaluation script
 - [Docker](https://www.docker.com/) - for containerized deployment (optional)
