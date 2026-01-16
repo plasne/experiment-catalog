@@ -1,5 +1,5 @@
 # Build UI first in a Node.js container
-FROM --platform=$BUILDPLATFORM node:20-bookworm AS ui-build
+FROM --platform=$BUILDPLATFORM node:25-bookworm AS ui-build
 WORKDIR /ui
 COPY ui .
 RUN npm install
