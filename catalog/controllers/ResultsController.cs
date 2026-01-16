@@ -10,8 +10,8 @@ public class ResultsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Add(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
         [FromBody] AddResultRequest request)
     {
         if (projectName is null || experimentName is null || request is null)

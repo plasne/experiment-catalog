@@ -21,7 +21,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpGet]
     public async Task<ActionResult<IList<Experiment>>> List(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
+        [FromRoute, ValidName] string projectName,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(projectName))
@@ -36,8 +36,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpGet("{experimentName}")]
     public async Task<ActionResult<Experiment>> Get(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
@@ -52,8 +52,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpPost]
     public async Task<IActionResult> Add(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromBody] Experiment experiment,
+        [FromRoute, ValidName] string projectName,
+        [FromBody, ValidName] Experiment experiment,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(projectName) || experiment is null)
@@ -73,8 +73,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpPatch("{experimentName}/baseline")]
     public async Task<IActionResult> SetExperimentAsBaseline(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
@@ -89,9 +89,9 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpPatch("{experimentName}/sets/{setName}/baseline")]
     public async Task<IActionResult> SetBaselineForExperiment(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
-        [FromRoute] string setName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
+        [FromRoute, ValidName] string setName,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName) || string.IsNullOrEmpty(setName))
@@ -119,8 +119,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     public async Task<ActionResult<Comparison>> Compare(
         [FromServices] IConfigFactory<IConfig> configFactory,
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
         CancellationToken cancellationToken,
         [FromQuery(Name = "sets")] string sets = "",
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
@@ -233,9 +233,9 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpGet("{experimentName}/sets/{setName}/compare-by-ref")]
     public async Task<ActionResult<ComparisonByRef>> CompareByRef(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
-        [FromRoute] string setName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
+        [FromRoute, ValidName] string setName,
         CancellationToken cancellationToken,
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
@@ -324,9 +324,9 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     public async Task<ActionResult<Comparison>> GetNamedSet(
         [FromServices] IConfigFactory<IConfig> configFactory,
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
-        [FromRoute] string setName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
+        [FromRoute, ValidName] string setName,
         CancellationToken cancellationToken,
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
@@ -362,8 +362,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpPut("{experimentName}/optimize")]
     public async Task<IActionResult> Optimize(
         [FromServices] IStorageService storageService,
-        [FromRoute] string projectName,
-        [FromRoute] string experimentName,
+        [FromRoute, ValidName] string projectName,
+        [FromRoute, ValidName] string experimentName,
         CancellationToken cancellationToken)
     {
         await storageService.OptimizeExperimentAsync(projectName, experimentName, cancellationToken);

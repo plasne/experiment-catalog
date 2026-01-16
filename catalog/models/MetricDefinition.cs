@@ -7,6 +7,7 @@ namespace Catalog;
 public class MetricDefinition
 {
     [JsonProperty("name", Required = Required.Always)]
+    [ValidName]
     public required string Name { get; set; }
 
     [JsonProperty("min", NullValueHandling = NullValueHandling.Ignore)]
