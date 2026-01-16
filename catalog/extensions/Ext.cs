@@ -70,4 +70,68 @@ public static class Ext
     {
         return divisor == 0 ? 0m : (decimal)dividend / (decimal)divisor;
     }
+
+    /// <summary>
+    /// Validates an Azure blob container name per Azure naming rules.
+    /// Rules: 3-63 chars, lowercase letters/numbers/hyphens, starts with letter or number,
+    /// no consecutive hyphens, cannot end with hyphen.
+    /// </summary>
+    public static void ValidateAzureContainerName(this string containerName)
+    {
+        if (string.IsNullOrEmpty(containerName))
+        {
+            throw new HttpException(400, "container name cannot be null or empty.");
+        }
+
+        if (containerName.Length < 3 || containerName.Length > 63)
+        {
+            throw new HttpException(400, $"container name '{containerName}' must be between 3 and 63 characters.");
+        }
+
+        if (!char.IsLetterOrDigit(containerName[0]))
+        {
+            throw new HttpException(400, $"container name '{containerName}' must start with a letter or number.");
+        }
+
+        if (containerName.EndsWith('-'))
+        {
+            throw new HttpException(400, $"container name '{containerName}' cannot end with a hyphen.");
+        }
+
+        for (int i = 0; i < containerName.Length; i++)
+        {
+            char c = containerName[i];
+            if (!char.IsLower(c) && !char.IsDigit(c) && c != '-')
+            {
+                throw new HttpException(400, $"container name '{containerName}' contains invalid character '{c}'. Only lowercase letters, numbers, and hyphens are allowed.");
+            }
+
+            if (c == '-' && i > 0 && containerName[i - 1] == '-')
+            {
+                throw new HttpException(400, $"container name '{containerName}' cannot have consecutive hyphens.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates an Azure blob name per Azure naming rules.
+    /// Rules: 1-1024 chars, cannot end with dot or forward slash.
+    /// </summary>
+    public static void ValidateAzureBlobName(this string blobName)
+    {
+        if (string.IsNullOrEmpty(blobName))
+        {
+            throw new HttpException(400, "blob name cannot be null or empty.");
+        }
+
+        if (blobName.Length > 1024)
+        {
+            throw new HttpException(400, $"blob name must be 1024 characters or fewer (was {blobName.Length}).");
+        }
+
+        if (blobName.EndsWith('.') || blobName.EndsWith('/'))
+        {
+            throw new HttpException(400, $"blob name '{blobName}' cannot end with a dot or forward slash.");
+        }
+    }
 }

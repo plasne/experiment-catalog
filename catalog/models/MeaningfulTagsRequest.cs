@@ -14,15 +14,19 @@ public enum MeaningfulTagsComparisonMode
 public class MeaningfulTagsRequest
 {
     [JsonProperty("project", Required = Required.Always)]
+    [ValidName]
     public required string Project { get; set; }
 
     [JsonProperty("experiment", Required = Required.Always)]
+    [ValidName]
     public required string Experiment { get; set; }
 
     [JsonProperty("set", Required = Required.Always)]
+    [ValidName]
     public required string Set { get; set; }
 
     [JsonProperty("metric", Required = Required.Always)]
+    [ValidName]
     public required string Metric { get; set; }
 
     [JsonProperty("exclude_tags")]
