@@ -1,0 +1,4 @@
+name: "CodeQL Config"
+
+model-packs:
+  - .github/codeql/extensions/valid-name-sanitizer.yml

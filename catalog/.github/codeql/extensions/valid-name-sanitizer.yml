@@ -1,0 +1,26 @@
+extensions:
+  - addsTo:
+      pack: codeql/csharp-all
+      extensible: summaryModel
+    data:
+      # Mark ValidNameAttribute as a sanitizer - parameters decorated with this attribute
+      # are validated to contain only safe characters (letters, digits, hyphens, underscores, periods, colons)
+      - [
+          "Catalog",
+          "ValidNameAttribute",
+          True,
+          "IsValid",
+          "(System.Object)",
+          "",
+          "Argument[0]",
+          "ReturnValue",
+          "taint",
+          "manual",
+        ]
+
+  - addsTo:
+      pack: codeql/csharp-all
+      extensible: neutralModel
+    data:
+      # Parameters with ValidNameAttribute are sanitized inputs
+      - ["Catalog", "ValidNameAttribute", "Attribute", "manual"]
