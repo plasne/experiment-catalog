@@ -159,7 +159,6 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
         catch (Exception e)
         {
-            // codeql[cs/log-forging]
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
@@ -268,7 +267,6 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
         catch (Exception e)
         {
-            // codeql[cs/log-forging]
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
