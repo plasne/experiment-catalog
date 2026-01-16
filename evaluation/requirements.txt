@@ -1,4 +1,4 @@
 python-dotenv
 openai
-flask
-pydantic
+flask>=3.0.0
+pydantic>=2.4.0
