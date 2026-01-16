@@ -638,6 +638,7 @@ public class AzureBlobStorageService(
     {
         try
         {
+            // codeql[cs/log-forging]: projectName and experimentName are validated by [ValidName] attribute at the controller level
             logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName);
 
             // open the source blob
@@ -663,10 +664,12 @@ public class AzureBlobStorageService(
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
 
+            // codeql[cs/log-forging]: projectName and experimentName are validated by [ValidName] attribute at the controller level
             logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
         }
         catch (Exception ex)
         {
+            // codeql[cs/log-forging]: projectName and experimentName are validated by [ValidName] attribute at the controller level
             logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
             throw;
         }

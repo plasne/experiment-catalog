@@ -1,6 +1,0 @@
-name: "CodeQL Config"
-
-# Use local extension pack to mark ValidNameAttribute as a sanitizer
-packs:
-  csharp:
-    - ./.github/codeql/extensions
