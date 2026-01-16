@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: "30 5 * * 1" # Run weekly on Monday at 5:30 UTC
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze
@@ -24,16 +27,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@a4fda0891d53e117609b7ddb3570638c2c6d7c89 # v3
         with:
           languages: ${{ matrix.language }}
 
       - name: Setup .NET
         if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "10.0.x"
 
@@ -45,9 +48,9 @@ jobs:
 
       - name: Autobuild
         if: matrix.language != 'csharp'
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@a4fda0891d53e117609b7ddb3570638c2c6d7c89 # v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@a4fda0891d53e117609b7ddb3570638c2c6d7c89 # v3
         with:
           category: "/language:${{ matrix.language }}"
