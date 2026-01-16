@@ -7,8 +7,10 @@ namespace Catalog;
 public class CalculateStatisticsRequest
 {
     [JsonProperty("project", Required = Required.Always)]
+    [ValidName]
     public required string Project { get; set; }
 
     [JsonProperty("experiment", Required = Required.Always)]
+    [ValidName]
     public required string Experiment { get; set; }
 }

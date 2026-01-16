@@ -83,9 +83,11 @@ public class AzureBlobSupportDocsService(
             throw new HttpException(400, "the URL does not contain a valid container and blob path.");
         }
 
-        // log the attempt
+        // validate and log the attempt
         var containerName = pathSegments[0];
+        containerName.ValidateAzureContainerName();
         var blobName = pathSegments[1];
+        blobName.ValidateAzureBlobName();
         logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
 
         // download the blob
