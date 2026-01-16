@@ -159,7 +159,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
         catch (Exception e)
         {
-            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName); // lgtm[cs/log-forging]
+            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
         // get configuration
@@ -267,7 +267,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
         catch (Exception e)
         {
-            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName); // lgtm[cs/log-forging]
+            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
         // get the experiment info
