@@ -23,4 +23,11 @@ extensions:
       extensible: neutralModel
     data:
       # Parameters with ValidNameAttribute are sanitized inputs
-      - ["Catalog", "ValidNameAttribute", "Attribute", "manual"]
+      - [
+          "Catalog",
+          "ValidNameAttribute",
+          "IsValid",
+          "(System.Object)",
+          "summary",
+          "manual",
+        ]
