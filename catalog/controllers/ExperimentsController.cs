@@ -159,7 +159,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
         catch (Exception e)
         {
-            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName); // lgtm[cs/log-forging] projectName is validated by [ValidName] attribute
+            // codeql[cs/log-forging]
+            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
         // get configuration
