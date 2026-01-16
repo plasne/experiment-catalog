@@ -663,11 +663,13 @@ public class AzureBlobStorageService(
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
 
-            logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName); // lgtm[cs/log-forging]
+            // codeql[cs/log-forging]
+            logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName); // lgtm[cs/log-forging]
+            // codeql[cs/log-forging]
+            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
             throw;
         }
     }
