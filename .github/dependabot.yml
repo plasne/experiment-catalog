@@ -5,39 +5,57 @@ updates:
     directory: "/catalog"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    groups:
+      nuget-catalog:
+        patterns:
+          - "*"
 
   # NuGet dependencies for evaluator service
   - package-ecosystem: "nuget"
     directory: "/evaluator"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    groups:
+      nuget-evaluator:
+        patterns:
+          - "*"
 
   # npm dependencies for UI
   - package-ecosystem: "npm"
     directory: "/ui"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    groups:
+      npm-ui:
+        patterns:
+          - "*"
 
   # pip dependencies for evaluation
   - package-ecosystem: "pip"
     directory: "/evaluation"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    groups:
+      pip-evaluation:
+        patterns:
+          - "*"
 
   # Docker dependencies
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    groups:
+      docker:
+        patterns:
+          - "*"
 
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
