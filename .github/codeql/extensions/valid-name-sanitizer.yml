@@ -1,13 +1,13 @@
 extensions:
-  # Mark ValidNameAttribute.IsValid as a barrier/sanitizer for log injection
+  # Mark ValidNameAttribute.IsValid as a barrier guard for log injection
   # The attribute validates input contains only safe characters:
   # letters, digits, hyphens, underscores, periods, and colons
-  # If IsValid returns true, the input is guaranteed safe
+  # When IsValid returns true, the input is guaranteed safe
   - addsTo:
       pack: codeql/csharp-all
-      extensible: barrierModel
+      extensible: barrierGuardModel
     data:
-      # Parameters: namespace, type, subtypes, name, signature, ext, output, kind, provenance
+      # Parameters: namespace, type, subtypes, name, signature, ext, input, acceptingvalue, kind, provenance
       - [
           "Catalog",
           "ValidNameAttribute",
@@ -16,6 +16,7 @@ extensions:
           "(System.Object)",
           "",
           "Argument[0]",
+          "true",
           "log-injection",
           "manual",
         ]
