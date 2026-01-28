@@ -16,7 +16,7 @@ By default, the Experiment Catalog does not require authentication. This is suit
 
 If hosting the catalog in Azure App Service or Container Apps, EasyAuth can be configured using the Microsoft identity provider or the OpenID Connect provider. This is sufficient for providing a secure solution.
 
-When using the Microsoft identity provider, the X-MS-TOKEN-AAD-ID-TOKEN and/or X-MS-TOKEN-AAD-ACCESS-TOKEN headers are passed to the underlying application. The Experiment Catalog can be configured to validate the token signature by setting `OIDC_AUTHORITY`. You can optionally validate other claims such as `OIDC_AUDIENCES`, `OIDC_ISSUERS`, and `OIDC_VALIDATE_LIFETIME`. While validation of the token is not strictly necessary when using EasyAuth, it does provide an additional layer of security, for example, if the EasyAuth configuration is disabled or changed.
+When using the Microsoft identity provider, the X-MS-TOKEN-AAD-ID-TOKEN and/or X-MS-TOKEN-AAD-ACCESS-TOKEN headers are passed to the underlying application. The Experiment Catalog can be configured to validate the token signature by setting `OIDC_AUTHORITY`. You can optionally validate other claims such as `OIDC_AUDIENCES`, `OIDC_ISSUERS`, `OIDC_VALIDATE_LIFETIME`, and `OIDC_ACCEPTABLE_ROLES`. While validation of the token is not strictly necessary when using EasyAuth, it does provide an additional layer of security, for example, if the EasyAuth configuration is disabled or changed.
 
 ## OpenID Connect (OIDC)
 
@@ -41,3 +41,4 @@ In addition to the above configuration values, you may also want to set:
 - `OIDC_AUDIENCES`
 - `OIDC_ISSUERS`
 - `OIDC_VALIDATE_LIFETIME`
+- `OIDC_ACCEPTABLE_ROLES`

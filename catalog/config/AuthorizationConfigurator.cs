@@ -12,9 +12,16 @@ public class AuthorizationConfigurator(IConfigFactory<IConfig> configFactory) : 
         var config = configFactory.GetAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
         if (config.IsAuthenticationEnabled)
         {
-            options.FallbackPolicy = new AuthorizationPolicyBuilder()
-                .RequireAuthenticatedUser()
-                .Build();
+            var policyBuilder = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser();
+
+            // require at least one of the acceptable roles if configured
+            if (config.OIDC_ACCEPTABLE_ROLES?.Length > 0)
+            {
+                policyBuilder.RequireRole(config.OIDC_ACCEPTABLE_ROLES);
+            }
+
+            options.FallbackPolicy = policyBuilder.Build();
         }
     }
 }
