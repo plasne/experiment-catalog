@@ -35,5 +35,6 @@ public interface IConfig
     string? OIDC_ROLE_CLAIM_TYPE { get; set; }
     string? OIDC_VALIDATE_HEADER { get; set; }
     string? OIDC_VALIDATE_COOKIE { get; set; }
+    string[]? OIDC_ACCEPTABLE_ROLES { get; set; }
     bool IsAuthenticationEnabled { get; }
 }

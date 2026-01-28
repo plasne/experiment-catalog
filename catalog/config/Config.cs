@@ -116,6 +116,9 @@ public class Config : IConfig, IValidatableObject
     [SetValue("OIDC_VALIDATE_COOKIE")]
     public string? OIDC_VALIDATE_COOKIE { get; set; } = "id_token";
 
+    [SetValue("OIDC_ACCEPTABLE_ROLES")]
+    public string[]? OIDC_ACCEPTABLE_ROLES { get; set; }
+
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

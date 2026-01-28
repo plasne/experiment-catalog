@@ -82,6 +82,8 @@ The catalog supports optional JWT authentication using any OIDC-compliant identi
 
 - **OIDC_VALIDATE_HEADER** [DEFAULT: X-MS-TOKEN-AAD-ID-TOKEN]: The HTTP header from which to extract the JWT token for validation. This will be used if a bearer token is not found in the Authorization header or the specified cookie.
 
+- **OIDC_ACCEPTABLE_ROLES** [OPTIONAL]: A comma-separated list of acceptable roles. If provided, the user must have at least one of these roles (from the claim specified by `OIDC_ROLE_CLAIM_TYPE`) to access the API.
+
 ## Concepts
 
 The catalog is organized around the following concepts:
