@@ -42,7 +42,7 @@ public class ProjectsController : ControllerBase
     [HttpGet("{projectName}/tags")]
     public async Task<ActionResult<IList<Tag>>> ListTagsInProject(
         [FromServices] IStorageService storageService,
-        [FromRoute, Required, ValidName] string projectName,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         CancellationToken cancellationToken)
     {
         var tags = await storageService.ListTagsAsync(projectName, cancellationToken);
@@ -52,7 +52,7 @@ public class ProjectsController : ControllerBase
     [HttpPut("{projectName}/tags")]
     public async Task<IActionResult> AddTagToProject(
         [FromServices] IStorageService storageService,
-        [FromRoute, Required, ValidName] string projectName,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromBody] Tag tag,
         CancellationToken cancellationToken)
     {
@@ -73,7 +73,7 @@ public class ProjectsController : ControllerBase
     [HttpGet("{projectName}/metrics")]
     public async Task<ActionResult<IList<MetricDefinition>>> GetMetricDefinitions(
         [FromServices] IStorageService storageService,
-        [FromRoute, Required, ValidName] string projectName,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         CancellationToken cancellationToken)
     {
         var metrics = await storageService.GetMetricsAsync(projectName, cancellationToken);
@@ -83,7 +83,7 @@ public class ProjectsController : ControllerBase
     [HttpPut("{projectName}/metrics")]
     public async Task<IActionResult> AddMetricToProject(
         [FromServices] IStorageService storageService,
-        [FromRoute, Required, ValidName] string projectName,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromBody] IList<MetricDefinition> metrics,
         CancellationToken cancellationToken)
     {

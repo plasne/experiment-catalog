@@ -85,9 +85,15 @@ public class AzureBlobSupportDocsService(
 
         // validate and log the attempt
         var containerName = pathSegments[0];
-        containerName.ValidateAzureContainerName();
+        if (!AzureBlobStorageService.TryValidateAzureContainerName(containerName, out var containerError))
+        {
+            throw new HttpException(400, containerError!);
+        }
         var blobName = pathSegments[1];
-        blobName.ValidateAzureBlobName();
+        if (!AzureBlobStorageService.TryValidateAzureBlobName(blobName, out var blobError))
+        {
+            throw new HttpException(400, blobError!);
+        }
         logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
 
         // download the blob

@@ -42,7 +42,7 @@ public class HttpExceptionMiddleware(RequestDelegate next, ILogger<HttpException
             this.logger.LogWarning(ex, "HTTP exception...");
             context.Response.StatusCode = ex.StatusCode;
             context.Response.ContentType = "text/plain";
-            await context.Response.WriteAsync("There was an error processing the request.");
+            await context.Response.WriteAsync(ex.Message);
         }
         catch (Exception ex)
         {
