@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -90,7 +91,7 @@ public class AuthController() : ControllerBase
         var safeReturnUrl = IsAllowedReturnUrl(returnUrl) ? returnUrl : "/";
         Response.Cookies.Append(ReturnUrlCookieName, safeReturnUrl!, cookieOptions);
 
-        // build scopes
+        // build scopes 
         var scopes = new List<string> { "openid", "profile", "email" };
 
         // discover the authorization endpoint from the OIDC authority
@@ -98,7 +99,9 @@ public class AuthController() : ControllerBase
         var authorizationEndpoint = discoveryDoc.GetProperty("authorization_endpoint").GetString();
 
         // build authorization URL
-        var redirectUri = $"{Request.Scheme}://{Request.Host}/auth/callback";
+        // Use X-Forwarded-Proto header if present (when behind a reverse proxy like Azure Container Apps)
+        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+        var redirectUri = $"{scheme}://{Request.Host}/auth/callback";
         var authUrl = $"{authorizationEndpoint}" +
             $"?response_type=code" +
             $"&client_id={Uri.EscapeDataString(config.OIDC_CLIENT_ID)}" +
@@ -156,7 +159,9 @@ public class AuthController() : ControllerBase
         var tokenEndpoint = discoveryDoc.GetProperty("token_endpoint").GetString();
 
         // exchange code for tokens
-        var redirectUri = $"{Request.Scheme}://{Request.Host}/auth/callback";
+        // use X-Forwarded-Proto header if present (when behind a reverse proxy like Azure Container Apps)
+        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+        var redirectUri = $"{scheme}://{Request.Host}/auth/callback";
         var tokenRequest = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",
