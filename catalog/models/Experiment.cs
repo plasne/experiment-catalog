@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.ExceptionServices;
@@ -16,6 +17,7 @@ public class Experiment()
     public static readonly string[] namesIndicatingClassification = ["accuracy", "precision", "recall"];
 
     [JsonProperty("name", Required = Required.Always)]
+    [Required, ValidName]
     public required string Name { get; set; }
 
     [JsonProperty("hypothesis", Required = Required.Always)]
@@ -28,6 +30,7 @@ public class Experiment()
     public List<Statistics>? Statistics { get; set; }
 
     [JsonProperty("baseline", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidName]
     public string? Baseline { get; set; }
 
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]

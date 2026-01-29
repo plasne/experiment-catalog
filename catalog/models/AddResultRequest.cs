@@ -11,10 +11,12 @@ public class AddResultRequest
     private static readonly string[] classifications = ["t+", "t-", "f+", "f-"];
 
     [JsonProperty("ref", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidName]
     public string? Ref { get; set; }
 
-    [JsonProperty("set", Required = Required.Always)]
-    public required string Set { get; set; }
+    [JsonProperty("set", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidName]
+    public string? Set { get; set; }
 
     [JsonProperty("inference_uri", NullValueHandling = NullValueHandling.Ignore)]
     public string? InferenceUri { get; set; }
@@ -23,6 +25,7 @@ public class AddResultRequest
     public string? EvaluationUri { get; set; }
 
     [JsonProperty("metrics", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidNames]
     public Dictionary<string, object>? Metrics { get; set; }
 
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]

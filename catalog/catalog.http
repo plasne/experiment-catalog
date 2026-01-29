@@ -1,7 +1,7 @@
 @baseURL = http://localhost:6010/api
 @project = amltest
 @baseline = baseline
-@experiment = pelasne_123
+@experiment = pelasne_1234
 @set = set-000
 
 
@@ -16,7 +16,7 @@ POST {{baseURL}}/projects HTTP/1.1
 Content-Type: application/json
 
 {
-    "name": "sprint03"
+    "name": "amltest9"
 }
 
 ### Create a baseline experiment
@@ -24,7 +24,7 @@ POST {{baseURL}}/projects/{{project}}/experiments HTTP/1.1
 Content-Type: application/json
 
 {
-    "name": "{{experiment}}",
+    "name": "{{baseline}}",
     "hypothesis": "Using a reasonable threshold may improve answer generation."
 }
 

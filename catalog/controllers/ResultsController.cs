@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,8 +11,8 @@ public class ResultsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Add(
         [FromServices] IStorageService storageService,
-        [FromRoute, ValidName] string projectName,
-        [FromRoute, ValidName] string experimentName,
+        [FromRoute, Required, ValidName] string projectName,
+        [FromRoute, Required, ValidName] string experimentName,
         [FromBody] AddResultRequest request)
     {
         if (projectName is null || experimentName is null || request is null)
