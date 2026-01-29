@@ -6,6 +6,6 @@ namespace Catalog;
 public class Project
 {
     [JsonProperty("name", Required = Required.Always)]
-    [Required, ValidName]
+    [Required, ValidName, ValidProjectName]
     public required string Name { get; set; }
 }

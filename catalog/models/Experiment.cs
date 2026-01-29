@@ -17,7 +17,7 @@ public class Experiment()
     public static readonly string[] namesIndicatingClassification = ["accuracy", "precision", "recall"];
 
     [JsonProperty("name", Required = Required.Always)]
-    [Required, ValidName]
+    [Required, ValidName, ValidExperimentName]
     public required string Name { get; set; }
 
     [JsonProperty("hypothesis", Required = Required.Always)]
@@ -30,7 +30,7 @@ public class Experiment()
     public List<Statistics>? Statistics { get; set; }
 
     [JsonProperty("baseline", NullValueHandling = NullValueHandling.Ignore)]
-    [ValidName]
+    [ValidName, ValidExperimentName]
     public string? Baseline { get; set; }
 
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]

@@ -6,6 +6,8 @@ namespace Catalog;
 
 public interface IStorageService
 {
+    bool TryValidProjectName(string? projectName, out string? errorMessage);
+    bool TryValidExperimentName(string? experimentName, out string? errorMessage);
     Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default);
     Task AddProjectAsync(Project project, CancellationToken cancellationToken = default);
     Task<IList<string>> ListTagsAsync(string projectName, CancellationToken cancellationToken = default);

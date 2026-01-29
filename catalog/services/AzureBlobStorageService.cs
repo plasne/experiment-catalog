@@ -95,6 +95,109 @@ public class AzureBlobStorageService(
         }
     }
 
+    /// <summary>
+    /// Validates an Azure blob container name per Azure naming rules.
+    /// Rules: 3-63 chars, lowercase letters/numbers/hyphens, starts with letter or number,
+    /// no consecutive hyphens, cannot end with hyphen.
+    /// </summary>
+    public static bool TryValidateAzureContainerName(string? containerName, out string? errorMessage)
+    {
+        if (string.IsNullOrEmpty(containerName))
+        {
+            errorMessage = "container name cannot be null or empty.";
+            return false;
+        }
+
+        if (containerName.Length < 3 || containerName.Length > 63)
+        {
+            errorMessage = $"container name '{containerName}' must be between 3 and 63 characters.";
+            return false;
+        }
+
+        if (!char.IsLetterOrDigit(containerName[0]))
+        {
+            errorMessage = $"container name '{containerName}' must start with a letter or number.";
+            return false;
+        }
+
+        if (containerName.EndsWith('-'))
+        {
+            errorMessage = $"container name '{containerName}' cannot end with a hyphen.";
+            return false;
+        }
+
+        for (int i = 0; i < containerName.Length; i++)
+        {
+            char c = containerName[i];
+            if (!char.IsLower(c) && !char.IsDigit(c) && c != '-')
+            {
+                errorMessage = $"container name '{containerName}' contains invalid character '{c}'. Only lowercase letters, numbers, and hyphens are allowed.";
+                return false;
+            }
+
+            if (c == '-' && i > 0 && containerName[i - 1] == '-')
+            {
+                errorMessage = $"container name '{containerName}' cannot have consecutive hyphens.";
+                return false;
+            }
+        }
+
+        errorMessage = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates an Azure blob name per Azure naming rules.
+    /// Rules: 1-1024 chars, cannot end with dot or forward slash.
+    /// </summary>
+    public static bool TryValidateAzureBlobName(string? blobName, out string? errorMessage)
+    {
+        if (string.IsNullOrEmpty(blobName))
+        {
+            errorMessage = "blob name cannot be null or empty.";
+            return false;
+        }
+
+        if (blobName.Length > 1024)
+        {
+            errorMessage = $"blob name must be 1024 characters or fewer (was {blobName.Length}).";
+            return false;
+        }
+
+        if (blobName.EndsWith('.') || blobName.EndsWith('/'))
+        {
+            errorMessage = $"blob name '{blobName}' cannot end with a dot or forward slash.";
+            return false;
+        }
+
+        errorMessage = null;
+        return true;
+    }
+
+    public bool TryValidProjectName(string? projectName, out string? errorMessage)
+    {
+        if (!TryValidateAzureContainerName(projectName, out var containerError))
+        {
+            errorMessage = "the project name must be a valid Azure container name; " + containerError;
+            return false;
+        }
+
+        errorMessage = null;
+        return true;
+    }
+
+    public bool TryValidExperimentName(string? experimentName, out string? errorMessage)
+    {
+        if (!TryValidateAzureBlobName(experimentName, out var blobError))
+        {
+            errorMessage = "the experiment name must be a valid Azure blob name; " + blobError;
+            return false;
+        }
+
+        errorMessage = null;
+        return true;
+    }
+
     public async Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default)
     {
         var client = await this.ConnectAsync(cancellationToken);
