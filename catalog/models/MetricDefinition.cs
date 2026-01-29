@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -7,7 +8,7 @@ namespace Catalog;
 public class MetricDefinition
 {
     [JsonProperty("name", Required = Required.Always)]
-    [ValidName]
+    [Required, ValidName]
     public required string Name { get; set; }
 
     [JsonProperty("min", NullValueHandling = NullValueHandling.Ignore)]
@@ -24,6 +25,7 @@ public class MetricDefinition
     public int? Order { get; set; }
 
     [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidNames]
     public IList<string>? Tags { get; set; }
 
     public bool TryNormalize(decimal? value, out decimal normalized)

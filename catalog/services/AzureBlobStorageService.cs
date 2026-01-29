@@ -165,22 +165,23 @@ public class AzureBlobStorageService(
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var concurrencyLock = await concurrencyService.GetConcurrencyLock(cancellationToken);
 
-        var tasks = new List<Task<Tag>>();
-        foreach (var tag in tags)
+        var tasks = tags.Select(async tag =>
         {
             await concurrencyLock.WaitAsync(cancellationToken);
-            tasks.Add(Task.Run(() =>
+            try
             {
-                try
-                {
-                    return LoadTagAsync(containerClient, tag, cancellationToken);
-                }
-                finally
-                {
-                    concurrencyLock.Release();
-                }
-            }));
-        }
+                return await LoadTagAsync(containerClient, tag, cancellationToken);
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            {
+                logger.LogWarning("tag {tag} not found in project {project}; it will be loaded with no refs.", tag, projectName);
+                return new Tag { Name = tag };
+            }
+            finally
+            {
+                concurrencyLock.Release();
+            }
+        });
 
         return await Task.WhenAll(tasks);
     }
@@ -226,22 +227,18 @@ public class AzureBlobStorageService(
 
         // load the experiments
         var concurrencyLock = await concurrencyService.GetConcurrencyLock(cancellationToken);
-        var tasks = new List<Task<Experiment>>();
-        foreach (var experimentName in experimentNames)
+        var tasks = experimentNames.Select(async experimentName =>
         {
             await concurrencyLock.WaitAsync(cancellationToken);
-            tasks.Add(Task.Run(() =>
+            try
             {
-                try
-                {
-                    return LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
-                }
-                finally
-                {
-                    concurrencyLock.Release();
-                }
-            }));
-        }
+                return await LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
+            }
+            finally
+            {
+                concurrencyLock.Release();
+            }
+        });
 
         return await Task.WhenAll(tasks);
     }

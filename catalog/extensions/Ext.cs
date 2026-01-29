@@ -134,4 +134,31 @@ public static class Ext
             throw new HttpException(400, $"blob name '{blobName}' cannot end with a dot or forward slash.");
         }
     }
+
+    /// <summary>
+    /// Validates that a name contains only letters, digits, hyphens, underscores, periods, and colons,
+    /// and is between 3 and 50 characters.
+    /// </summary>
+    public static bool IsValidName(this string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        if (name.Length > 50)
+        {
+            return false;
+        }
+
+        foreach (char c in name)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '-' && c != '_' && c != '.' && c != ':')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

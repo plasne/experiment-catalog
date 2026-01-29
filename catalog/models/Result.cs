@@ -8,9 +8,11 @@ namespace Catalog;
 public class Result : StorageRecord
 {
     [JsonProperty("ref", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidName]
     public string? Ref { get; set; }
 
     [JsonProperty("set", NullValueHandling = NullValueHandling.Ignore)]
+    [ValidName]
     public string? Set { get; set; }
 
     [JsonProperty("inference_uri", NullValueHandling = NullValueHandling.Ignore)]
