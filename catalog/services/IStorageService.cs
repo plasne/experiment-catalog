@@ -23,5 +23,6 @@ public interface IStorageService
     Task AddStatisticsAsync(string projectName, string experimentName, Statistics statistics, CancellationToken cancellationToken = default);
     Task<Experiment> GetProjectBaselineAsync(string projectName, CancellationToken cancellationToken = default);
     Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default);
-    Task OptimizeExperimentAsync(string projectName, string experimentName, CancellationToken cancellationToken = default);
+    Task<Experiment> GetProjectBaselineWithBaselineSetAsync(string projectName, CancellationToken cancellationToken = default);
+    Task<Experiment> GetExperimentWithSetsAsync(string projectName, string experimentName, IEnumerable<string> sets, CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Threading;
 
 namespace Catalog;
 
@@ -18,12 +19,15 @@ public class ValidProjectNameAttribute : ValidationAttribute
             return ValidationResult.Success;
         }
 
-        // ensure storage service is available to get naming rules
-        var storageService = validationContext.GetService(typeof(IStorageService)) as IStorageService;
-        if (storageService is null)
+        // ensure storage service factory is available to get naming rules
+        var storageServiceFactory = validationContext.GetService(typeof(IStorageServiceFactory)) as IStorageServiceFactory;
+        if (storageServiceFactory is null)
         {
-            return new ValidationResult("there is no storage service available.");
+            return new ValidationResult("there is no storage service factory available.");
         }
+
+        // get the storage service (sync over async - acceptable for validation)
+        var storageService = storageServiceFactory.GetStorageServiceAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         // validate the project name
         if (!storageService.TryValidProjectName(value as string, out string? errorMessage))

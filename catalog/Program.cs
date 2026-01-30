@@ -47,7 +47,7 @@ if (!string.IsNullOrEmpty(openTelemetryConnectionString))
 }
 
 // add services to the container
-builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
+builder.Services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
 builder.Services.AddSingleton<ISupportDocsService, AzureBlobSupportDocsService>();
 builder.Services.AddSingleton<CalculateStatisticsService>();
 builder.Services.AddSingleton<ConcurrencyService>();

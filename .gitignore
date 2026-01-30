@@ -1,0 +1,6 @@
+.copilot-tracking/
+
+# HVE Core symlinks (local extension references)
+.github/agents
+.github/prompts
+scripts/dev-tools

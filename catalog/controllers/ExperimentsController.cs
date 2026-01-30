@@ -21,7 +21,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
     [HttpGet]
     public async Task<ActionResult<IList<Experiment>>> List(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         CancellationToken cancellationToken)
     {
@@ -30,13 +30,14 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("a project name is required.");
         }
 
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         var experiments = await storageService.GetExperimentsAsync(projectName, cancellationToken);
         return Ok(experiments);
     }
 
     [HttpGet("{experimentName}")]
     public async Task<ActionResult<Experiment>> Get(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         CancellationToken cancellationToken)
@@ -46,13 +47,14 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("a project name and experiment name are required.");
         }
 
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, false, cancellationToken);
         return Ok(experiment);
     }
 
     [HttpPost]
     public async Task<IActionResult> Add(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromBody] Experiment experiment,
         CancellationToken cancellationToken)
@@ -67,13 +69,14 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("an experiment name and hypothesis are required.");
         }
 
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         await storageService.AddExperimentAsync(projectName, experiment, cancellationToken);
         return Ok();
     }
 
     [HttpPatch("{experimentName}/baseline")]
     public async Task<IActionResult> SetExperimentAsBaseline(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         CancellationToken cancellationToken)
@@ -83,13 +86,14 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("a project name and experiment name are required.");
         }
 
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         await storageService.SetExperimentAsBaselineAsync(projectName, experimentName, cancellationToken);
         return Ok();
     }
 
     [HttpPatch("{experimentName}/sets/{setName}/baseline")]
     public async Task<IActionResult> SetBaselineForExperiment(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         [FromRoute, Required, ValidName] string setName,
@@ -100,6 +104,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("a project name, experiment name, and set name are required.");
         }
 
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         await storageService.SetBaselineForExperiment(projectName, experimentName, setName, cancellationToken);
         return Ok();
     }
@@ -119,7 +124,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpGet("{experimentName}/compare")]
     public async Task<ActionResult<Comparison>> Compare(
         [FromServices] IConfigFactory<IConfig> configFactory,
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         CancellationToken cancellationToken,
@@ -133,6 +138,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         // init
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         var watch = Stopwatch.StartNew();
         var comparison = new Comparison();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
@@ -144,7 +150,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         try
         {
             watch.Restart();
-            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
+            var baseline = await storageService.GetProjectBaselineWithBaselineSetAsync(projectName, cancellationToken);
             var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
             var baselineFiltered = baseline.Filter(includeTags, excludeTags);
             baseline.MetricDefinitions = comparison.MetricDefinitions;
@@ -233,7 +239,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
     [HttpGet("{experimentName}/sets/{setName}/compare-by-ref")]
     public async Task<ActionResult<ComparisonByRef>> CompareByRef(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         [FromRoute, Required, ValidName] string setName,
@@ -247,6 +253,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         // init
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         var comparison = new ComparisonByRef();
         var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
@@ -255,7 +262,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         // get the baseline
         try
         {
-            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
+            var baseline = await storageService.GetProjectBaselineWithBaselineSetAsync(projectName, cancellationToken);
             var baselineFiltered = baseline.Filter(includeTags, excludeTags);
             baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.ProjectBaseline = new ComparisonByRefEntity
@@ -271,8 +278,9 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
-        // get the experiment info
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
+        // Load the experiment with results so we can determine the baseline set
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, true, cancellationToken);
+        var experimentBaselineSet = experiment.BaselineSet ?? experiment.FirstSet;
         var experimentFiltered = experiment.Filter(includeTags, excludeTags);
         experiment.MetricDefinitions = comparison.MetricDefinitions;
 
@@ -287,8 +295,8 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             {
                 Project = projectName,
                 Experiment = experiment.Name,
-                Set = experiment.BaselineSet ?? experiment.FirstSet,
-                Results = experiment.AggregateSetByRef(experiment.BaselineSet ?? experiment.FirstSet, experimentFiltered),
+                Set = experimentBaselineSet,
+                Results = experiment.AggregateSetByRef(experimentBaselineSet, experimentFiltered),
             };
         }
 
@@ -324,7 +332,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
     [HttpGet("{experimentName}/sets/{setName}")]
     public async Task<ActionResult<Comparison>> GetNamedSet(
         [FromServices] IConfigFactory<IConfig> configFactory,
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         [FromRoute, Required, ValidName] string setName,
@@ -333,6 +341,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
         // init
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
         var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
 
@@ -358,16 +367,5 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         }
 
         return Ok(results);
-    }
-
-    [HttpPut("{experimentName}/optimize")]
-    public async Task<IActionResult> Optimize(
-        [FromServices] IStorageService storageService,
-        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
-        [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
-        CancellationToken cancellationToken)
-    {
-        await storageService.OptimizeExperimentAsync(projectName, experimentName, cancellationToken);
-        return Ok();
     }
 }

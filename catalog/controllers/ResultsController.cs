@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +11,11 @@ public class ResultsController : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Add(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
-        [FromBody] AddResultRequest request)
+        [FromBody] AddResultRequest request,
+        CancellationToken cancellationToken)
     {
         if (projectName is null || experimentName is null || request is null)
         {
@@ -37,7 +39,8 @@ public class ResultsController : ControllerBase
             Annotations = request.Annotations,
         };
 
-        await storageService.AddResultAsync(projectName, experimentName, result);
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
+        await storageService.AddResultAsync(projectName, experimentName, result, cancellationToken);
         return Ok();
     }
 }

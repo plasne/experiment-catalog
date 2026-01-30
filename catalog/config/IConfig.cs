@@ -6,6 +6,9 @@ public interface IConfig
     string? OPEN_TELEMETRY_CONNECTION_STRING { get; set; }
     string? AZURE_STORAGE_ACCOUNT_NAME { get; set; }
     string? AZURE_STORAGE_ACCOUNT_CONNSTRING { get; set; }
+    string? COSMOS_DB_ACCOUNT_ENDPOINT { get; set; }
+    string? COSMOS_DB_CONNECTION_STRING { get; set; }
+    string? COSMOS_DB_DATABASE_NAME { get; set; }
     int CONCURRENCY { get; set; }
     int REQUIRED_BLOCK_SIZE_IN_KB_FOR_OPTIMIZE { get; set; }
     int MINUTES_TO_BE_IDLE { get; set; }
@@ -37,4 +40,6 @@ public interface IConfig
     string? OIDC_VALIDATE_COOKIE { get; set; }
     string[]? OIDC_ACCEPTABLE_ROLES { get; set; }
     bool IsAuthenticationEnabled { get; }
+    bool IsCosmosEnabled { get; }
+    bool IsBlobStorageEnabled { get; }
 }

@@ -24,6 +24,17 @@ public class Config : IConfig, IValidatableObject
     [LogConfig(mode: LogConfigMode.Masked)]
     public string? AZURE_STORAGE_ACCOUNT_CONNSTRING { get; set; }
 
+    [SetValue("COSMOS_DB_ACCOUNT_ENDPOINT")]
+    public string? COSMOS_DB_ACCOUNT_ENDPOINT { get; set; }
+
+    [SetValue("COSMOS_DB_CONNECTION_STRING")]
+    [ResolveSecret]
+    [LogConfig(mode: LogConfigMode.Masked)]
+    public string? COSMOS_DB_CONNECTION_STRING { get; set; }
+
+    [SetValue("COSMOS_DB_DATABASE_NAME")]
+    public string? COSMOS_DB_DATABASE_NAME { get; set; } = "exp-catalog";
+
     [SetValue("CONCURRENCY")]
     [Range(1, 100)]
     public int CONCURRENCY { get; set; } = 4;
@@ -121,13 +132,31 @@ public class Config : IConfig, IValidatableObject
 
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
 
+    public bool IsCosmosEnabled => !string.IsNullOrEmpty(COSMOS_DB_ACCOUNT_ENDPOINT) || !string.IsNullOrEmpty(COSMOS_DB_CONNECTION_STRING);
+
+    public bool IsBlobStorageEnabled => !string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_NAME) || !string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_CONNSTRING);
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_NAME) && string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_CONNSTRING))
+        if (!IsBlobStorageEnabled && !IsCosmosEnabled)
         {
             yield return new ValidationResult(
-                "Either AZURE_STORAGE_ACCOUNT_NAME or AZURE_STORAGE_ACCOUNT_CONNSTRING must be set.",
-                new[] { nameof(AZURE_STORAGE_ACCOUNT_NAME), nameof(AZURE_STORAGE_ACCOUNT_CONNSTRING) });
+                "Either Azure Blob Storage (AZURE_STORAGE_ACCOUNT_NAME or AZURE_STORAGE_ACCOUNT_CONNSTRING) or Cosmos DB (COSMOS_DB_ACCOUNT_ENDPOINT or COSMOS_DB_CONNECTION_STRING) must be configured.",
+                [nameof(AZURE_STORAGE_ACCOUNT_NAME), nameof(COSMOS_DB_ACCOUNT_ENDPOINT)]);
+        }
+
+        if (IsBlobStorageEnabled && IsCosmosEnabled)
+        {
+            yield return new ValidationResult(
+                "Only one storage provider can be configured. Set either Azure Blob Storage or Cosmos DB properties, not both.",
+                [nameof(AZURE_STORAGE_ACCOUNT_NAME), nameof(COSMOS_DB_ACCOUNT_ENDPOINT)]);
+        }
+
+        if (IsCosmosEnabled && string.IsNullOrEmpty(COSMOS_DB_DATABASE_NAME))
+        {
+            yield return new ValidationResult(
+                "COSMOS_DB_DATABASE_NAME must be set when using Cosmos DB.",
+                [nameof(COSMOS_DB_DATABASE_NAME)]);
         }
     }
 }

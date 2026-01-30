@@ -16,11 +16,18 @@ namespace Catalog;
 /// </summary>
 public class CalculateStatisticsService(
     IConfigFactory<IConfig> configFactory,
-    IStorageService storageService,
+    IStorageServiceFactory storageServiceFactory,
     ILogger<CalculateStatisticsService> logger
 ) : BackgroundService
 {
     private readonly ConcurrentQueue<CalculateStatisticsRequest> requestQueue = new();
+    private IStorageService? storageService;
+
+    private async Task<IStorageService> GetStorageServiceAsync(CancellationToken cancellationToken)
+    {
+        this.storageService ??= await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
+        return this.storageService;
+    }
 
     /// <summary>
     /// Enqueues a request for p-value calculation to be processed by the background service.
@@ -366,6 +373,7 @@ public class CalculateStatisticsService(
 
         // retrieve all projects
         logger.LogDebug("fetching list of projects from storage...");
+        var storageService = await GetStorageServiceAsync(cancellationToken);
         var projects = await storageService.GetProjectsAsync(cancellationToken);
         logger.LogInformation("found {ProjectCount} projects to examine.", projects.Count);
 
@@ -448,6 +456,7 @@ public class CalculateStatisticsService(
     private async Task ProcessQueuedRequestAsync(CalculateStatisticsRequest request, CancellationToken cancellationToken)
     {
         // load the experiment with results
+        var storageService = await GetStorageServiceAsync(cancellationToken);
         var experiment = await storageService.GetExperimentAsync(
             request.Project,
             request.Experiment,
@@ -508,6 +517,7 @@ public class CalculateStatisticsService(
         }
 
         // load metric definitions for the project (shared across all experiments)
+        var storageService = await GetStorageServiceAsync(cancellationToken);
         var metricDefinitions = (await storageService.GetMetricsAsync(projectGroup.Name, cancellationToken))
             .ToDictionary(x => x.Name);
 
@@ -537,6 +547,7 @@ public class CalculateStatisticsService(
         projectGroup.Baseline!.MetricDefinitions = metricDefinitions;
 
         // load the full experiment with results and existing p-values
+        var storageService = await GetStorageServiceAsync(cancellationToken);
         var experiment = await storageService.GetExperimentAsync(
             projectGroup.Name,
             recentExperiment.Name,
@@ -639,6 +650,8 @@ public class CalculateStatisticsService(
         var statistics = await CalculateAsync(baseline, baselineSet, experiment, set, cancellationToken);
         if (statistics is not null)
         {
+            var storageService = await GetStorageServiceAsync(cancellationToken);
+
             await storageService.AddStatisticsAsync(projectName, experiment.Name, statistics, cancellationToken);
             logger.LogInformation(
                 "successfully calculated and saved statistics ({count}) for set '{Project}/{Experiment}/{Set}'.",

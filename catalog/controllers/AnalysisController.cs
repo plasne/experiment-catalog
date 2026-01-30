@@ -27,16 +27,23 @@ public class AnalysisController : ControllerBase
 
     [HttpPost("meaningful-tags")]
     public async Task<IActionResult> MeaningfulTags(
-        [FromServices] IStorageService storageService,
+        [FromServices] IStorageServiceFactory storageServiceFactory,
         [FromBody] MeaningfulTagsRequest request,
         CancellationToken cancellationToken)
     {
         var diffs = new List<TagDiff>();
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(cancellationToken);
 
-        var experiment = await storageService.GetExperimentAsync(request.Project, request.Experiment, cancellationToken: cancellationToken);
+        // Load experiment with only the specific set we need
+        var experiment = await storageService.GetExperimentWithSetsAsync(
+            request.Project,
+            request.Experiment,
+            [request.Set],
+            cancellationToken);
 
+        // Load baseline with only the baseline set if needed
         var baseline = request.CompareTo == MeaningfulTagsComparisonMode.Baseline
-            ? await storageService.GetProjectBaselineAsync(request.Project, cancellationToken)
+            ? await storageService.GetProjectBaselineWithBaselineSetAsync(request.Project, cancellationToken)
             : null;
 
         var listOfTags = await storageService.ListTagsAsync(request.Project, cancellationToken);

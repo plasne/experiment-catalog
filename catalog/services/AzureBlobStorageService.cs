@@ -823,4 +823,47 @@ public class AzureBlobStorageService(
 
         logger.LogDebug("completed optimize operation.");
     }
+
+    /// <inheritdoc/>
+    public async Task<Experiment> GetProjectBaselineWithBaselineSetAsync(
+        string projectName,
+        CancellationToken cancellationToken = default)
+    {
+        // Load the full baseline experiment
+        var experiment = await GetProjectBaselineAsync(projectName, cancellationToken);
+
+        // Filter to only the baseline set's results
+        var baselineSet = experiment.BaselineSet ?? experiment.LastSet;
+        if (experiment.Results is not null && baselineSet is not null)
+        {
+            experiment.Results = experiment.Results
+                .Where(r => r.Set == baselineSet)
+                .ToList();
+        }
+
+        return experiment;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Experiment> GetExperimentWithSetsAsync(
+        string projectName,
+        string experimentName,
+        IEnumerable<string> sets,
+        CancellationToken cancellationToken = default)
+    {
+        // Load the full experiment (includes results and statistics)
+        var experiment = await GetExperimentAsync(projectName, experimentName, true, cancellationToken);
+
+        // Filter to only the specified sets' results (keep all statistics)
+        var setsHashSet = sets.ToHashSet();
+        if (experiment.Results is not null)
+        {
+            experiment.Results = experiment.Results
+                .Where(r => r.Set is not null && setsHashSet.Contains(r.Set))
+                .ToList();
+        }
+
+        // Statistics are kept as-is for controller LINQ filtering
+        return experiment;
+    }
 }

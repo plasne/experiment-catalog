@@ -10,13 +10,14 @@ namespace Catalog;
 
 public class AzureBlobStorageMaintenanceService(
     IConfigFactory<IConfig> configFactory,
-    IStorageService storageService,
+    IStorageServiceFactory storageServiceFactory,
     ILogger<AzureBlobStorageMaintenanceService> logger
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // check if the service is disabled
+        var storageService = await storageServiceFactory.GetStorageServiceAsync(stoppingToken);
         if (storageService is not AzureBlobStorageService azureBlobStorageService)
         {
             logger.LogInformation("AzureBlobStorageMaintenanceService is disabled because the storage service is not AzureBlobStorageService.");
