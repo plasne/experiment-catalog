@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 
 namespace Catalog;
 
+[System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))] // for MCP support
 public enum MeaningfulTagsComparisonMode
 {
     Baseline,

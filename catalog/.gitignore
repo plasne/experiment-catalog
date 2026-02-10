@@ -1,6 +1,7 @@
 wwwroot/
 cache/
 *.env
+.copilot-tracking/
 
 .vscode/*
 !.vscode/settings.json
