@@ -12,6 +12,9 @@ namespace Catalog;
 [McpServerToolType]
 public class ExperimentsTools(IStorageService storageService, ExperimentService experimentService)
 {
+    private void ValidateProjectName(string? project) => McpValidationHelper.ValidateProjectName(project, storageService);
+    private void ValidateExperimentName(string? experiment) => McpValidationHelper.ValidateExperimentName(experiment, storageService);
+
     /// <summary>
     /// Lists all experiments in a project.
     /// </summary>
@@ -23,6 +26,8 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("The project name")] string project,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+
         return await storageService.GetExperimentsAsync(project, cancellationToken);
     }
 
@@ -39,6 +44,9 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("The experiment name")] string experiment,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+
         return await storageService.GetExperimentAsync(project, experiment, false, cancellationToken);
     }
 
@@ -57,6 +65,10 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("The experiment hypothesis")] string hypothesis,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(name);
+        McpValidationHelper.ValidateRequiredName(hypothesis, "hypothesis");
+
         var experiment = new Experiment { Name = name, Hypothesis = hypothesis };
         await storageService.AddExperimentAsync(project, experiment, cancellationToken);
         return $"Experiment '{name}' added to project '{project}'.";
@@ -76,6 +88,9 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("The experiment name")] string experiment,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+
         return await experimentService.ListSetsForExperimentAsync(project, experiment, cancellationToken);
     }
 
@@ -92,6 +107,9 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("The experiment name")] string experiment,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+
         await storageService.SetExperimentAsBaselineAsync(project, experiment, cancellationToken);
         return $"Experiment '{experiment}' set as baseline for project '{project}'.";
     }
@@ -111,6 +129,10 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("The set name to use as baseline")] string set,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+        McpValidationHelper.ValidateRequiredName(set, "set");
+
         await storageService.SetBaselineForExperiment(project, experiment, set, cancellationToken);
         return $"Set '{set}' configured as baseline for experiment '{experiment}' in project '{project}'.";
     }
@@ -133,6 +155,9 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("Optional comma-separated tag names to exclude")] string excludeTags = "",
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+
         return await experimentService.CompareAsync(project, experiment, includeTags, excludeTags, cancellationToken);
     }
 
@@ -157,6 +182,10 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("Optional comma-separated tag names to exclude")] string excludeTags = "",
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+        McpValidationHelper.ValidateRequiredName(set, "set");
+
         return await experimentService.CompareByRefAsync(project, experiment, set, includeTags, excludeTags, cancellationToken);
     }
 
@@ -179,6 +208,10 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
         [Description("Optional comma-separated tag names to exclude")] string excludeTags = "",
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+        McpValidationHelper.ValidateRequiredName(set, "set");
+
         return await experimentService.GetNamedSetAsync(project, experiment, set, includeTags, excludeTags, cancellationToken);
     }
 }

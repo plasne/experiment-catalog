@@ -12,6 +12,8 @@ namespace Catalog;
 [McpServerToolType]
 public class ProjectsTools(IStorageService storageService)
 {
+    private void ValidateProjectName(string? project) => McpValidationHelper.ValidateProjectName(project, storageService);
+
     /// <summary>
     /// Lists all projects.
     /// </summary>
@@ -35,6 +37,8 @@ public class ProjectsTools(IStorageService storageService)
         [Description("The project name")] string name,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(name);
+
         var project = new Project { Name = name };
         await storageService.AddProjectAsync(project, cancellationToken);
         return $"Project '{name}' added.";
@@ -51,6 +55,8 @@ public class ProjectsTools(IStorageService storageService)
         [Description("The project name")] string project,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+
         return await storageService.ListTagsAsync(project, cancellationToken);
     }
 
@@ -65,6 +71,8 @@ public class ProjectsTools(IStorageService storageService)
         [Description("The project name")] string project,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+
         return await storageService.GetMetricsAsync(project, cancellationToken);
     }
 }
