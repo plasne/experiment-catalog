@@ -13,6 +13,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using ModelContextProtocol;
+using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.AspNetCore.Authentication;
+using ModelContextProtocol.Protocol;
 using NetBricks;
 
 // load environment variables from .env file
@@ -50,9 +54,18 @@ if (!string.IsNullOrEmpty(openTelemetryConnectionString))
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 builder.Services.AddSingleton<ISupportDocsService, AzureBlobSupportDocsService>();
 builder.Services.AddSingleton<CalculateStatisticsService>();
+builder.Services.AddSingleton<AnalysisService>();
+builder.Services.AddSingleton<ExperimentService>();
 builder.Services.AddSingleton<ConcurrencyService>();
 builder.Services.AddHostedService<AzureBlobStorageMaintenanceService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CalculateStatisticsService>());
+
+// add MCP server with analysis tools
+builder.Services
+    .AddMcpServer()
+    .WithHttpTransport()
+    .WithToolsFromAssembly()
+    .AddCallToolFilter(McpToolExceptionFilter.Create());
 
 // add controllers with swagger
 builder.Services.AddControllers().AddNewtonsoftJson();
@@ -79,8 +92,14 @@ builder.Services.AddSwaggerGen(options =>
 
 // add authentication with deferred configuration
 builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, JwtBearerConfigurator>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer();
+builder.Services.AddSingleton<IConfigureOptions<McpAuthenticationOptions>, McpAuthenticationConfigurator>();
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = McpAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer()
+    .AddMcp();
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IConfigureOptions<AuthorizationOptions>, AuthorizationConfigurator>();
 
@@ -90,7 +109,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("default-policy",
     corsBuilder =>
     {
-        corsBuilder.WithOrigins("http://localhost:6020")
+        corsBuilder.WithOrigins(
+                "http://localhost:6020",
+                "http://localhost:6274"  // MCP Inspector
+            )
                .AllowAnyHeader()
                .AllowAnyMethod()
                .AllowCredentials();
@@ -115,8 +137,9 @@ app.UseMiddleware<HttpExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// map controllers
+// map controllers and MCP
 app.MapControllers();
+app.MapMcp("/mcp");
 
 // run
 app.Run();
