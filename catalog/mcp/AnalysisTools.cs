@@ -10,8 +10,11 @@ namespace Catalog;
 /// MCP tools for experiment analysis operations.
 /// </summary>
 [McpServerToolType]
-public class AnalysisTools(AnalysisService analysisService, CalculateStatisticsService calculateStatisticsService)
+public class AnalysisTools(AnalysisService analysisService, CalculateStatisticsService calculateStatisticsService, IStorageService storageService)
 {
+    private void ValidateProjectName(string? project) => McpValidationHelper.ValidateProjectName(project, storageService);
+    private void ValidateExperimentName(string? experiment) => McpValidationHelper.ValidateExperimentName(experiment, storageService);
+
     /// <summary>
     /// Enqueues a request to calculate statistics (p-values) for an experiment by comparing against the baseline.
     /// </summary>
@@ -25,6 +28,9 @@ public class AnalysisTools(AnalysisService analysisService, CalculateStatisticsS
         [Description("The experiment name")] string experiment,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+
         var request = new CalculateStatisticsRequest
         {
             Project = project,
@@ -56,6 +62,12 @@ public class AnalysisTools(AnalysisService analysisService, CalculateStatisticsS
         [Description("Comparison mode: Baseline (compare to project baseline), Zero (compare to zero), or Average (compare to experiment average)")] MeaningfulTagsComparisonMode compareTo = MeaningfulTagsComparisonMode.Baseline,
         CancellationToken cancellationToken = default)
     {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+        McpValidationHelper.ValidateRequiredName(set, "set");
+        McpValidationHelper.ValidateRequiredName(metric, "metric");
+        McpValidationHelper.ValidateOptionalNames(excludeTags, "excludeTags");
+
         var request = new MeaningfulTagsRequest
         {
             Project = project,

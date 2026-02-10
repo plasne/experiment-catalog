@@ -63,7 +63,47 @@ Three tool classes were created:
 | `ExperimentsTools` | ListExperiments, GetExperiment, AddExperiment, ListSetsForExperiment, SetExperimentAsBaseline, SetBaselineForExperiment, CompareExperiment, CompareByRef, GetNamedSet |
 | `AnalysisTools`    | CalculateStatistics, MeaningfulTags                                                                                                                                   |
 
-### 4. Create an exception filter for MCP
+### 4. Validate tool parameters explicitly
+
+ASP.NET controllers validate parameters automatically through the model validation pipeline, which processes `DataAnnotations` attributes such as `[Required]`, `[ValidName]`, and `[ValidProjectName]`. The MCP SDK does not have an equivalent pipeline. Tool arguments arrive as raw `JsonElement` values and are deserialized into method parameters without running any `ValidationAttribute` logic. The SDK documentation confirms this: arguments "should be considered unvalidated and untrusted."
+
+Adding `[Required, ValidName, ValidProjectName]` to MCP tool parameters has no effect because nothing invokes those attributes at runtime. Custom validators like `ValidProjectNameAttribute` also depend on `ValidationContext.GetService()` to resolve `IStorageService`, which the SDK never provides.
+
+Instead, validate parameters explicitly at the start of each tool method using a shared helper class:
+
+```csharp
+public static class McpValidationHelper
+{
+    public static void ValidateRequiredName(string? value, string parameterName) { ... }
+    public static void ValidateProjectName(string? value, IStorageService storageService) { ... }
+    public static void ValidateExperimentName(string? value, IStorageService storageService) { ... }
+    public static void ValidateOptionalNames(IEnumerable<string>? values, string parameterName) { ... }
+}
+```
+
+Each tool class injects `IStorageService` and exposes thin wrapper methods:
+
+```csharp
+public class ExperimentsTools(IStorageService storageService, ExperimentService experimentService)
+{
+    private void ValidateProjectName(string? project) =>
+        McpValidationHelper.ValidateProjectName(project, storageService);
+    private void ValidateExperimentName(string? experiment) =>
+        McpValidationHelper.ValidateExperimentName(experiment, storageService);
+
+    [McpServerTool(Name = "GetExperiment"), Description("...")]
+    public async Task<Experiment> GetExperiment(string project, string experiment, ...)
+    {
+        ValidateProjectName(project);
+        ValidateExperimentName(experiment);
+        return await storageService.GetExperimentAsync(project, experiment, false, cancellationToken);
+    }
+}
+```
+
+Validation failures throw `HttpException(400, ...)`, which the exception filter (see next step) catches and returns as an MCP error result.
+
+### 5. Create an exception filter for MCP
 
 MCP tool calls do not pass through ASP.NET middleware, so `HttpExceptionMiddleware` does not catch exceptions thrown during tool execution. Create an `McpToolExceptionFilter` that mirrors the same error-handling behavior:
 
@@ -71,7 +111,7 @@ MCP tool calls do not pass through ASP.NET middleware, so `HttpExceptionMiddlewa
 - Return a `CallToolResult` with `IsError = true` and a text message
 - Register the filter via `.AddCallToolFilter(McpToolExceptionFilter.Create())`
 
-### 5. Register services and MCP in Program.cs
+### 6. Register services and MCP in Program.cs
 
 Add the following registrations:
 
@@ -90,7 +130,7 @@ builder.Services
 
 `WithToolsFromAssembly()` discovers all classes annotated with `[McpServerToolType]` automatically.
 
-### 6. Map the MCP endpoint
+### 7. Map the MCP endpoint
 
 After `app.MapControllers()`, add:
 
@@ -100,7 +140,7 @@ app.MapMcp("/mcp");
 
 This exposes the MCP Streamable HTTP endpoint at `/mcp`.
 
-### 7. Update CORS for MCP Inspector
+### 8. Update CORS for MCP Inspector
 
 If you use the MCP Inspector for testing, add its origin to the CORS policy:
 
@@ -111,7 +151,7 @@ corsBuilder.WithOrigins(
 )
 ```
 
-### 8. Handle enum serialization for MCP
+### 9. Handle enum serialization for MCP
 
 The MCP SDK uses `System.Text.Json` rather than `Newtonsoft.Json`. If any tool parameters use enums, add the `System.Text.Json` converter attribute alongside any existing Newtonsoft attributes:
 
@@ -120,7 +160,7 @@ The MCP SDK uses `System.Text.Json` rather than `Newtonsoft.Json`. If any tool p
 public enum MeaningfulTagsComparisonMode { Baseline, Zero, Average }
 ```
 
-### 9. Authentication
+### 10. Authentication
 
 #### Local development (auth disabled)
 
@@ -176,7 +216,7 @@ Add the following to your VS Code `settings.json` (workspace or user level) so t
 | Local development  | Not set        | MCP endpoint is open, no token needed                                                |
 | Deployed with auth | Set            | MCP clients perform OAuth 2.0 automatically using the advertised scope and authority |
 
-### 10. Add Copilot agent and skill files (optional)
+### 11. Add Copilot agent and skill files (optional)
 
 To enable GitHub Copilot Chat to use the MCP tools via an agent:
 
