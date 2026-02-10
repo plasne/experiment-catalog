@@ -122,15 +122,59 @@ public enum MeaningfulTagsComparisonMode { Baseline, Zero, Average }
 
 ### 9. Authentication
 
-This branch did not change the authentication configuration, but it is worth noting how it applies to MCP.
+#### Local development (auth disabled)
 
-The project uses a `FallbackPolicy` configured in `AuthorizationConfigurator`. When `IsAuthenticationEnabled` is true, the fallback policy calls `RequireAuthenticatedUser()` (and optionally `RequireRole()`). Because a fallback policy applies to **all endpoints that do not have an explicit authorization attribute**, the `/mcp` endpoint inherits the same JWT Bearer authentication requirement as the REST controllers. No `[Authorize]` or `[AllowAnonymous]` attributes exist on the MCP tool classes — the fallback policy covers them automatically.
+When running against localhost you can leave authentication off by omitting the `OIDC_AUTHORITY` environment variable. Without an authority the fallback policy is not set and the `/mcp` endpoint is open, so MCP clients connect without any token exchange.
 
-In practice this means:
+#### Deployed service (auth enabled)
 
-- **Auth enabled**: MCP clients must send a valid JWT Bearer token in the `Authorization` header, same as any REST call. The MCP Inspector or any programmatic client needs the token.
-- **Auth disabled**: The fallback policy is not set, so the MCP endpoint is open — useful during local development.
-- **No per-tool granularity**: Currently all MCP tools share the same authentication and authorization policy. If you need different access levels per tool, you would need to add custom authorization checks inside the tool methods or use a filter.
+When the catalog is deployed with authentication enabled (`OIDC_AUTHORITY`, `OIDC_CLIENT_ID`, and optionally `OIDC_CLIENT_SECRET` are set), the MCP endpoint requires an OAuth 2.0 access token. The MCP SDK's authentication handler advertises the token requirements through `ProtectedResourceMetadata`, and compliant MCP clients (such as VS Code with GitHub Copilot) perform the OAuth flow automatically.
+
+##### Code changes
+
+Register the MCP authentication scheme alongside JWT Bearer in `Program.cs`:
+
+```csharp
+builder.Services.AddSingleton<IConfigureOptions<McpAuthenticationOptions>, McpAuthenticationConfigurator>();
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = McpAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer()
+    .AddMcp();
+```
+
+Create `McpAuthenticationConfigurator` to populate the protected resource metadata from the app's OIDC settings. It advertises the authorization server and an API scope of `api://{OIDC_CLIENT_ID}/.default` so that MCP clients know where to obtain a token and which scope to request.
+
+##### Azure AD app registration
+
+Configure the app registration that represents the catalog API:
+
+1. **Expose an API** — set the Application ID URI to `api://<client-id>` and add a scope (for example `api://<client-id>/all` with "Admins and users" consent). This scope is what MCP clients request when obtaining an access token.
+2. **Authorized client applications** — add the VS Code client application ID and authorize it for the scope created above. This allows VS Code to acquire tokens for the API without a user consent prompt.
+3. **Redirect URIs** — ensure the following are registered under the **Web** platform:
+   - `https://vscode.dev/redirect` (VS Code web)
+   - `http://localhost:33418` (VS Code desktop OAuth redirect)
+4. **Mobile and desktop applications** — enable the MSAL redirect URI (`msal<client-id>://auth`).
+5. **Allow public client flows** — set to **Yes** so VS Code can authenticate as a public client without a client secret.
+
+##### VS Code settings
+
+Add the following to your VS Code `settings.json` (workspace or user level) so that the Microsoft authentication extension uses the MSAL flow without a broker, which is required for the MCP OAuth handshake:
+
+```json
+{
+  "microsoft-authentication.implementation": "msal-no-broker"
+}
+```
+
+##### Summary
+
+| Scenario           | OIDC_AUTHORITY | MCP auth behavior                                                                    |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------ |
+| Local development  | Not set        | MCP endpoint is open, no token needed                                                |
+| Deployed with auth | Set            | MCP clients perform OAuth 2.0 automatically using the advertised scope and authority |
 
 ### 10. Add Copilot agent and skill files (optional)
 
@@ -138,22 +182,3 @@ To enable GitHub Copilot Chat to use the MCP tools via an agent:
 
 - Create `.github/agents/ask-catalog.agent.md` with the agent definition, tool references, and tool selection guidance
 - Create `.github/skills/experiment-catalog/SKILL.md` with domain context (hierarchy, terminology, workflows) so the agent can reason about the data model
-
-### Summary of files changed or created
-
-| File                                         | Action   | Purpose                                         |
-| -------------------------------------------- | -------- | ----------------------------------------------- |
-| `exp-catalog.csproj`                         | Modified | Added `ModelContextProtocol.AspNetCore` package |
-| `Program.cs`                                 | Modified | Registered services, MCP server, endpoint, CORS |
-| `services/AnalysisService.cs`                | Created  | Extracted meaningful-tags logic from controller |
-| `services/ExperimentService.cs`              | Created  | Extracted compare/set logic from controller     |
-| `controllers/AnalysisController.cs`          | Modified | Thinned to delegate to `AnalysisService`        |
-| `controllers/ExperimentsController.cs`       | Modified | Thinned to delegate to `ExperimentService`      |
-| `controllers/HttpException.cs`               | Moved    | Relocated from project root into `controllers/` |
-| `mcp/ProjectsTools.cs`                       | Created  | MCP tools for project operations                |
-| `mcp/ExperimentsTools.cs`                    | Created  | MCP tools for experiment operations             |
-| `mcp/AnalysisTools.cs`                       | Created  | MCP tools for analysis operations               |
-| `mcp/McpToolExceptionFilter.cs`              | Created  | Exception handling filter for MCP tool calls    |
-| `models/MeaningfulTagsRequest.cs`            | Modified | Added `System.Text.Json` enum converter         |
-| `.github/agents/ask-catalog.agent.md`        | Created  | Copilot agent definition                        |
-| `.github/skills/experiment-catalog/SKILL.md` | Created  | Domain skill context for the agent              |

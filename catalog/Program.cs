@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.AspNetCore.Authentication;
 using ModelContextProtocol.Protocol;
 using NetBricks;
 
@@ -91,8 +92,14 @@ builder.Services.AddSwaggerGen(options =>
 
 // add authentication with deferred configuration
 builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, JwtBearerConfigurator>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer();
+builder.Services.AddSingleton<IConfigureOptions<McpAuthenticationOptions>, McpAuthenticationConfigurator>();
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = McpAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer()
+    .AddMcp();
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IConfigureOptions<AuthorizationOptions>, AuthorizationConfigurator>();
 
