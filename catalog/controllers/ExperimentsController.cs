@@ -1,24 +1,15 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using NetBricks;
 
 namespace Catalog;
 
 [ApiController]
 [Route("api/projects/{projectName}/experiments")]
-public class ExperimentsController(ILogger<ExperimentsController> logger) : ControllerBase
+public class ExperimentsController : ControllerBase
 {
-    private readonly ILogger<ExperimentsController> logger = logger;
-
     [HttpGet]
     public async Task<ActionResult<IList<Experiment>>> List(
         [FromServices] IStorageService storageService,
@@ -48,6 +39,22 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
 
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, false, cancellationToken);
         return Ok(experiment);
+    }
+
+    [HttpGet("{experimentName}/sets")]
+    public async Task<ActionResult<IList<string>>> ListSetsForExperiment(
+        [FromServices] ExperimentService experimentService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
+        {
+            return BadRequest("a project name and experiment name are required.");
+        }
+
+        var sets = await experimentService.ListSetsForExperimentAsync(projectName, experimentName, cancellationToken);
+        return Ok(sets);
     }
 
     [HttpPost]
@@ -104,22 +111,13 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         return Ok();
     }
 
-    private static async Task<(IList<Tag> includeTags, IList<Tag> excludeTags)> LoadTags(
-        IStorageService storageService,
-        string projectName,
-        string includeTagsStr,
-        string excludeTagsStr,
-        CancellationToken cancellationToken)
-    {
-        var includeTags = await storageService.GetTagsAsync(projectName, includeTagsStr.AsArray(() => [])!, cancellationToken);
-        var excludeTags = await storageService.GetTagsAsync(projectName, excludeTagsStr.AsArray(() => [])!, cancellationToken);
-        return (includeTags, excludeTags);
-    }
-
+    /// <summary>
+    /// Compares an experiment's sets (permutations) against the baseline using aggregate metrics.
+    /// This is the default endpoint for comparing permutations to the baseline.
+    /// </summary>
     [HttpGet("{experimentName}/compare")]
     public async Task<ActionResult<Comparison>> Compare(
-        [FromServices] IConfigFactory<IConfig> configFactory,
-        [FromServices] IStorageService storageService,
+        [FromServices] ExperimentService experimentService,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         CancellationToken cancellationToken,
@@ -132,108 +130,18 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("a project name and experiment name are required.");
         }
 
-        // init
-        var watch = Stopwatch.StartNew();
-        var comparison = new Comparison();
-        var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
-        comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
-            .ToDictionary(x => x.Name);
-        logger.LogDebug("loaded tags and metric definitions in {ms} ms.", watch.ElapsedMilliseconds);
-
-        // get the project baseline
-        try
-        {
-            watch.Restart();
-            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
-            var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags);
-            baseline.MetricDefinitions = comparison.MetricDefinitions;
-            comparison.ProjectBaseline = new ComparisonEntity
-            {
-                Project = projectName,
-                Experiment = baseline.Name,
-                Set = baselineSet,
-                Result = baseline.AggregateSet(baselineSet, baselineFiltered),
-                Count = baseline.Results?.Count(x => x.Set == baselineSet), // unfiltered count
-            };
-            logger.LogDebug("loaded project baseline in {ms} ms.", watch.ElapsedMilliseconds);
-        }
-        catch (Exception e)
-        {
-            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
-        }
-
-        // get configuration
-        var config = await configFactory.GetAsync(cancellationToken);
-
-        // get the experiment baseline
-        watch.Restart();
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        var experimentBaselineSet = experiment.BaselineSet ?? experiment.FirstSet;
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
-        experiment.MetricDefinitions = comparison.MetricDefinitions;
-        comparison.ExperimentBaseline =
-            string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
-            ? comparison.ProjectBaseline
-            : new ComparisonEntity
-            {
-                Project = projectName,
-                Experiment = experiment.Name,
-                Set = experimentBaselineSet,
-                Result = experiment.AggregateSet(experimentBaselineSet, experimentFiltered),
-                Count = experiment.Results?.Count(x => x.Set == experimentBaselineSet), // unfiltered count
-            };
-        logger.LogDebug("loaded experiment baseline in {ms} ms.", watch.ElapsedMilliseconds);
-
-        // get the sets
-        watch.Restart();
-        comparison.Sets = experiment.AggregateAllSets(experimentFiltered)
-            .Select(x =>
-            {
-                // find matching statistics
-                var statistics = experiment.Statistics?.LastOrDefault(y =>
-                {
-                    if (y.Set != x.Set) return false;
-                    if (y.BaselineExperiment != comparison.ExperimentBaseline?.Experiment) return false;
-                    if (y.BaselineSet != comparison.ExperimentBaseline?.Set) return false;
-                    if (y.BaselineResultCount != comparison.ExperimentBaseline?.Count) return false;
-                    if (y.SetResultCount != experiment.Results?.Count(z => z.Set == x.Set)) return false; // unfiltered count
-                    if (y.NumSamples != config.CALC_PVALUES_USING_X_SAMPLES) return false;
-                    if (y.ConfidenceLevel != config.CONFIDENCE_LEVEL) return false;
-                    return true;
-                });
-
-                // fold statistics into result metrics
-                if (statistics?.Metrics is not null && x.Metrics is not null)
-                {
-                    foreach (var (metricName, statisticsMetric) in statistics.Metrics)
-                    {
-                        if (x.Metrics.TryGetValue(metricName, out var resultMetric))
-                        {
-                            resultMetric.PValue = statisticsMetric.PValue;
-                            resultMetric.CILower = statisticsMetric.CILower;
-                            resultMetric.CIUpper = statisticsMetric.CIUpper;
-                        }
-                    }
-                }
-
-                return new ComparisonEntity
-                {
-                    Project = projectName,
-                    Experiment = experiment.Name,
-                    Set = x.Set,
-                    Result = x,
-                };
-            });
-        logger.LogDebug("aggregated sets in {ms} ms.", watch.ElapsedMilliseconds);
-        watch.Stop();
-
+        var comparison = await experimentService.CompareAsync(projectName, experimentName, includeTagsStr, excludeTagsStr, cancellationToken);
         return Ok(comparison);
     }
 
+    /// <summary>
+    /// Breaks down a comparison per ref (ground truth), showing which individual ground truths
+    /// improved or regressed. Only use when investigating individual ground truth performance.
+    /// For aggregate comparison of a permutation to the baseline, use the Compare endpoint instead.
+    /// </summary>
     [HttpGet("{experimentName}/sets/{setName}/compare-by-ref")]
     public async Task<ActionResult<ComparisonByRef>> CompareByRef(
-        [FromServices] IStorageService storageService,
+        [FromServices] ExperimentService experimentService,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         [FromRoute, Required, ValidName] string setName,
@@ -246,85 +154,13 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
             return BadRequest("a project name, experiment name, and set name are required.");
         }
 
-        // init
-        var comparison = new ComparisonByRef();
-        var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
-        comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
-            .ToDictionary(x => x.Name);
-
-        // get the baseline
-        try
-        {
-            var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags);
-            baseline.MetricDefinitions = comparison.MetricDefinitions;
-            comparison.ProjectBaseline = new ComparisonByRefEntity
-            {
-                Project = projectName,
-                Experiment = baseline.Name,
-                Set = baseline.BaselineSet ?? baseline.LastSet,
-                Results = baseline.AggregateSetByRef(baseline.BaselineSet ?? baseline.LastSet, baselineFiltered),
-            };
-        }
-        catch (Exception e)
-        {
-            this.logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
-        }
-
-        // get the experiment info
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
-        experiment.MetricDefinitions = comparison.MetricDefinitions;
-
-        // get the experiment baseline
-        if (string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase))
-        {
-            comparison.ExperimentBaseline = comparison.ProjectBaseline;
-        }
-        else
-        {
-            comparison.ExperimentBaseline = new ComparisonByRefEntity
-            {
-                Project = projectName,
-                Experiment = experiment.Name,
-                Set = experiment.BaselineSet ?? experiment.FirstSet,
-                Results = experiment.AggregateSetByRef(experiment.BaselineSet ?? experiment.FirstSet, experimentFiltered),
-            };
-        }
-
-        // get the set experiment
-        comparison.ExperimentSet = new ComparisonByRefEntity
-        {
-            Project = projectName,
-            Experiment = experiment.Name,
-            Set = setName,
-            Results = experiment.AggregateSetByRef(setName, experimentFiltered),
-        };
-
-        // run policies
-        // if (comparison.ChosenResultsForChosenExperiment is not null
-        //     && comparison.BaselineResultsForChosenExperiment is not null)
-        // {
-        //     var policy = new PercentImprovement();
-        //     foreach (var (key, result) in comparison.ChosenResultsForChosenExperiment)
-        //     {
-        //         if (comparison.BaselineResultsForChosenExperiment.TryGetValue(key, out var baseline))
-        //         {
-        //             policy.Evaluate(result, baseline, comparison.MetricDefinitions);
-        //         }
-        //     }
-        //     this.logger.LogWarning("policy passed? {0}, {1}, {2}", policy.IsPassed, policy.NumResultsThatPassed, policy.NumResultsThatFailed);
-        //     this.logger.LogWarning(policy.Requirement);
-        //     this.logger.LogWarning(policy.Actual);
-        // }
-
+        var comparison = await experimentService.CompareByRefAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken);
         return Ok(comparison);
     }
 
     [HttpGet("{experimentName}/sets/{setName}")]
     public async Task<ActionResult<Comparison>> GetNamedSet(
-        [FromServices] IConfigFactory<IConfig> configFactory,
-        [FromServices] IStorageService storageService,
+        [FromServices] ExperimentService experimentService,
         [FromRoute, Required, ValidName, ValidProjectName] string projectName,
         [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
         [FromRoute, Required, ValidName] string setName,
@@ -332,31 +168,7 @@ public class ExperimentsController(ILogger<ExperimentsController> logger) : Cont
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
     {
-        // init
-        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
-            .ToDictionary(x => x.Name);
-
-        // get the experiment and filter the results
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        var (includeTags, excludeTags) = await LoadTags(storageService, projectName, includeTagsStr, excludeTagsStr, cancellationToken);
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
-        experiment.MetricDefinitions = metricDefinitions;
-
-        // get the results
-        var results = experiment.AggregateSetByEachResult(setName, experimentFiltered)
-            ?? Enumerable.Empty<Result>();
-
-        // add the support docs
-        var config = await configFactory.GetAsync(cancellationToken);
-        if (!string.IsNullOrEmpty(config.PATH_TEMPLATE))
-        {
-            foreach (var result in results)
-            {
-                if (!string.IsNullOrEmpty(result.InferenceUri)) result.InferenceUri = string.Format(config.PATH_TEMPLATE, result.InferenceUri);
-                if (!string.IsNullOrEmpty(result.EvaluationUri)) result.EvaluationUri = string.Format(config.PATH_TEMPLATE, result.EvaluationUri);
-            }
-        }
-
+        var results = await experimentService.GetNamedSetAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken);
         return Ok(results);
     }
 
