@@ -1,246 +1,339 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using NetBricks;
 
 namespace Evaluator;
 
-public class Config : IConfig
+[LogConfig("Configuration:")]
+public class Config : IConfig, IValidatableObject
 {
-    private readonly NetBricks.IConfig config;
+    private readonly List<string> invalidRoles = [];
 
-    public Config(NetBricks.IConfig config)
-    {
-        this.config = config;
-        this.PORT = this.config.Get<string>("PORT").AsInt(() => 6030);
+    [SetValue("PORT")]
+    public int PORT { get; set; } = 6030;
 
-        this.ROLES = this.config.Get("ROLES", value =>
-        {
-            List<Roles> roles = [];
-            var list = value.AsArray(() => throw new Exception("ROLES must be an array of strings"));
-            foreach (var entry in list)
-            {
-                var role = entry.AsEnum<Roles>(() => throw new Exception("each ROLE must be one of API, InferenceProxy, or EvaluationProxy."));
-                roles.Add(role);
-            }
-            return roles;
-        });
+    [SetValue("ROLES")]
+    [LogConfig(mode: LogConfigMode.Never)]
+    public string[]? ROLES_RAW { get; set; }
 
-        this.OPEN_TELEMETRY_CONNECTION_STRING = this.config.GetSecret<string>("OPEN_TELEMETRY_CONNECTION_STRING").Result;
-        this.AZURE_STORAGE_ACCOUNT_NAME = this.config.Get<string>("AZURE_STORAGE_ACCOUNT_NAME");
-        this.AZURE_STORAGE_CONNECTION_STRING = this.config.GetSecret<string>("AZURE_STORAGE_CONNECTION_STRING").Result;
-        this.INFERENCE_CONTAINER = this.config.Get<string>("INFERENCE_CONTAINER");
-        this.EVALUATION_CONTAINER = this.config.Get<string>("EVALUATION_CONTAINER");
-        this.INBOUND_INFERENCE_QUEUES = this.config.Get<string>("INBOUND_INFERENCE_QUEUES").AsArray(() => []);
-        this.INBOUND_EVALUATION_QUEUES = this.config.Get<string>("INBOUND_EVALUATION_QUEUES").AsArray(() => []);
-        this.OUTBOUND_INFERENCE_QUEUE = this.config.Get<string>("OUTBOUND_INFERENCE_QUEUE");
-        this.INFERENCE_CONCURRENCY = this.config.Get<string>("INFERENCE_CONCURRENCY, CONCURRENCY").AsInt(() => 1);
-        this.EVALUATION_CONCURRENCY = this.config.Get<string>("EVALUATION_CONCURRENCY, CONCURRENCY").AsInt(() => 1);
-        this.MS_TO_PAUSE_WHEN_EMPTY = this.config.Get<string>("MS_TO_PAUSE_WHEN_EMPTY").AsInt(() => 500);
-        this.DEQUEUE_FOR_X_SECONDS = this.config.Get<string>("DEQUEUE_FOR_X_SECONDS").AsInt(() => 300);
-        this.MS_BETWEEN_DEQUEUE = this.config.Get<string>("MS_BETWEEN_DEQUEUE").AsInt(() => 0);
-        this.MS_BETWEEN_DEQUEUE_CURRENT = this.MS_BETWEEN_DEQUEUE;
-        this.MAX_ATTEMPTS_TO_DEQUEUE = this.config.Get<string>("MAX_ATTEMPTS_TO_DEQUEUE").AsInt(() => 5);
-        this.MS_TO_ADD_ON_BUSY = this.config.Get<string>("MS_TO_ADD_ON_BUSY").AsInt(() => 0);
-        this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY = this.config.Get<string>("MINUTES_BETWEEN_RESTORE_AFTER_BUSY").AsInt(() => 0);
-        this.INFERENCE_URL = this.config.Get<string>("INFERENCE_URL");
-        this.EVALUATION_URL = this.config.Get<string>("EVALUATION_URL");
-        this.SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING = this.config.Get<string>("SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING").AsInt(() => 300);
-        this.BACKOFF_ON_STATUS_CODES = this.config.Get<string>("BACKOFF_ON_STATUS_CODES").AsIntArray(() => [429]);
-        this.DEADLETTER_ON_STATUS_CODES = this.config.Get<string>("DEADLETTER_ON_STATUS_CODES").AsIntArray(() => [400, 401, 403, 404, 405]);
-        this.EXPERIMENT_CATALOG_BASE_URL = this.config.Get<string>("EXPERIMENT_CATALOG_BASE_URL");
+    public List<Roles> ROLES { get; set; } = [];
 
-        this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE, INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
-        this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY, INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
-        {
-            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE)
-                ? string.Empty
-                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE);
-        });
+    [SetValue("OPEN_TELEMETRY_CONNECTION_STRING")]
+    [ResolveSecret]
+    [LogConfig(mode: LogConfigMode.Masked)]
+    public string? OPEN_TELEMETRY_CONNECTION_STRING { get; set; }
 
-        this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE, INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
-        this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY, INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
-        {
-            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE)
-                ? string.Empty
-                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE);
-        });
+    [SetValue("AZURE_STORAGE_ACCOUNT_NAME")]
+    public string? AZURE_STORAGE_ACCOUNT_NAME { get; set; }
 
-        this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE = this.config.Get<string>("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE, INBOUND_GROUNDTRUTH_TRANSFORM_FILE");
-        this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY = config.Get<string>("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY, INBOUND_GROUNDTRUTH_TRANSFORM_QUERY").AsString(() =>
-        {
-            return string.IsNullOrEmpty(this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE)
-                ? string.Empty
-                : File.ReadAllText(this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE);
-        });
+    [SetValue("AZURE_STORAGE_CONNECTION_STRING")]
+    [ResolveSecret]
+    [LogConfig(mode: LogConfigMode.Masked)]
+    public string? AZURE_STORAGE_CONNECTION_STRING { get; set; }
 
-        this.INBOUND_INFERENCE_TRANSFORM_FILE = this.config.Get<string>("INBOUND_INFERENCE_TRANSFORM_FILE");
-        this.INBOUND_INFERENCE_TRANSFORM_QUERY = config.Get<string>("INBOUND_INFERENCE_TRANSFORM_QUERY").AsString(() =>
-        {
-            return string.IsNullOrEmpty(this.INBOUND_INFERENCE_TRANSFORM_FILE)
-                ? string.Empty
-                : File.ReadAllText(this.INBOUND_INFERENCE_TRANSFORM_FILE);
-        });
+    [SetValue("INFERENCE_CONTAINER")]
+    public string? INFERENCE_CONTAINER { get; set; }
 
-        this.INBOUND_EVALUATION_TRANSFORM_FILE = this.config.Get<string>("INBOUND_EVALUATION_TRANSFORM_FILE");
-        this.INBOUND_EVALUATION_TRANSFORM_QUERY = config.Get<string>("INBOUND_EVALUATION_TRANSFORM_QUERY").AsString(() =>
-        {
-            return string.IsNullOrEmpty(this.INBOUND_EVALUATION_TRANSFORM_FILE)
-                ? string.Empty
-                : File.ReadAllText(this.INBOUND_EVALUATION_TRANSFORM_FILE);
-        });
+    [SetValue("EVALUATION_CONTAINER")]
+    public string? EVALUATION_CONTAINER { get; set; }
 
-        this.PROCESS_METRICS_IN_INFERENCE_RESPONSE = this.config.Get<string>("PROCESS_METRICS_IN_INFERENCE_RESPONSE").AsBool(() => false);
-        this.PROCESS_METRICS_IN_EVALUATION_RESPONSE = this.config.Get<string>("PROCESS_METRICS_IN_EVALUATION_RESPONSE").AsBool(() => true);
-    }
+    [SetValue("INBOUND_INFERENCE_QUEUES")]
+    public string[] INBOUND_INFERENCE_QUEUES { get; set; } = [];
 
-    public int PORT { get; }
+    [SetValue("INBOUND_EVALUATION_QUEUES")]
+    public string[] INBOUND_EVALUATION_QUEUES { get; set; } = [];
 
-    public List<Roles> ROLES { get; }
+    [SetValue("OUTBOUND_INFERENCE_QUEUE")]
+    public string? OUTBOUND_INFERENCE_QUEUE { get; set; }
 
-    public string OPEN_TELEMETRY_CONNECTION_STRING { get; }
+    [SetValue("INFERENCE_CONCURRENCY", "CONCURRENCY")]
+    [Range(1, 100)]
+    public int INFERENCE_CONCURRENCY { get; set; } = 1;
 
-    public string AZURE_STORAGE_ACCOUNT_NAME { get; }
+    [SetValue("EVALUATION_CONCURRENCY", "CONCURRENCY")]
+    [Range(1, 100)]
+    public int EVALUATION_CONCURRENCY { get; set; } = 1;
 
-    public string AZURE_STORAGE_CONNECTION_STRING { get; }
+    [SetValue("MS_TO_PAUSE_WHEN_EMPTY")]
+    public int MS_TO_PAUSE_WHEN_EMPTY { get; set; } = 500;
 
-    public string INFERENCE_CONTAINER { get; }
+    [SetValue("DEQUEUE_FOR_X_SECONDS")]
+    public int DEQUEUE_FOR_X_SECONDS { get; set; } = 300;
 
-    public string EVALUATION_CONTAINER { get; }
-
-    public string[] INBOUND_INFERENCE_QUEUES { get; }
-
-    public string[] INBOUND_EVALUATION_QUEUES { get; }
-
-    public string OUTBOUND_INFERENCE_QUEUE { get; }
-
-    public int INFERENCE_CONCURRENCY { get; }
-
-    public int EVALUATION_CONCURRENCY { get; }
-
-    public int MS_TO_PAUSE_WHEN_EMPTY { get; }
-
-    public int DEQUEUE_FOR_X_SECONDS { get; }
-
-    public int MS_BETWEEN_DEQUEUE { get; }
+    [SetValue("MS_BETWEEN_DEQUEUE")]
+    public int MS_BETWEEN_DEQUEUE { get; set; } = 0;
 
     public int MS_BETWEEN_DEQUEUE_CURRENT { get; set; }
 
-    public int MAX_ATTEMPTS_TO_DEQUEUE { get; }
+    [SetValue("MAX_ATTEMPTS_TO_DEQUEUE")]
+    public int MAX_ATTEMPTS_TO_DEQUEUE { get; set; } = 5;
 
-    public int MS_TO_ADD_ON_BUSY { get; }
+    [SetValue("MS_TO_ADD_ON_BUSY")]
+    public int MS_TO_ADD_ON_BUSY { get; set; } = 0;
 
-    public int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; }
+    [SetValue("MINUTES_BETWEEN_RESTORE_AFTER_BUSY")]
+    public int MINUTES_BETWEEN_RESTORE_AFTER_BUSY { get; set; } = 0;
 
-    public string INFERENCE_URL { get; }
+    [SetValue("INFERENCE_URL")]
+    public string? INFERENCE_URL { get; set; }
 
-    public string EVALUATION_URL { get; }
+    [SetValue("EVALUATION_URL")]
+    public string? EVALUATION_URL { get; set; }
 
-    public int SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING { get; }
+    [SetValue("SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING")]
+    public int SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING { get; set; } = 300;
 
-    public int[] BACKOFF_ON_STATUS_CODES { get; }
+    [SetValue("BACKOFF_ON_STATUS_CODES")]
+    [LogConfig(mode: LogConfigMode.Never)]
+    public string[]? BACKOFF_ON_STATUS_CODES_RAW { get; set; }
 
-    public int[] DEADLETTER_ON_STATUS_CODES { get; }
+    public int[] BACKOFF_ON_STATUS_CODES { get; set; } = [429];
 
-    public string EXPERIMENT_CATALOG_BASE_URL { get; }
+    [SetValue("DEADLETTER_ON_STATUS_CODES")]
+    [LogConfig(mode: LogConfigMode.Never)]
+    public string[]? DEADLETTER_ON_STATUS_CODES_RAW { get; set; }
 
-    public string INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE { get; }
+    public int[] DEADLETTER_ON_STATUS_CODES { get; set; } = [400, 401, 403, 404, 405];
 
-    public string INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY { get; }
+    [SetValue("EXPERIMENT_CATALOG_BASE_URL")]
+    public string? EXPERIMENT_CATALOG_BASE_URL { get; set; }
 
-    public string INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE { get; }
+    [SetValue("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE", "INBOUND_GROUNDTRUTH_TRANSFORM_FILE")]
+    public string? INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE { get; set; }
 
-    public string INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY { get; }
+    [SetValue("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY", "INBOUND_GROUNDTRUTH_TRANSFORM_QUERY")]
+    public string? INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY { get; set; }
 
-    public string INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE { get; }
+    [SetValue("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE", "INBOUND_GROUNDTRUTH_TRANSFORM_FILE")]
+    public string? INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE { get; set; }
 
-    public string INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY { get; }
+    [SetValue("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY", "INBOUND_GROUNDTRUTH_TRANSFORM_QUERY")]
+    public string? INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY { get; set; }
 
-    public string INBOUND_INFERENCE_TRANSFORM_FILE { get; }
+    [SetValue("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE", "INBOUND_GROUNDTRUTH_TRANSFORM_FILE")]
+    public string? INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE { get; set; }
 
-    public string INBOUND_INFERENCE_TRANSFORM_QUERY { get; }
+    [SetValue("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY", "INBOUND_GROUNDTRUTH_TRANSFORM_QUERY")]
+    public string? INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY { get; set; }
 
-    public string INBOUND_EVALUATION_TRANSFORM_FILE { get; }
+    [SetValue("INBOUND_INFERENCE_TRANSFORM_FILE")]
+    public string? INBOUND_INFERENCE_TRANSFORM_FILE { get; set; }
 
-    public string INBOUND_EVALUATION_TRANSFORM_QUERY { get; }
+    [SetValue("INBOUND_INFERENCE_TRANSFORM_QUERY")]
+    public string? INBOUND_INFERENCE_TRANSFORM_QUERY { get; set; }
 
-    public bool PROCESS_METRICS_IN_INFERENCE_RESPONSE { get; }
+    [SetValue("INBOUND_EVALUATION_TRANSFORM_FILE")]
+    public string? INBOUND_EVALUATION_TRANSFORM_FILE { get; set; }
 
-    public bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; }
+    [SetValue("INBOUND_EVALUATION_TRANSFORM_QUERY")]
+    public string? INBOUND_EVALUATION_TRANSFORM_QUERY { get; set; }
 
-    public void Validate()
+    [SetValue("PROCESS_METRICS_IN_INFERENCE_RESPONSE")]
+    public bool PROCESS_METRICS_IN_INFERENCE_RESPONSE { get; set; } = false;
+
+    [SetValue("PROCESS_METRICS_IN_EVALUATION_RESPONSE")]
+    public bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; set; } = true;
+
+    [SetValues]
+    public void ApplyDerivedValues()
     {
-        // applies regardless of role
-        this.config.Require("PORT", this.PORT.ToString());
-        this.config.Require("ROLES", this.ROLES.Select(r => r.ToString()).ToArray());
-        this.config.Optional("OPEN_TELEMETRY_CONNECTION_STRING", OPEN_TELEMETRY_CONNECTION_STRING, hideValue: true);
+        ROLES = ParseRoles(ROLES_RAW);
+        BACKOFF_ON_STATUS_CODES = ParseIntArray(BACKOFF_ON_STATUS_CODES_RAW, [429]);
+        DEADLETTER_ON_STATUS_CODES = ParseIntArray(DEADLETTER_ON_STATUS_CODES_RAW, [400, 401, 403, 404, 405]);
 
-        this.config.Optional("AZURE_STORAGE_ACCOUNT_NAME", this.AZURE_STORAGE_ACCOUNT_NAME);
-        this.config.Optional("AZURE_STORAGE_CONNECTION_STRING", this.AZURE_STORAGE_CONNECTION_STRING, hideValue: true);
-        if (string.IsNullOrEmpty(this.AZURE_STORAGE_ACCOUNT_NAME) && string.IsNullOrEmpty(this.AZURE_STORAGE_CONNECTION_STRING))
+        INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY = ResolveTransformQuery(
+            INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY,
+            INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE);
+        INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY = ResolveTransformQuery(
+            INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY,
+            INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE);
+        INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY = ResolveTransformQuery(
+            INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY,
+            INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE);
+        INBOUND_INFERENCE_TRANSFORM_QUERY = ResolveTransformQuery(
+            INBOUND_INFERENCE_TRANSFORM_QUERY,
+            INBOUND_INFERENCE_TRANSFORM_FILE);
+        INBOUND_EVALUATION_TRANSFORM_QUERY = ResolveTransformQuery(
+            INBOUND_EVALUATION_TRANSFORM_QUERY,
+            INBOUND_EVALUATION_TRANSFORM_FILE);
+
+        MS_BETWEEN_DEQUEUE_CURRENT = MS_BETWEEN_DEQUEUE;
+    }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (ROLES.Count == 0)
         {
-            throw new Exception("Either AZURE_STORAGE_ACCOUNT_NAME or AZURE_STORAGE_CONNECTION_STRING must be specified.");
+            yield return new ValidationResult("ROLES must include at least one role.", new[] { nameof(ROLES) });
         }
 
-        // API-specific
-        if (this.ROLES.Contains(Roles.API))
+        if (invalidRoles.Count > 0)
         {
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY, hideValue: true);
+            yield return new ValidationResult(
+                $"ROLES contains invalid values: {string.Join(", ", invalidRoles)}.",
+                new[] { nameof(ROLES) });
         }
 
-        // InferenceProxy-specific
-        if (this.ROLES.Contains(Roles.InferenceProxy))
+        if (string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_NAME) && string.IsNullOrEmpty(AZURE_STORAGE_CONNECTION_STRING))
         {
-            this.config.Require("INFERENCE_CONCURRENCY", this.INFERENCE_CONCURRENCY);
-            this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
-            this.config.Require("INFERENCE_URL", this.INFERENCE_URL);
-            this.config.Require("INBOUND_INFERENCE_QUEUES", this.INBOUND_INFERENCE_QUEUES);
-            if (this.INBOUND_INFERENCE_QUEUES.Length == 0)
+            yield return new ValidationResult(
+                "Either AZURE_STORAGE_ACCOUNT_NAME or AZURE_STORAGE_CONNECTION_STRING must be set.",
+                new[] { nameof(AZURE_STORAGE_ACCOUNT_NAME), nameof(AZURE_STORAGE_CONNECTION_STRING) });
+        }
+
+        var hasInference = ROLES.Contains(Roles.InferenceProxy);
+        var hasEvaluation = ROLES.Contains(Roles.EvaluationProxy);
+
+        if (hasInference)
+        {
+            if (string.IsNullOrEmpty(INFERENCE_CONTAINER))
             {
-                throw new Exception("When configured for the InferenceProxy role, INBOUND_INFERENCE_QUEUES must be specified.");
+                yield return new ValidationResult(
+                    "INFERENCE_CONTAINER must be set when using the InferenceProxy role.",
+                    new[] { nameof(INFERENCE_CONTAINER) });
             }
-            this.config.Require("OUTBOUND_INFERENCE_QUEUE", this.OUTBOUND_INFERENCE_QUEUE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_INFERENCE_TRANSFORM_QUERY, hideValue: true);
-            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_FILE", this.INBOUND_INFERENCE_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_INFERENCE_TRANSFORM_QUERY", this.INBOUND_INFERENCE_TRANSFORM_QUERY, hideValue: true);
-            this.config.Optional("PROCESS_METRICS_IN_INFERENCE_RESPONSE", this.PROCESS_METRICS_IN_INFERENCE_RESPONSE.ToString());
-        }
 
-        // EvaluationProxy-specific
-        if (this.ROLES.Contains(Roles.EvaluationProxy))
-        {
-            this.config.Require("EVALUATION_CONCURRENCY", this.EVALUATION_CONCURRENCY);
-            this.config.Require("INFERENCE_CONTAINER", this.INFERENCE_CONTAINER);
-            this.config.Require("EVALUATION_CONTAINER", this.EVALUATION_CONTAINER);
-            this.config.Require("EVALUATION_URL", this.EVALUATION_URL);
-            this.config.Require("INBOUND_EVALUATION_QUEUES", this.INBOUND_EVALUATION_QUEUES);
-            if (this.INBOUND_EVALUATION_QUEUES.Length == 0)
+            if (string.IsNullOrEmpty(INFERENCE_URL))
             {
-                throw new Exception("When configured for the EvaluationProxy role, INBOUND_EVALUATION_QUEUES must be specified.");
+                yield return new ValidationResult(
+                    "INFERENCE_URL must be set when using the InferenceProxy role.",
+                    new[] { nameof(INFERENCE_URL) });
             }
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE", this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY", this.INBOUND_GROUNDTRUTH_FOR_EVALUATION_TRANSFORM_QUERY, hideValue: true);
-            this.config.Optional("INBOUND_EVALUATION_TRANSFORM_FILE", this.INBOUND_EVALUATION_TRANSFORM_FILE);
-            this.config.Optional("INBOUND_EVALUATION_TRANSFORM_QUERY", this.INBOUND_EVALUATION_TRANSFORM_QUERY, hideValue: true);
-            this.config.Optional("PROCESS_METRICS_IN_EVALUATION_RESPONSE", this.PROCESS_METRICS_IN_EVALUATION_RESPONSE.ToString());
+
+            if (INBOUND_INFERENCE_QUEUES.Length == 0)
+            {
+                yield return new ValidationResult(
+                    "INBOUND_INFERENCE_QUEUES must be set when using the InferenceProxy role.",
+                    new[] { nameof(INBOUND_INFERENCE_QUEUES) });
+            }
+
+            if (string.IsNullOrEmpty(OUTBOUND_INFERENCE_QUEUE))
+            {
+                yield return new ValidationResult(
+                    "OUTBOUND_INFERENCE_QUEUE must be set when using the InferenceProxy role.",
+                    new[] { nameof(OUTBOUND_INFERENCE_QUEUE) });
+            }
         }
 
-        // any proxy
-        if (this.ROLES.Contains(Roles.InferenceProxy) || this.ROLES.Contains(Roles.EvaluationProxy))
+        if (hasEvaluation)
         {
-            this.config.Require("SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING", this.SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING);
-            this.config.Require("BACKOFF_ON_STATUS_CODES", this.BACKOFF_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
-            this.config.Require("DEADLETTER_ON_STATUS_CODES", this.DEADLETTER_ON_STATUS_CODES.Select(c => c.ToString()).ToArray());
-            this.config.Require("MAX_ATTEMPTS_TO_DEQUEUE", this.MAX_ATTEMPTS_TO_DEQUEUE.ToString());
-            this.config.Require("MS_TO_PAUSE_WHEN_EMPTY", this.MS_TO_PAUSE_WHEN_EMPTY.ToString());
-            this.config.Require("DEQUEUE_FOR_X_SECONDS", this.DEQUEUE_FOR_X_SECONDS.ToString());
-            this.config.Require("MS_BETWEEN_DEQUEUE", this.MS_BETWEEN_DEQUEUE.ToString());
-            this.config.Require("MS_TO_ADD_ON_BUSY", this.MS_TO_ADD_ON_BUSY.ToString());
-            this.config.Require("MINUTES_BETWEEN_RESTORE_AFTER_BUSY", this.MINUTES_BETWEEN_RESTORE_AFTER_BUSY.ToString());
-            this.config.Optional("EXPERIMENT_CATALOG_BASE_URL", this.EXPERIMENT_CATALOG_BASE_URL);
+            if (string.IsNullOrEmpty(INFERENCE_CONTAINER))
+            {
+                yield return new ValidationResult(
+                    "INFERENCE_CONTAINER must be set when using the EvaluationProxy role.",
+                    new[] { nameof(INFERENCE_CONTAINER) });
+            }
+
+            if (string.IsNullOrEmpty(EVALUATION_CONTAINER))
+            {
+                yield return new ValidationResult(
+                    "EVALUATION_CONTAINER must be set when using the EvaluationProxy role.",
+                    new[] { nameof(EVALUATION_CONTAINER) });
+            }
+
+            if (string.IsNullOrEmpty(EVALUATION_URL))
+            {
+                yield return new ValidationResult(
+                    "EVALUATION_URL must be set when using the EvaluationProxy role.",
+                    new[] { nameof(EVALUATION_URL) });
+            }
+
+            if (INBOUND_EVALUATION_QUEUES.Length == 0)
+            {
+                yield return new ValidationResult(
+                    "INBOUND_EVALUATION_QUEUES must be set when using the EvaluationProxy role.",
+                    new[] { nameof(INBOUND_EVALUATION_QUEUES) });
+            }
         }
+
+        if (hasInference || hasEvaluation)
+        {
+            if (SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING <= 0)
+            {
+                yield return new ValidationResult(
+                    "SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING must be greater than 0 for proxy roles.",
+                    new[] { nameof(SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING) });
+            }
+
+            if (BACKOFF_ON_STATUS_CODES.Length == 0)
+            {
+                yield return new ValidationResult(
+                    "BACKOFF_ON_STATUS_CODES must include at least one status code for proxy roles.",
+                    new[] { nameof(BACKOFF_ON_STATUS_CODES) });
+            }
+
+            if (DEADLETTER_ON_STATUS_CODES.Length == 0)
+            {
+                yield return new ValidationResult(
+                    "DEADLETTER_ON_STATUS_CODES must include at least one status code for proxy roles.",
+                    new[] { nameof(DEADLETTER_ON_STATUS_CODES) });
+            }
+        }
+    }
+
+    private List<Roles> ParseRoles(string[]? raw)
+    {
+        invalidRoles.Clear();
+        List<Roles> roles = [];
+        if (raw is null || raw.Length == 0)
+        {
+            return roles;
+        }
+
+        foreach (var entry in raw)
+        {
+            if (Enum.TryParse(entry, true, out Roles role))
+            {
+                roles.Add(role);
+            }
+            else
+            {
+                invalidRoles.Add(entry);
+            }
+        }
+
+        return roles;
+    }
+
+    private static int[] ParseIntArray(string[]? raw, int[] defaults)
+    {
+        if (raw is null || raw.Length == 0)
+        {
+            return defaults;
+        }
+
+        List<int> values = [];
+        foreach (var entry in raw)
+        {
+            if (int.TryParse(entry, out var parsed))
+            {
+                values.Add(parsed);
+            }
+        }
+
+        return values.Count == 0 ? defaults : [.. values];
+    }
+
+    private static string? ResolveTransformQuery(string? query, string? filePath)
+    {
+        if (!string.IsNullOrEmpty(query))
+        {
+            return query;
+        }
+
+        if (string.IsNullOrEmpty(filePath))
+        {
+            return query;
+        }
+
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"transform file not found: {filePath}", filePath);
+        }
+
+        return File.ReadAllText(filePath);
     }
 }

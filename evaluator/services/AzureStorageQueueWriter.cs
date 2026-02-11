@@ -9,18 +9,19 @@ using Azure.Storage.Blobs.Models;
 using Azure.Storage.Queues;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 using Newtonsoft.Json;
 
 namespace Evaluator;
 
 public class AzureStorageQueueWriter(
-    IConfig config,
-    ILogger<AzureStorageQueueWriter> logger,
-    DefaultAzureCredential? defaultAzureCredential = null)
+    IConfigFactory<IConfig> configFactory,
+    DefaultAzureCredential defaultAzureCredential,
+    ILogger<AzureStorageQueueWriter> logger)
     : BackgroundService
 {
-    private readonly IConfig config = config;
-    private readonly DefaultAzureCredential? defaultAzureCredential = defaultAzureCredential;
+    private readonly IConfigFactory<IConfig> configFactory = configFactory;
+    private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
     private readonly ILogger<AzureStorageQueueWriter> logger = logger;
     private readonly Channel<EnqueueRequest> enqueueRequests = Channel.CreateUnbounded<EnqueueRequest>();
 
@@ -45,10 +46,13 @@ public class AzureStorageQueueWriter(
     {
         try
         {
+            // get configuration
+            var config = await this.configFactory.GetAsync(cancellationToken);
+
             // load the blob file
             var blobClient = containerClient.GetBlobClient(blob.Name);
             string content = await blobClient.DownloadAndTransformAsync(
-                this.config.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY,
+                config.INBOUND_GROUNDTRUTH_FOR_API_TRANSFORM_QUERY,
                 this.logger,
                 cancellationToken);
             var groundTruthFile = JsonConvert.DeserializeObject<GroundTruthFile>(content)
@@ -91,27 +95,35 @@ public class AzureStorageQueueWriter(
         }
     }
 
-    private QueueClient GetQueueClient(string queue)
+    private async Task<QueueClient> GetQueueClientAsync(string queue, CancellationToken cancellationToken)
     {
-        var queueUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
-        var queueClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+        var config = await this.configFactory.GetAsync(cancellationToken);
+        var queueUrl = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}";
+        var queueClient = string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING)
             ? new QueueClient(new Uri(queueUrl), this.defaultAzureCredential)
-            : new QueueClient(this.config.AZURE_STORAGE_CONNECTION_STRING, queue);
+            : new QueueClient(config.AZURE_STORAGE_CONNECTION_STRING, queue);
         return queueClient;
     }
 
-    private BlobContainerClient GetBlobContainerClient(string container)
+    private async Task<BlobContainerClient> GetBlobContainerClientAsync(string container, CancellationToken cancellationToken)
     {
-        var blobUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-        var blobClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
+        var config = await this.configFactory.GetAsync(cancellationToken);
+        var blobUrl = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+        var blobClient = string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING)
             ? new BlobServiceClient(new Uri(blobUrl), this.defaultAzureCredential)
-            : new BlobServiceClient(this.config.AZURE_STORAGE_CONNECTION_STRING);
+            : new BlobServiceClient(config.AZURE_STORAGE_CONNECTION_STRING);
         return blobClient.GetBlobContainerClient(container);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var config = await configFactory.GetAsync(stoppingToken);
+        if (!config.ROLES.Contains(Roles.API))
+        {
+            return;
+        }
         this.logger.LogInformation("starting to listen for enqueue requests in AzureStorageQueueWriter...");
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -119,7 +131,7 @@ public class AzureStorageQueueWriter(
                 var enqueueRequest = await this.enqueueRequests.Reader.ReadAsync(stoppingToken);
 
                 // try and connect to the output queue
-                var queueClient = this.GetQueueClient(enqueueRequest.Queue);
+                var queueClient = await this.GetQueueClientAsync(enqueueRequest.Queue, stoppingToken);
                 await queueClient.ConnectAsync(this.logger, stoppingToken);
 
                 // enqueue everything from each specified container
@@ -127,7 +139,7 @@ public class AzureStorageQueueWriter(
                 {
                     // connect to the blob container
                     var containerAndPath = containerPlusPath.Split('/', 2);
-                    var containerClient = this.GetBlobContainerClient(containerAndPath[0]);
+                    var containerClient = await this.GetBlobContainerClientAsync(containerAndPath[0], stoppingToken);
 
                     // enqueue blobs from that container
                     var prefix = containerAndPath.Length == 2 ? containerAndPath[1] : null;
