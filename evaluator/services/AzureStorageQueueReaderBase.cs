@@ -15,34 +15,32 @@ using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NetBricks;
 using Newtonsoft.Json;
 
 namespace Evaluator;
 
-public abstract class AzureStorageQueueReaderBase(IConfig config,
+public abstract class AzureStorageQueueReaderBase(
+    IConfigFactory<IConfig> configFactory,
     IHttpClientFactory httpClientFactory,
-    ILogger logger,
-    DefaultAzureCredential? defaultAzureCredential = null)
+    DefaultAzureCredential defaultAzureCredential,
+    ILogger logger)
     : BackgroundService
 {
-    protected readonly IConfig config = config;
-    protected readonly DefaultAzureCredential? defaultAzureCredential = defaultAzureCredential;
-    protected readonly IHttpClientFactory httpClientFactory = httpClientFactory;
-    protected readonly ILogger logger = logger;
-
-    protected BlobClient GetBlobClient(string containerName, string blobName)
+    protected async Task<BlobClient> GetBlobClientAsync(string containerName, string blobName, CancellationToken cancellationToken)
     {
-        var blobUrl = $"https://{this.config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
-        var blobClient = string.IsNullOrEmpty(this.config.AZURE_STORAGE_CONNECTION_STRING)
-            ? new BlobServiceClient(new Uri(blobUrl), this.defaultAzureCredential)
-            : new BlobServiceClient(this.config.AZURE_STORAGE_CONNECTION_STRING);
+        var config = await configFactory.GetAsync(cancellationToken);
+        var blobUrl = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net";
+        var blobClient = string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING)
+            ? new BlobServiceClient(new Uri(blobUrl), defaultAzureCredential)
+            : new BlobServiceClient(config.AZURE_STORAGE_CONNECTION_STRING);
         var containerClient = blobClient.GetBlobContainerClient(containerName);
         return containerClient.GetBlobClient(blobName);
     }
 
     public async Task<int> GetQueueMessageCountAsync(QueueClient queueClient)
     {
-        this.logger.LogDebug("getting message count for queue {q}...", queueClient.Name);
+        logger.LogDebug("getting message count for queue {q}...", queueClient.Name);
         var properties = await queueClient.GetPropertiesAsync();
         var x = properties.Value.ApproximateMessagesCount;
         return x;
@@ -59,7 +57,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
             }
             catch (Exception ex)
             {
-                this.logger.LogError(ex, "could not get message count for queue {q}.", queueClient.Name);
+                logger.LogError(ex, "could not get message count for queue {q}.", queueClient.Name);
             }
         }
         return result;
@@ -67,17 +65,17 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
 
     protected async Task<string> UploadBlobAsync(string containerName, string blobName, string content, CancellationToken cancellationToken)
     {
-        this.logger.LogDebug("attempting to upload {c}/{b}...", containerName, blobName);
-        var blobClient = this.GetBlobClient(containerName, blobName);
+        logger.LogDebug("attempting to upload {c}/{b}...", containerName, blobName);
+        var blobClient = await this.GetBlobClientAsync(containerName, blobName, cancellationToken);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
-        this.logger.LogInformation("successfully uploaded {c}/{b}.", containerName, blobName);
+        logger.LogInformation("successfully uploaded {c}/{b}.", containerName, blobName);
         return blobClient.Uri.ToString();
     }
 
-    protected string GetBlobUri(string containerName, string blobName)
+    protected async Task<string> GetBlobUriAsync(string containerName, string blobName, CancellationToken cancellationToken)
     {
-        var blobClient = this.GetBlobClient(containerName, blobName);
+        var blobClient = await this.GetBlobClientAsync(containerName, blobName, cancellationToken);
         return blobClient.Uri.ToString();
     }
 
@@ -92,14 +90,16 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         {
             return;
         }
-        if (string.IsNullOrEmpty(this.config.EXPERIMENT_CATALOG_BASE_URL))
+
+        var config = await configFactory.GetAsync(cancellationToken);
+        if (string.IsNullOrEmpty(config.EXPERIMENT_CATALOG_BASE_URL))
         {
-            this.logger.LogWarning("there is no EXPERIMENT_CATALOG_BASE_URL provided, so no metrics will be logged.");
+            logger.LogWarning("there is no EXPERIMENT_CATALOG_BASE_URL provided, so no metrics will be logged.");
             return;
         }
 
-        this.logger.LogDebug("attempting to record {x} metrics...", metrics.Count);
-        using var httpClient = this.httpClientFactory.CreateClient();
+        logger.LogDebug("attempting to record {x} metrics...", metrics.Count);
+        using var httpClient = httpClientFactory.CreateClient();
         var result = new Result
         {
             Ref = pipelineRequest.Ref,
@@ -111,7 +111,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         };
         var resultJson = JsonConvert.SerializeObject(result);
         var response = await httpClient.PostAsync(
-            $"{this.config.EXPERIMENT_CATALOG_BASE_URL}/api/projects/{pipelineRequest.Project}/experiments/{pipelineRequest.Experiment}/results",
+            $"{config.EXPERIMENT_CATALOG_BASE_URL}/api/projects/{pipelineRequest.Project}/experiments/{pipelineRequest.Experiment}/results",
             new StringContent(resultJson, Encoding.UTF8, "application/json"),
             cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -119,7 +119,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new Exception($"status code {response.StatusCode} when recording metrics: {content}");
         }
-        this.logger.LogInformation("successfully recorded {x} metrics ({y}).",
+        logger.LogInformation("successfully recorded {x} metrics ({y}).",
             metrics.Count,
             string.Join(", ", metrics.Select(x => x.Key)));
     }
@@ -144,7 +144,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
             catch (JsonException)
             {
                 // responseContent is not valid JSON, skip metrics extraction
-                this.logger.LogDebug("Response content is not valid JSON, skipping metrics extraction.");
+                logger.LogDebug("Response content is not valid JSON, skipping metrics extraction.");
             }
         }
 
@@ -190,7 +190,7 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
 
     protected async Task<(HttpResponseHeaders, string)> SendForProcessingAsync(
         PipelineRequest pipelineRequest,
-        string url,
+        string? url,
         string content,
         QueueMessage queueMessage,
         string queueBody,
@@ -198,11 +198,14 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         CancellationToken cancellationToken)
     {
         var callId = Guid.NewGuid();
-        this.logger.LogDebug("attempting to call '{u}' for processing with id {i}...", url, callId);
+        logger.LogDebug("attempting to call '{u}' for processing with id {i}...", url, callId);
+
+        // get the config
+        var config = await configFactory.GetAsync(cancellationToken);
 
         // build the request
-        using var httpClient = this.httpClientFactory.CreateClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(this.config.SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING);
+        using var httpClient = httpClientFactory.CreateClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(config.SECONDS_BEFORE_TIMEOUT_FOR_PROCESSING);
         using var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(content, Encoding.UTF8, "application/json")
@@ -224,23 +227,23 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
 
         // validate the response
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (this.config.BACKOFF_ON_STATUS_CODES.Contains((int)response.StatusCode))
+        if (config.BACKOFF_ON_STATUS_CODES.Contains((int)response.StatusCode))
         {
             var ms = response.Headers.RetryAfter?.Delta is not null
                 ? (int)response.Headers.RetryAfter.Delta.Value.TotalMilliseconds
-                : this.config.MS_TO_ADD_ON_BUSY;
+                : config.MS_TO_ADD_ON_BUSY;
             if (ms > 0)
             {
-                this.config.MS_BETWEEN_DEQUEUE_CURRENT += ms;
-                this.logger.LogWarning(
+                config.MS_BETWEEN_DEQUEUE_CURRENT += ms;
+                logger.LogWarning(
                     "received {code} from id {id}; delaying {ms} ms for a MS_BETWEEN_DEQUEUE of {total} ms.",
                     response.StatusCode,
                     callId,
                     ms,
-                    this.config.MS_BETWEEN_DEQUEUE_CURRENT);
+                    config.MS_BETWEEN_DEQUEUE_CURRENT);
             }
         }
-        if (this.config.DEADLETTER_ON_STATUS_CODES.Contains((int)response.StatusCode))
+        if (config.DEADLETTER_ON_STATUS_CODES.Contains((int)response.StatusCode))
         {
             throw new DeadletterException($"status code {response.StatusCode} from id {callId} is considered fatal.", queueMessage, queueBody);
         }
@@ -254,19 +257,21 @@ public abstract class AzureStorageQueueReaderBase(IConfig config,
         }
 
         // log
-        this.logger.LogInformation("successfully called '{u}' for processing as id {i}.", url, callId);
+        logger.LogInformation("successfully called '{u}' for processing as id {i}.", url, callId);
         return (response.Headers, responseBody);
     }
 
     protected async Task DelayAfterDequeue(CancellationToken cancellationToken)
     {
-        if (this.config.MS_BETWEEN_DEQUEUE_CURRENT < 1) return;
-        await Task.Delay(TimeSpan.FromMilliseconds(this.config.MS_BETWEEN_DEQUEUE_CURRENT), cancellationToken);
+        var config = await configFactory.GetAsync(cancellationToken);
+        if (config.MS_BETWEEN_DEQUEUE_CURRENT < 1) return;
+        await Task.Delay(TimeSpan.FromMilliseconds(config.MS_BETWEEN_DEQUEUE_CURRENT), cancellationToken);
     }
 
     protected async Task DelayAfterEmpty(CancellationToken cancellationToken)
     {
-        if (this.config.MS_TO_PAUSE_WHEN_EMPTY < 1) return;
-        await Task.Delay(TimeSpan.FromMilliseconds(this.config.MS_TO_PAUSE_WHEN_EMPTY), cancellationToken);
+        var config = await configFactory.GetAsync(cancellationToken);
+        if (config.MS_TO_PAUSE_WHEN_EMPTY < 1) return;
+        await Task.Delay(TimeSpan.FromMilliseconds(config.MS_TO_PAUSE_WHEN_EMPTY), cancellationToken);
     }
 }

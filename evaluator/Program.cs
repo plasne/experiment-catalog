@@ -1,119 +1,83 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using dotenv.net;
 using Evaluator;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NetBricks;
 
 // Load environment variables from .env file
 var ENV_FILES = System.Environment.GetEnvironmentVariable("ENV_FILES").AsArray(() => [".env"]);
-Console.WriteLine($"ENV_FILES = {string.Join(", ", ENV_FILES)}");
+Console.WriteLine($"ENV_FILES = {string.Join(", ", ENV_FILES!)}");
 DotEnv.Load(new DotEnvOptions(envFilePaths: ENV_FILES, overwriteExistingVars: false));
 
 // create the web application
 var builder = WebApplication.CreateBuilder(args);
 
-// add config
-var netConfig = new NetBricks.Config();
-await netConfig.Apply();
-var config = new Evaluator.Config(netConfig);
-config.Validate();
-builder.Services.AddSingleton<Evaluator.IConfig>(config);
-builder.Services.AddSingleton<NetBricks.IConfig>(netConfig);
-
-// add credentials if connection string is not provided
-if (string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING))
-{
-    builder.Services.AddDefaultAzureCredential();
-}
+// add config using NetBricks
+builder.Services.AddHttpClient();
+builder.Services.AddDefaultAzureCredential();
+builder.Services.AddConfig<IConfig, Config>();
 
 // add logging
 builder.Logging.ClearProviders();
 builder.Services.AddSingleLineConsoleLogger();
-if (!string.IsNullOrEmpty(config.OPEN_TELEMETRY_CONNECTION_STRING))
-{
-    builder.Logging.AddOpenTelemetry(config.OPEN_TELEMETRY_CONNECTION_STRING);
-    builder.Services.AddOpenTelemetry(DiagnosticService.Source.Name, builder.Environment.ApplicationName, config.OPEN_TELEMETRY_CONNECTION_STRING);
-}
+builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc.ModelBinding", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Server.Kestrel.Connections", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets", LogLevel.Warning);
 
-// add http client
-builder.Services.AddHttpClient();
+// configure OpenTelemetry logging early using IConfiguration (before full config is available)
+// NOTE: It is unfortunate, but there appears to be no way to add OpenTelemetry in an async
+// manner such that config could pull from App Config or Key Vault at startup.
+var openTelemetryConnectionString = builder.Configuration["OPEN_TELEMETRY_CONNECTION_STRING"];
+if (!string.IsNullOrEmpty(openTelemetryConnectionString))
+{
+    builder.Logging.AddOpenTelemetry(openTelemetryConnectionString);
+    builder.Services.AddOpenTelemetry("evaluator", builder.Environment.ApplicationName, openTelemetryConnectionString);
+}
 
 // add API services
-if (config.ROLES.Contains(Roles.API))
+builder.Services.AddHostedService<AzureStorageQueueWriter>();
+builder.Services.AddControllers().AddNewtonsoftJson();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen().AddSwaggerGenNewtonsoftSupport();
+builder.Services.AddCors(options =>
 {
-    Console.WriteLine("ADDING SERVICE: AzureStorageQueueWriter");
-    builder.Services.AddHostedService<AzureStorageQueueWriter>();
-    builder.Services.AddControllers().AddNewtonsoftJson();
-    builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen().AddSwaggerGenNewtonsoftSupport();
-    builder.Services.AddCors(options =>
+    options.AddPolicy("default-policy",
+    builder =>
     {
-        options.AddPolicy("default-policy",
-        builder =>
-        {
-            builder.WithOrigins("http://localhost:6020")
-                   .AllowAnyHeader()
-                   .AllowAnyMethod();
-        });
+        builder.WithOrigins("http://localhost:6020")
+               .AllowAnyHeader()
+               .AllowAnyMethod();
     });
-    builder.WebHost.UseKestrel(options =>
-    {
-        options.ListenAnyIP(config.PORT);
-    });
-}
-else
-{
-    // NOTE: This does not expose a port
-    builder.WebHost.UseTestServer();
-}
+});
 
-// add InferenceProxy services
-if (config.ROLES.Contains(Roles.InferenceProxy))
-{
-    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReaderForInference");
-    builder.Services.AddHostedService<AzureStorageQueueReaderForInference>();
-}
+// configure Kestrel using IConfigFactory
+builder.Services.AddSingleton<IConfigureOptions<KestrelServerOptions>, KestrelConfigurator>();
 
-// add EvaluationProxy services
-if (config.ROLES.Contains(Roles.EvaluationProxy))
-{
-    Console.WriteLine("ADDING SERVICE: AzureStorageQueueReaderForEvaluation");
-    builder.Services.AddHostedService<AzureStorageQueueReaderForEvaluation>();
-}
-
-// add maintenance service
-if (config.MINUTES_BETWEEN_RESTORE_AFTER_BUSY > 0)
-{
-    Console.WriteLine("ADDING SERVICE: Maintenance");
-    builder.Services.AddHostedService<Maintenance>();
-}
+// add InferenceProxy, EvaluationProxy, and Maintenance services
+builder.Services.AddHostedService<AzureStorageQueueReaderForInference>();
+builder.Services.AddHostedService<AzureStorageQueueReaderForEvaluation>();
+builder.Services.AddHostedService<Maintenance>();
 
 // build
 var app = builder.Build();
 
-// add API endpoints and routing
-if (config.ROLES.Contains(Roles.API))
-{
-    // use swagger
-    app.UseSwagger();
-    app.UseSwaggerUI();
+// use swagger (API only)
+app.UseSwagger();
+app.UseSwaggerUI();
 
-    // use CORS
-    app.UseCors("default-policy");
+// use CORS (API only)
+app.UseCors("default-policy");
 
-    // add endpoints
-    app.UseRouting();
-    app.UseMiddleware<HttpExceptionMiddleware>();
-    app.MapControllers();
-}
+// add endpoints (API only)
+app.UseRouting();
+app.UseMiddleware<HttpExceptionMiddleware>();
+app.MapControllers();
 
 // run
 await app.RunAsync();

@@ -1,5 +1,5 @@
 ### enqueue an evaluation job
-POST http://localhost:7000/api/evaluations HTTP/1.1
+POST http://localhost:6030/api/evaluations HTTP/1.1
 Content-Type: application/json
 
 {
@@ -36,5 +36,5 @@ Content-Type: application/json
 }
 
 ### get status of an evaluation job
-GET http://localhost:7000/api/evaluations/status HTTP/1.1
+GET http://localhost:6030/api/evaluations/status HTTP/1.1
 Accept: application/json
