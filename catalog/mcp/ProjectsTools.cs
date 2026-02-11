@@ -61,6 +61,28 @@ public class ProjectsTools(IStorageService storageService)
     }
 
     /// <summary>
+    /// Adds a tag to a project.
+    /// </summary>
+    /// <param name="project">The project name.</param>
+    /// <param name="tagName">The tag name.</param>
+    /// <param name="refs">Optional list of ref identifiers associated with the tag.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>A message indicating the tag was added.</returns>
+    [McpServerTool(Name = "AddTagToProject"), Description("Add a tag to a project.")]
+    public async Task<string> AddTagToProject(
+        [Description("The project name")] string project,
+        [Description("The tag name")] string tagName,
+        [Description("Optional list of ref identifiers associated with the tag")] List<string>? refs = null,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateProjectName(project);
+
+        var tag = new Tag { Name = tagName, Refs = refs };
+        await storageService.AddTagAsync(project, tag, cancellationToken);
+        return $"Tag '{tagName}' added to project '{project}'.";
+    }
+
+    /// <summary>
     /// Gets the metric definitions for a project.
     /// </summary>
     /// <param name="project">The project name.</param>
