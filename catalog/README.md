@@ -285,6 +285,18 @@ The API includes Swagger documentation available at:
 http://localhost:6010/swagger
 ```
 
+## Sample Data
+
+The [sample](sample) folder contains files you can use to populate a project with sample data. To use it, create a project and then upload the sample files directly into the project's Azure Blob Storage container. The sample includes:
+
+- **baseline.jsonl**: A baseline experiment with 1 set (`20251210152915`)
+- **inference_models.jsonl**: A single experiment with 3 permutations (`20251209170502`, `20251210092001`, `20251210094431`)
+- **metric_definitions.json**: Metric definitions covering retrieval metrics (accuracy, precision, recall, DCG, F1, MRR), generation metrics (correctness, faithfulness, factuality, should-answer accuracy), and meta metrics (inference/eval time, cost, tokens)
+- **tag_multiturn.json**: Tag for multi-turn ground truths
+- **tag_singleturn.json**: Tag for single-turn ground truths
+- **tag_source_GTC.json**: Tag for GTC-sourced ground truths
+- **tag_source_TQ.json**: Tag for TQ-sourced ground truths
+
 ## Docker
 
 To build the catalog service, you must be at the root and run...
@@ -294,8 +306,3 @@ docker build --rm -t exp-catalog:latest -f catalog.Dockerfile .
 ```
 
 This is necessary so that the UI can be built and injected into the catalog container in a single build command.
-
-## TODO
-
-- Finish policy statements implementation.
-- Unit testing/integration testing.

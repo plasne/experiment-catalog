@@ -67,7 +67,6 @@ public class ExperimentsTools(IStorageService storageService, ExperimentService 
     {
         ValidateProjectName(project);
         ValidateExperimentName(name);
-        McpValidationHelper.ValidateRequiredName(hypothesis, "hypothesis");
 
         var experiment = new Experiment { Name = name, Hypothesis = hypothesis };
         await storageService.AddExperimentAsync(project, experiment, cancellationToken);
