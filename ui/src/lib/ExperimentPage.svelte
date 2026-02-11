@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ComparisonTable from "./ComparisonTable.svelte";
+  import MeaningfulTags from "./MeaningfulTags.svelte";
   import type { ViewConfig } from "./Tools";
 
   interface Props {
@@ -116,7 +117,7 @@
           "Content-Type": "application/json",
         },
         credentials: "include",
-      }
+      },
     );
     if (response.ok) {
       comparisonTable.reload();
@@ -133,7 +134,7 @@
           "Content-Type": "application/json",
         },
         credentials: "include",
-      }
+      },
     );
     if (response.ok) {
       comparisonTable.reload();
@@ -303,6 +304,10 @@
     </p>
   </div>
 {/if}
+<div class="meaningful-tags-row">
+  <span class="label">Tag Impact:</span>
+  <MeaningfulTags {project} {experiment} />
+</div>
 <div class="toggles">
   <span class="label">Show:</span>
   <label>
@@ -408,5 +413,12 @@
 
   .table {
     margin-top: 2rem;
+  }
+
+  .meaningful-tags-row {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
 </style>
