@@ -115,7 +115,7 @@
             annotations: [annotation],
           }),
           credentials: "include",
-        }
+        },
       );
       if (response.ok) {
         fetchComparison();
@@ -154,26 +154,20 @@
       // fetch comparison
       const response = await fetch(
         `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       comparison = await response.json();
 
       // get a list of metrics
       const allKeys = [
-        ...(comparison.project_baseline
-          ? Object.keys(comparison.project_baseline?.result?.metrics)
-          : []),
-        ...(comparison.experiment_baseline
-          ? Object.keys(comparison.experiment_baseline?.result?.metrics)
-          : []),
-        ...(comparison.sets
-          ? comparison.sets?.flatMap((experiment) =>
-              Object.keys(experiment.result?.metrics)
-            )
-          : []),
+        ...Object.keys(comparison.project_baseline?.result?.metrics ?? {}),
+        ...Object.keys(comparison.experiment_baseline?.result?.metrics ?? {}),
+        ...(comparison.sets ?? []).flatMap((experiment) =>
+          Object.keys(experiment.result?.metrics ?? {}),
+        ),
       ];
       metrics = [...new Set(allKeys)].sort((a, b) =>
-        sortMetrics(comparison.metric_definitions, a, b)
+        sortMetrics(comparison.metric_definitions, a, b),
       );
 
       // apply the set list
