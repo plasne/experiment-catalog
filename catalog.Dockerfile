@@ -1,12 +1,12 @@
 # Build UI first in a Node.js container
-FROM --platform=$BUILDPLATFORM node:25-bookworm@sha256:e6b32434aba48dcb8730d56de2df3d137de213f1f527a922a6bf7b2853a24e86 AS ui-build
+FROM --platform=$BUILDPLATFORM node:25-bookworm@sha256:39f92e620aa34854b8877b43bdffd411a301a50eefb38400785a01991f25a2f6 AS ui-build
 WORKDIR /ui
 COPY ui .
 RUN npm install
 RUN npm run build
 
 # create the build container
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:25d14b400b75fa4e89d5bd4487a92a604a4e409ab65becb91821e7dc4ac7f81f AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:0a506ab0c8aa077361af42f82569d364ab1b8741e967955d883e3f23683d473a AS build
 ARG TARGETARCH
 LABEL stage=build
 WORKDIR /api
@@ -16,7 +16,7 @@ COPY --from=ui-build /ui/dist/ ./wwwroot/
 RUN dotnet publish -c Release -o out -a $TARGETARCH
 
 # create the runtime container
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:1aacc8154bc3071349907dae26849df301188be1a2e1f4560b903fb6275e481a
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:52dcfb4225fda614c38ba5997a4ec72cbd5260a624125174416e547ff9eb9b8c
 ARG INSTALL_AZURE_CLI=false
 WORKDIR /app
 COPY --from=build /api/out .
