@@ -4,6 +4,7 @@ using dotenv.net;
 using Evaluator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -73,6 +74,20 @@ app.UseSwaggerUI();
 
 // use CORS (API only)
 app.UseCors("default-policy");
+
+// reject all requests when the API role is not active
+app.Use(async (context, next) =>
+{
+    var configFactory = context.RequestServices.GetRequiredService<IConfigFactory<IConfig>>();
+    var config = await configFactory.GetAsync(context.RequestAborted);
+    if (!config.ROLES.Contains(Roles.API))
+    {
+        context.Response.StatusCode = 503;
+        await context.Response.WriteAsync("API role is not enabled.");
+        return;
+    }
+    await next();
+});
 
 // add endpoints (API only)
 app.UseRouting();

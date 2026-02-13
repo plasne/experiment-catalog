@@ -67,7 +67,7 @@ public class AzureStorageQueueWriter(
                 var pipelineRequest = new PipelineRequest
                 {
                     RunId = enqueueRequest.RunId,
-                    Id = activity?.Id ?? Guid.NewGuid().ToString(),
+                    Id = groundTruthFile.Ref + ":" + i,
                     GroundTruthUri = containerClient.Name + "/" + blob.Name,
                     Project = enqueueRequest.Project,
                     Experiment = enqueueRequest.Experiment,

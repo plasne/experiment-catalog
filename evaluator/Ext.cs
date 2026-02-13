@@ -28,7 +28,11 @@ public static class Ext
     {
         builder.AddOpenTelemetry(logging =>
         {
-            logging.AddAzureMonitorLogExporter(o => o.ConnectionString = openTelemetryConnectionString);
+            logging.IncludeFormattedMessage = true;
+            logging.AddAzureMonitorLogExporter(o =>
+            {
+                o.ConnectionString = openTelemetryConnectionString;
+            });
         });
     }
 

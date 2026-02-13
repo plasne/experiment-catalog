@@ -1,0 +1,29 @@
+{
+  "ref": "q1",
+  "$metrics": {
+    "retrieval_accuracy": 0.2,
+    "retrieval_precision": 0.22,
+    "retrieval_recall": 0.18,
+    "retrieval_dcg": 0.19,
+    "retrieval_f1": 0.21,
+    "retrieval_mrr": 0.11,
+    "generation_correctness": 0.8,
+    "generation_faithfulness": 0.75,
+    "generation_factuality_f1": 0.33,
+    "generation_factuality_precision": 0.5,
+    "generation_factuality_recall": 0.25,
+    "generation_should_answer_accuracy": 1.0,
+    "generation_should_not_answer_accuracy": 0.98,
+    "meta_inference_time": 1.2,
+    "meta_inference_completion_cost": 0.05,
+    "meta_inference_completion_tokens": 50,
+    "meta_inference_prompt_cost": 0.05,
+    "meta_inference_prompt_tokens": 150,
+    "meta_inference_tool_call_count": 1,
+    "meta_eval_time": 3.8,
+    "meta_eval_completion_cost": 0.05,
+    "meta_eval_completion_tokens": 77,
+    "meta_eval_prompt_cost": 0.05,
+    "meta_eval_prompt_tokens": 110
+  }
+}
