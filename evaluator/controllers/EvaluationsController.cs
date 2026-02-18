@@ -71,7 +71,7 @@ public class EvaluationsController() : ControllerBase
         return this.Ok(jobs);
     }
 
-    [HttpGet("jobs/{runId}/status")]
+    [HttpGet("jobs/{runId:guid}/status")]
     public async Task<ActionResult<JobStatus>> GetJobStatus(
         [FromServices] JobStatusService jobStatusService,
         [FromRoute] string runId,
