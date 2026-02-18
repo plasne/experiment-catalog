@@ -137,6 +137,12 @@ public class Config : IConfig, IValidatableObject
     [SetValue("PROCESS_METRICS_IN_EVALUATION_RESPONSE")]
     public bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; set; } = true;
 
+    [SetValue("JOB_STATUS_CONTAINER")]
+    public string? JOB_STATUS_CONTAINER { get; set; }
+
+    [SetValue("JOB_DONE_TIMEOUT_MINUTES")]
+    public int JOB_DONE_TIMEOUT_MINUTES { get; set; } = 15;
+
     [SetValues]
     public void ApplyDerivedValues()
     {

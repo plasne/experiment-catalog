@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,10 +10,10 @@ using Microsoft.Extensions.Hosting;
 namespace Evaluator;
 
 [ApiController]
-[Route("api/evaluations")]
+[Route("api")]
 public class EvaluationsController() : ControllerBase
 {
-    [HttpPost]
+    [HttpPost("jobs")]
     public async Task<ActionResult<EnqueueResponse>> Start(
         [FromServices] IServiceProvider serviceProvider,
         [FromBody] EnqueueRequest request)
@@ -25,7 +26,7 @@ public class EvaluationsController() : ControllerBase
         return this.Created(null as Uri, new EnqueueResponse { RunId = request.RunId });
     }
 
-    [HttpGet("status")]
+    [HttpGet("queue-depth")]
     public async Task<ActionResult<Dictionary<string, int>>> Status(
         [FromServices] IServiceProvider serviceProvider
     )
@@ -55,6 +56,33 @@ public class EvaluationsController() : ControllerBase
                 status[kvp.Key] = kvp.Value;
             }
         }
+        return this.Ok(status);
+    }
+
+    [HttpGet("jobs")]
+    public async Task<ActionResult<List<JobSummary>>> GetJobs(
+        [FromServices] JobStatusService jobStatusService,
+        [FromQuery] int? ago,
+        CancellationToken cancellationToken)
+    {
+        ago ??= 3;
+        var since = DateTimeOffset.UtcNow.AddDays(-ago.Value);
+        var jobs = await jobStatusService.ListJobsAsync(since, cancellationToken);
+        return this.Ok(jobs);
+    }
+
+    [HttpGet("jobs/{runId:guid}/status")]
+    public async Task<ActionResult<JobStatus>> GetJobStatus(
+        [FromServices] JobStatusService jobStatusService,
+        [FromRoute] string runId,
+        CancellationToken cancellationToken)
+    {
+        var status = await jobStatusService.GetJobStatusAsync(runId, cancellationToken);
+        if (status is null)
+        {
+            return this.StatusCode(503, "Job status tracking is not enabled.");
+        }
+
         return this.Ok(status);
     }
 }

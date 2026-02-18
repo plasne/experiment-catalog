@@ -17,7 +17,7 @@ public class KestrelConfigurator(IConfigFactory<IConfig> configFactory) : IConfi
         }
         else
         {
-            options.Listen(IPAddress.None, 0);
+            options.Listen(IPAddress.Loopback, config.PORT);
         }
     }
 }
