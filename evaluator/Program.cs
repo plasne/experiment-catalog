@@ -43,6 +43,7 @@ if (!string.IsNullOrEmpty(openTelemetryConnectionString))
 
 // add API services
 builder.Services.AddHostedService<AzureStorageQueueWriter>();
+builder.Services.AddSingleton<JobStatusService>();
 builder.Services.AddControllers().AddNewtonsoftJson();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen().AddSwaggerGenNewtonsoftSupport();

@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# copilot tracking files
+.copilot-tracking/
+
 # dotenv files
 *.env
 

@@ -6,7 +6,7 @@ namespace Evaluator;
 public class JobStageStatus
 {
     [JsonProperty("stage")]
-    public string Stage { get; set; } = string.Empty;
+    public JobStage Stage { get; set; }
 
     [JsonProperty("succeeded")]
     public int Succeeded { get; set; }

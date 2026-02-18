@@ -17,11 +17,13 @@ namespace Evaluator;
 public class AzureStorageQueueWriter(
     IConfigFactory<IConfig> configFactory,
     DefaultAzureCredential defaultAzureCredential,
+    JobStatusService jobStatusService,
     ILogger<AzureStorageQueueWriter> logger)
     : BackgroundService
 {
     private readonly IConfigFactory<IConfig> configFactory = configFactory;
     private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
+    private readonly JobStatusService jobStatusService = jobStatusService;
     private readonly ILogger<AzureStorageQueueWriter> logger = logger;
     private readonly Channel<EnqueueRequest> enqueueRequests = Channel.CreateUnbounded<EnqueueRequest>();
 
@@ -135,6 +137,7 @@ public class AzureStorageQueueWriter(
                 await queueClient.ConnectAsync(this.logger, stoppingToken);
 
                 // enqueue everything from each specified container
+                var totalItems = 0;
                 foreach (var containerPlusPath in enqueueRequest.Containers)
                 {
                     // connect to the blob container
@@ -146,8 +149,18 @@ public class AzureStorageQueueWriter(
                     await foreach (var blob in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix: prefix, cancellationToken: stoppingToken))
                     {
                         await this.EnqueueBlobAsync(containerClient, blob, enqueueRequest, queueClient, stoppingToken);
+                        totalItems += enqueueRequest.Iterations;
                     }
                 }
+
+                // create the job status blob with the final total item count
+                await this.jobStatusService.CreateJobAsync(
+                    enqueueRequest.RunId,
+                    enqueueRequest.Project,
+                    enqueueRequest.Experiment,
+                    enqueueRequest.Set,
+                    totalItems,
+                    stoppingToken);
             }
             catch (OperationCanceledException)
             {

@@ -41,4 +41,6 @@ public interface IConfig
     string? INBOUND_EVALUATION_TRANSFORM_QUERY { get; set; }
     bool PROCESS_METRICS_IN_INFERENCE_RESPONSE { get; set; }
     bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; set; }
+    string? JOB_STATUS_CONTAINER { get; set; }
+    int JOB_DONE_TIMEOUT_MINUTES { get; set; }
 }

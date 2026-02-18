@@ -22,4 +22,19 @@ public class JobSummary
 
     [JsonProperty("started_at")]
     public DateTimeOffset StartedAt { get; set; }
+
+    [JsonProperty("completed_at", NullValueHandling = NullValueHandling.Ignore)]
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    [JsonProperty("inference_succeeded", NullValueHandling = NullValueHandling.Ignore)]
+    public int? InferenceSucceeded { get; set; }
+
+    [JsonProperty("inference_failed", NullValueHandling = NullValueHandling.Ignore)]
+    public int? InferenceFailed { get; set; }
+
+    [JsonProperty("evaluation_succeeded", NullValueHandling = NullValueHandling.Ignore)]
+    public int? EvaluationSucceeded { get; set; }
+
+    [JsonProperty("evaluation_failed", NullValueHandling = NullValueHandling.Ignore)]
+    public int? EvaluationFailed { get; set; }
 }

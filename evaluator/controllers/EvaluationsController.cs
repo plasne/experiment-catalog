@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using NetBricks;
 
 namespace Evaluator;
 
@@ -62,39 +61,28 @@ public class EvaluationsController() : ControllerBase
 
     [HttpGet("jobs")]
     public async Task<ActionResult<List<JobSummary>>> GetJobs(
-        [FromServices] IConfigFactory<IConfig> configFactory,
-        [FromQuery] DateTimeOffset? since,
+        [FromServices] JobStatusService jobStatusService,
+        [FromQuery] int? ago,
         CancellationToken cancellationToken)
     {
-        var jobs = new List<JobSummary>();
+        ago ??= 3;
+        var since = DateTimeOffset.UtcNow.AddDays(-ago.Value);
+        var jobs = await jobStatusService.ListJobsAsync(since, cancellationToken);
         return this.Ok(jobs);
     }
 
     [HttpGet("jobs/{runId}/status")]
     public async Task<ActionResult<JobStatus>> GetJobStatus(
-        [FromServices] IConfigFactory<IConfig> configFactory,
+        [FromServices] JobStatusService jobStatusService,
         [FromRoute] string runId,
         CancellationToken cancellationToken)
     {
-        return this.Ok(new JobStatus
+        var status = await jobStatusService.GetJobStatusAsync(runId, cancellationToken);
+        if (status is null)
         {
-            RunId = runId,
-            TotalItems = 0,
-            Stages = new List<JobStageStatus>
-            {
-                new JobStageStatus
-                {
-                    Stage = "inference",
-                    Succeeded = 0,
-                    Failed = 0,
-                },
-                new JobStageStatus
-                {
-                    Stage = "evaluation",
-                    Succeeded = 0,
-                    Failed = 0,
-                }
-            }
-        });
+            return this.StatusCode(503, "Job status tracking is not enabled.");
+        }
+
+        return this.Ok(status);
     }
 }

@@ -16,11 +16,13 @@ public class AzureStorageQueueReaderForInference(
     IConfigFactory<IConfig> configFactory,
     IHttpClientFactory httpClientFactory,
     DefaultAzureCredential defaultAzureCredential,
+    JobStatusService jobStatusService,
     ILogger<AzureStorageQueueReaderForInference> logger)
     : AzureStorageQueueReaderBase(configFactory, httpClientFactory, defaultAzureCredential, logger)
 {
     private readonly IConfigFactory<IConfig> configFactory = configFactory;
     private readonly DefaultAzureCredential defaultAzureCredential = defaultAzureCredential;
+    private readonly JobStatusService jobStatusService = jobStatusService;
     private readonly ILogger<AzureStorageQueueReaderForInference> logger = logger;
     private readonly List<QueueClient> inboundQueues = [];
     private readonly List<QueueClient> inboundDeadletterQueues = [];
@@ -109,6 +111,10 @@ public class AzureStorageQueueReaderForInference(
 
             // delete the message
             await inboundQueue.DeleteMessageAsync(message!.Value.MessageId, message.Value.PopReceipt, cancellationToken);
+
+            // record success for job status tracking
+            await this.jobStatusService.RecordOutcomeAsync(request.RunId, request.Id, JobStage.Inference, JobOutcome.Success, null, cancellationToken);
+
             return true;
         }
         catch (DeadletterException e)
@@ -117,6 +123,13 @@ public class AzureStorageQueueReaderForInference(
             await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
             await inboundQueue.DeleteMessageAsync(e.QueueMessage.MessageId, e.QueueMessage.PopReceipt, cancellationToken);
             this.logger.LogWarning("successfully moved message {m} to dead-letter queue {q}.", e.QueueMessage.MessageId, inboundDeadletterQueue.Name);
+
+            // record failure for job status tracking
+            var deadletterRequest = JsonConvert.DeserializeObject<PipelineRequest>(e.QueueBody);
+            if (deadletterRequest != null)
+            {
+                await this.jobStatusService.RecordOutcomeAsync(deadletterRequest.RunId, deadletterRequest.Id, JobStage.Inference, JobOutcome.Failed, e.Message, cancellationToken);
+            }
         }
         catch (Exception e)
         {
