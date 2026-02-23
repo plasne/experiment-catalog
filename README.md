@@ -26,7 +26,7 @@ The application consists of several main components:
 
 | Component      | Description                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------------- |
-| **catalog**    | C# .NET 8 backend that stores experiment data in Azure Blob Storage                             |
+| **catalog**    | C# .NET backend that stores experiment data in Azure Blob Storage                               |
 | **ui**         | Svelte-based frontend for visualizing and comparing experiments                                 |
 | **evaluator**  | An evaluation runner that can execute inference and evaluation then send results to the catalog |
 | **evaluation** | An example evaluation script                                                                    |
