@@ -216,7 +216,24 @@ Add the following to your VS Code `settings.json` (workspace or user level) so t
 | Local development  | Not set        | MCP endpoint is open, no token needed                                                |
 | Deployed with auth | Set            | MCP clients perform OAuth 2.0 automatically using the advertised scope and authority |
 
-### 11. Add Copilot agent and skill files (optional)
+### 11. Create the VS Code MCP client configuration
+
+VS Code needs a `.vscode/mcp.json` file to know where the MCP server is running. This file is excluded from the repository (via `.gitignore`) because the URL varies by environment. Create it manually:
+
+```json
+{
+  "servers": {
+    "experiment-catalog": {
+      "type": "http",
+      "url": "http://localhost:6010/mcp"
+    }
+  }
+}
+```
+
+Replace the port with whatever the service is listening on locally. For a deployed instance, use the full URL (for example `https://my-catalog.azurewebsites.net/mcp`).
+
+### 12. Add Copilot agent and skill files (optional)
 
 To enable GitHub Copilot Chat to use the MCP tools via an agent:
 
