@@ -11,22 +11,21 @@ The workflow for running experiments is as follows:
 1. Run a Project Baseline
 
 1. Run Experiments
+   1. Create an Experiment
 
-    1. Create an Experiment
+   1. Run an Experiment Baseline (or accept the Project Baseline)
 
-    1. Run an Experiment Baseline (or accept the Project Baseline)
+   1. Run permutations of the experiment
 
-    1. Run permutations of the experiment
+   1. Determine the best permutation
 
-    1. Determine the best permutation
+   1. Run a Final Experiment Baseline
 
-    1. Run a Final Experiment Baseline
+   1. Write a summary
 
-    1. Write a summary
+   1. Review with your team
 
-    1. Review with your team
-
-    1. Approve or Reject
+   1. Approve or Reject
 
 1. Run a Final Project Baseline
 
