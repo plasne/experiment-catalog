@@ -65,7 +65,7 @@ builder.Services
     .AddMcpServer()
     .WithHttpTransport()
     .WithToolsFromAssembly()
-    .AddCallToolFilter(McpToolExceptionFilter.Create());
+    .WithRequestFilters(filters => filters.AddCallToolFilter(McpToolExceptionFilter.Create()));
 
 // add controllers with swagger
 builder.Services.AddControllers().AddNewtonsoftJson();

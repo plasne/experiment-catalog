@@ -42,7 +42,7 @@ public class McpAuthenticationConfigurator(IConfigFactory<IConfig> configFactory
         // OIDC_CLIENT_ID is required for MCP authentication to work with Azure AD.
         options.ResourceMetadata = new ProtectedResourceMetadata
         {
-            AuthorizationServers = { new Uri(config.OIDC_AUTHORITY!) }
+            AuthorizationServers = { config.OIDC_AUTHORITY! }
         };
         if (!string.IsNullOrEmpty(config.OIDC_CLIENT_ID))
         {
