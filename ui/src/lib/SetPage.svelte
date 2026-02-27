@@ -111,22 +111,22 @@
       const allMetrics = [
         ...(comparison.project_baseline?.results
           ? Object.values(comparison.project_baseline.results).flatMap(
-              (result) => Object.keys(result.metrics)
+              (result) => Object.keys(result.metrics),
             )
           : []),
         ...(comparison.experiment_baseline?.results
           ? Object.values(comparison.experiment_baseline.results).flatMap(
-              (result) => Object.keys(result.metrics)
+              (result) => Object.keys(result.metrics),
             )
           : []),
         ...(comparison.experiment_set?.results
           ? Object.values(comparison.experiment_set.results).flatMap((result) =>
-              Object.keys(result.metrics)
+              Object.keys(result.metrics),
             )
           : []),
       ];
       metrics = [...new Set(allMetrics)].sort((a, b) =>
-        sortMetrics(comparison.metric_definitions, a, b)
+        sortMetrics(comparison.metric_definitions, a, b),
       );
 
       // populate metric definitions for the filter
@@ -199,7 +199,7 @@
       filteredRefs = masterRefs.filter((ref) => {
         return filterFunc(
           comparison.experiment_baseline?.results?.[ref],
-          comparison.experiment_set?.results?.[ref]
+          comparison.experiment_set?.results?.[ref],
         );
       });
     }
@@ -223,7 +223,7 @@
           "Content-Type": "application/json",
         },
         credentials: "include",
-      }
+      },
     );
     if (response.ok) {
       fetchComparison();
@@ -438,7 +438,14 @@
         </tr>
         <tr>
           <td colspan={2 + selectedMetrics.length}>
-            <Annotations entity={comparison.experiment_set?.[ref]} />
+            <Annotations
+              entity={{
+                project: comparison.experiment_set?.project,
+                experiment: comparison.experiment_set?.experiment,
+                set: comparison.experiment_set?.set,
+                result: comparison.experiment_set?.results?.[ref],
+              }}
+            />
           </td>
         </tr>
         {#if showResults && results}
