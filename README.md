@@ -161,6 +161,23 @@ docker run -p 6010:6010 \
   exp-catalog:latest
 ```
 
+## Development Harness
+
+A `make`-based harness provides deterministic commands for local development and CI. Run all commands from the repository root:
+
+| Command          | Description                                          |
+| ---------------- | ---------------------------------------------------- |
+| `make setup`     | Install dependencies and prepare the dev environment |
+| `make smoke`     | Fast sanity check (build + quick tests)              |
+| `make lint`      | Run linters across all projects                      |
+| `make typecheck` | Run type checking across all projects                |
+| `make check`     | Run both lint and typecheck                          |
+| `make test`      | Run the full test suite                              |
+| `make security`  | Run security scanning                                |
+| `make ci`        | CI-equivalent local run (smoke + check + test)       |
+
+Start with `make setup` after cloning, then use `make ci` before pushing changes to verify everything passes locally.
+
 ## API Usage
 
 All examples for using the API can be found in [catalog.http](./api/catalog.http).
