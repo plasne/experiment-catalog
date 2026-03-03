@@ -38,7 +38,8 @@ fi
 echo "==> Checking Node.js..."
 if command -v node >/dev/null 2>&1; then
   node_version=$(node --version)
-  node_major=$(echo "$node_version" | sed 's/v\([0-9]*\).*/\1/')
+  node_major=${node_version#v}
+  node_major=${node_major%%.*}
   if [ "$node_major" -ge 20 ] 2>/dev/null; then
     ok "Node.js $node_version"
   else
@@ -79,6 +80,7 @@ if command -v python3 >/dev/null 2>&1; then
     if [ ! -d "evaluation/.venv" ]; then
       python3 -m venv evaluation/.venv
     fi
+    # shellcheck source=/dev/null
     source evaluation/.venv/bin/activate
     pip install -q -r evaluation/requirements.txt
     ok "evaluation dependencies installed"
