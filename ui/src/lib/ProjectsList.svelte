@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import ProjectCard from "./ProjectCard.svelte";
   import CreateProjectModal from "./CreateProjectModal.svelte";
+  import { listProjects, createProject } from "./api";
 
   interface Props {
     onselect?: (project: Project) => void;
@@ -14,16 +15,10 @@
   let showCreateModal = $state(false);
   let createError = $state("");
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-
   const fetchProjects = async () => {
     try {
       loadingState = "loading";
-      const response = await fetch(`${prefix}/api/projects`, {
-        credentials: "include",
-      });
-      projects = await response.json();
+      projects = await listProjects();
       loadingState = "loaded";
     } catch (error) {
       console.error(error);
@@ -48,14 +43,7 @@
     const { name } = event;
     createError = "";
     try {
-      const response = await fetch(`${prefix}/api/projects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name }),
-        credentials: "include",
-      });
+      const response = await createProject(name);
       if (response.ok) {
         showCreateModal = false;
         fetchProjects();

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { sortMetrics } from "./Tools";
+  import { getComparison, listTags, getMeaningfulTags } from "./api";
 
   interface Props {
     project: Project;
@@ -10,23 +11,6 @@
   let { project, experiment }: Props = $props();
 
   type MeaningfulTagsComparisonMode = "Baseline" | "Zero" | "Average";
-
-  interface TagDiff {
-    impact: number;
-    diff: number;
-    tag: string;
-    count?: number | null;
-  }
-
-  interface Comparison {
-    metric_definitions: Record<string, MetricDefinition>;
-    project_baseline?: ComparisonEntity;
-    experiment_baseline?: ComparisonEntity;
-    sets?: ComparisonEntity[];
-  }
-
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
 
   let initialized: boolean = $state(false);
   let loading: boolean = $state(false);
@@ -43,7 +27,12 @@
 
   let modalOpen: boolean = $state(false);
   let resultsLoading: boolean = $state(false);
-  let results: TagDiff[] = $state([]);
+  let results: {
+    impact: number;
+    diff: number;
+    tag: string;
+    count?: number | null;
+  }[] = $state([]);
 
   const handleBackdropKeydown = (event: KeyboardEvent) => {
     if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
@@ -56,15 +45,7 @@
     if (initialized) return;
     try {
       loading = true;
-      const comparisonResponse = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare`,
-        { credentials: "include" },
-      );
-      if (!comparisonResponse.ok) {
-        errorMessage = "Failed to load metrics and sets.";
-        return;
-      }
-      const comparison: Comparison = await comparisonResponse.json();
+      const comparison = await getComparison(project.name, experiment.name);
       const allMetrics = [
         ...Object.keys(comparison.project_baseline?.result?.metrics ?? {}),
         ...Object.keys(comparison.experiment_baseline?.result?.metrics ?? {}),
@@ -79,12 +60,10 @@
         .map((entity) => entity.set)
         .filter((set): set is string => Boolean(set));
 
-      const tagsResponse = await fetch(
-        `${prefix}/api/projects/${project.name}/tags`,
-        { credentials: "include" },
-      );
-      if (tagsResponse.ok) {
-        excludeTags = await tagsResponse.json();
+      try {
+        excludeTags = await listTags(project.name);
+      } catch {
+        // tags are optional
       }
 
       if (!selectedMetric && metrics.length > 0) {
@@ -114,27 +93,15 @@
       return;
     }
     try {
-      const response = await fetch(`${prefix}/api/analysis/meaningful-tags`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          project: project.name,
-          experiment: experiment.name,
-          set: selectedSet,
-          metric: selectedMetric,
-          compare_to: selectedCompareTo,
-          exclude_tags: selectedExcludeTag ? [selectedExcludeTag] : undefined,
-        }),
-        credentials: "include",
+      const data = await getMeaningfulTags({
+        project: project.name,
+        experiment: experiment.name,
+        set: selectedSet,
+        metric: selectedMetric,
+        compare_to: selectedCompareTo,
+        exclude_tags: selectedExcludeTag ? [selectedExcludeTag] : undefined,
       });
-      if (response.ok) {
-        const data = await response.json();
-        results = data?.tags ?? [];
-      } else {
-        errorMessage = "Failed to load meaningful tags.";
-      }
+      results = data?.tags ?? [];
     } catch (error) {
       console.error(error);
       errorMessage = "Failed to load meaningful tags.";

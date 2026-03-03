@@ -49,17 +49,6 @@ export function updateURL(project: string = null, experiment: string = null, pag
     window.history.pushState(null, '', url);
 }
 
-export async function loadExperiment(projectName: string, experimentName: string) {
-    let prefix =
-        window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-    const response = await fetch(
-        `${prefix}/api/projects/${projectName}/experiments/${experimentName}`,
-        { credentials: "include" }
-    );
-    var experiment = await response.json();
-    return experiment
-}
-
 export function sortMetrics(
     metric_definitions: Record<string, MetricDefinition>,
     a: string,

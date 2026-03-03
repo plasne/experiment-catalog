@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import TriStateCheckboxes from "./TriStateCheckboxes.svelte";
+  import { listTags } from "./api";
 
   interface Props {
     project: Project;
@@ -10,8 +11,6 @@
 
   let { project, querystring = $bindable(), onapply }: Props = $props();
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let tags: string[] = $state([]);
   let yes: Set<string> = $state(new Set());
   let no: Set<string> = $state(new Set());
@@ -44,11 +43,7 @@
 
   const fetchTags = async () => {
     try {
-      const response = await fetch(
-        `${prefix}/api/projects/${project.name}/tags`,
-        { credentials: "include" }
-      );
-      tags = await response.json();
+      tags = await listTags(project.name);
     } catch (error) {
       console.error(error);
     }

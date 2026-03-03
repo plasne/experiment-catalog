@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { buildFilterFunction } from "./filterExpression";
+
   interface Props {
     metrics: string[];
     filteredCount?: number;
@@ -22,27 +24,7 @@
       return;
     }
 
-    var funcstr = filter.replace(/ AND /gi, " && ").replace(/ OR /gi, " || ");
-    const sorted = [...metrics].sort((a, b) => b.length - a.length);
-    for (const metric of sorted) {
-      funcstr = funcstr
-        .replace(
-          new RegExp(`\\[baseline.${metric}\\]`, "gi"),
-          `(baseline.metrics["${metric}"] ? baseline.metrics["${metric}"].value : undefined)`
-        )
-        .replace(
-          new RegExp(`\\[${metric}\\]`, "gi"),
-          `(result.metrics["${metric}"] ? result.metrics["${metric}"].value : undefined)`
-        );
-    }
-    funcstr = funcstr.replace(/ref /gi, "result.ref");
-    console.info(funcstr);
-
-    var func = new Function(
-      "baseline",
-      "result",
-      `try { return ${funcstr}; } catch (e) { console.warn("filter: " + e); return false; }`
-    );
+    const func = buildFilterFunction(filter, metrics);
     onfilter?.(func);
   }
 

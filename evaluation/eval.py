@@ -34,8 +34,8 @@ if not AZURE_OPENAI_DEPLOYMENT:
 client = AzureOpenAI(
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
     api_version="2024-02-01",
-    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    )
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+)
 
 # startup the Flask app
 app = Flask(__name__)
@@ -43,7 +43,7 @@ app = Flask(__name__)
 
 # define a function to extract messages from a file
 def get_messages(filename: str) -> list:
-    with open(filename, 'r') as file:
+    with open(filename, "r") as file:
         lines = file.readlines()
 
     messages = []
@@ -51,9 +51,11 @@ def get_messages(filename: str) -> list:
     current_content = ""
 
     for line in lines:
-        if re.match(r'(system|user|assistant):', line):
+        if re.match(r"(system|user|assistant):", line):
             if current_role:
-                messages.append({"role": current_role, "content": current_content.strip()})
+                messages.append(
+                    {"role": current_role, "content": current_content.strip()}
+                )
             current_role = line[:-2]
             current_content = ""
         else:
@@ -82,17 +84,16 @@ def calc_gpt_coherence(question: str, answer: str) -> dict:
         {
             "question": question,
             "answer": answer,
-        }
+        },
     )
 
     # send it through the LLM
     response = client.chat.completions.create(
-        model=AZURE_OPENAI_DEPLOYMENT,
-        messages=messages
+        model=AZURE_OPENAI_DEPLOYMENT, messages=messages
     )
 
     # extract the rating
-    print (response.choices[0].message.content)
+    print(response.choices[0].message.content)
     payload = json.loads(response.choices[0].message.content)
     return payload
 
@@ -107,17 +108,16 @@ def calc_gpt_groundedness(question: str, answer: str, context: str) -> dict:
             "question": question,
             "answer": answer,
             "context": context,
-        }
+        },
     )
 
     # send it through the LLM
     response = client.chat.completions.create(
-        model=AZURE_OPENAI_DEPLOYMENT,
-        messages=messages
+        model=AZURE_OPENAI_DEPLOYMENT, messages=messages
     )
 
     # extract the rating
-    print (response.choices[0].message.content)
+    print(response.choices[0].message.content)
     payload = json.loads(response.choices[0].message.content)
     return payload
 
@@ -127,29 +127,28 @@ def calc_gpt_relevance(question: str, answer: str, context: str, history: str) -
     # build the prompts
     messages = get_messages("relevance.txt")
     messages = fill_variables(
-        messages, 
+        messages,
         {
-            "question": question, 
-            "answer": answer, 
+            "question": question,
+            "answer": answer,
             "context": context,
             "history": history,
-        }
+        },
     )
 
     # send it through the LLM
     response = client.chat.completions.create(
-        model=AZURE_OPENAI_DEPLOYMENT,
-        messages=messages
+        model=AZURE_OPENAI_DEPLOYMENT, messages=messages
     )
 
     # extract the rating
-    print (response.choices[0].message.content)
+    print(response.choices[0].message.content)
     payload = json.loads(response.choices[0].message.content)
     return payload
 
 
 # look for evaluation requests
-@app.route('/api/evaluate', methods=['POST'])
+@app.route("/api/evaluate", methods=["POST"])
 def evaluate():
     try:
         # deserialize the payload
@@ -168,8 +167,12 @@ def evaluate():
         # extract the necessary information
         question = ground_truth["user_query"]
         answer = inference["answer"]["text"]
-        context = "\n\n".join([obj["text"] for obj in inference["answer"].get("context", [])])
-        history = "\n\n".join([obj["role"] + ": " + obj["msg"] for obj in ground_truth.get("history", [])])
+        context = "\n\n".join(
+            [obj["text"] for obj in inference["answer"].get("context", [])]
+        )
+        history = "\n\n".join(
+            [obj["role"] + ": " + obj["msg"] for obj in ground_truth.get("history", [])]
+        )
 
         # calculate coherence score
         print("calculating coherence score...")
@@ -190,11 +193,16 @@ def evaluate():
         print(f"successfully calculated relevance score as {relevance_score}.")
 
         # return the scores (putting scores in the header will record to exp-catalog)
-        response = Response(json.dumps({
-            "coherence": coherence,
-            "groundedness": groundedness,
-            "relevance": relevance,
-        }), content_type="application/json")
+        response = Response(
+            json.dumps(
+                {
+                    "coherence": coherence,
+                    "groundedness": groundedness,
+                    "relevance": relevance,
+                }
+            ),
+            content_type="application/json",
+        )
         response.headers.add("x-metric-coherence", coherence_score)
         response.headers.add("x-metric-groundedness", groundedness_score)
         response.headers.add("x-metric-relevance", relevance_score)
@@ -205,12 +213,12 @@ def evaluate():
 
     except RateLimitError as e:
         response = Response(status=429)
-        if hasattr(e, 'retry_after'):
+        if hasattr(e, "retry_after"):
             response.headers.add("Retry-After", e.retry_after)
         return response
 
     except APIError as e:
-        if hasattr(e, 'retry_after'):
+        if hasattr(e, "retry_after"):
             response = Response(status=429)
             response.headers.add("Retry-After", e.retry_after)
             return response
@@ -221,6 +229,7 @@ def evaluate():
     except Exception as e:
         print("Exception occurred:\n", traceback.format_exc())
         return {"error": str(e)}, 500
+
 
 if __name__ == "__main__":
     app.run(port=PORT)

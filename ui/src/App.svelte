@@ -1,10 +1,6 @@
 <script lang="ts">
-  import {
-    loadExperiment,
-    updateURL,
-    decodeConfig,
-    type ViewConfig,
-  } from "./lib/Tools";
+  import { updateURL, decodeConfig, type ViewConfig } from "./lib/Tools";
+  import { getAuthStatus, getLoginUrl, getExperiment } from "./lib/api";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
@@ -29,9 +25,6 @@
     document.cookie = `${name}=${value}; expires=${expires}; path=/`;
   }
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-
   async function checkAuth(): Promise<boolean> {
     // If we've previously determined auth is not required, skip the check
     if (getCookie("auth_not_required") === "true") {
@@ -40,10 +33,7 @@
 
     // Check with the server if auth is required
     try {
-      const response = await fetch(`${prefix}/auth/status`, {
-        credentials: "include",
-      });
-      const data = await response.json();
+      const data = await getAuthStatus();
       if (data.username) {
         // User is authenticated, no need to show login
         return true;
@@ -63,9 +53,7 @@
   }
 
   function login(): void {
-    window.location.href = `${prefix}/auth/login?return-url=${encodeURIComponent(
-      window.location.href
-    )}`;
+    window.location.href = getLoginUrl(window.location.href);
   }
 
   const selectProject = (selectedProject: Project) => {
@@ -101,7 +89,7 @@
       project.name,
       experiment.name,
       setList ? `sets:${setList}` : null,
-      config
+      config,
     );
   };
 
@@ -148,7 +136,7 @@
 
       if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {
         setName = qpage.slice(4);
-        experiment = await loadExperiment(qproject, qexperiment);
+        experiment = await getExperiment(qproject, qexperiment);
         project = { name: qproject };
       } else if (
         qproject &&
@@ -157,10 +145,10 @@
         qpage.startsWith("sets:")
       ) {
         setList = qpage.slice(5);
-        experiment = await loadExperiment(qproject, qexperiment);
+        experiment = await getExperiment(qproject, qexperiment);
         project = { name: qproject };
       } else if (qproject && qexperiment) {
-        experiment = await loadExperiment(qproject, qexperiment);
+        experiment = await getExperiment(qproject, qexperiment);
         project = { name: qproject };
       } else if (qproject) {
         project = { name: qproject };
