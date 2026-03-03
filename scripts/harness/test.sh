@@ -17,6 +17,7 @@ fi
 echo "==> Test: running UI Playwright tests..."
 if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
   cd ui
+  npx playwright install --with-deps chromium
   npx playwright test
   cd "$root_dir"
 fi
