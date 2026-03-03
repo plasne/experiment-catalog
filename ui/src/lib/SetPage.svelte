@@ -5,7 +5,19 @@
   import MetricsFilter from "./MetricsFilter.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import FreeFilter from "./FreeFilter.svelte";
-  import { sortMetrics, type ViewConfig } from "./Tools";
+  import { type ViewConfig } from "./Tools";
+  import {
+    getComparisonByRef,
+    getSetResults,
+    setAsExperimentBaseline as apiSetAsExperimentBaseline,
+  } from "./api";
+  import {
+    buildRefMap,
+    extractByRefMetrics,
+    filterRefs,
+    extractMetricDefinitions,
+    resolveSelectedMetrics,
+  } from "./setPageData";
 
   interface Props {
     project: Project;
@@ -31,8 +43,6 @@
     onunselectSet?.();
   };
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let results: Result[] = $state();
   let showResults = $state(false);
   let baselineResults: Result[] = $state();
@@ -49,33 +59,6 @@
   // Pre-computed maps for O(1) lookup instead of O(n) filter in template
   let resultsByRef: Map<string, Result[]> = $state(new Map());
   let baselineResultsByRef: Map<string, Result[]> = $state(new Map());
-
-  // Build lookup maps when results change
-  const buildResultsMap = () => {
-    const map = new Map<string, Result[]>();
-    if (results) {
-      for (const result of results) {
-        if (!map.has(result.ref)) {
-          map.set(result.ref, []);
-        }
-        map.get(result.ref)!.push(result);
-      }
-    }
-    resultsByRef = map;
-  };
-
-  const buildBaselineResultsMap = () => {
-    const map = new Map<string, Result[]>();
-    if (baselineResults) {
-      for (const result of baselineResults) {
-        if (!map.has(result.ref)) {
-          map.set(result.ref, []);
-        }
-        map.get(result.ref)!.push(result);
-      }
-    }
-    baselineResultsByRef = map;
-  };
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -99,50 +82,29 @@
     try {
       loadingState = "loading";
       // get the comparison
-      let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/compare-by-ref?${tagFilters ?? ""}`;
-      var response = await fetch(url, { credentials: "include" });
-      comparison = await response.json();
+      comparison = await getComparisonByRef(
+        project.name,
+        experiment.name,
+        setName,
+        tagFilters || undefined,
+      );
 
       // get a list of all refs in the chosen results
       masterRefs = Object.keys(comparison.experiment_set?.results ?? {});
       applyFilter();
 
       // get a list of all metrics
-      const allMetrics = [
-        ...(comparison.project_baseline?.results
-          ? Object.values(comparison.project_baseline.results).flatMap(
-              (result) => Object.keys(result.metrics),
-            )
-          : []),
-        ...(comparison.experiment_baseline?.results
-          ? Object.values(comparison.experiment_baseline.results).flatMap(
-              (result) => Object.keys(result.metrics),
-            )
-          : []),
-        ...(comparison.experiment_set?.results
-          ? Object.values(comparison.experiment_set.results).flatMap((result) =>
-              Object.keys(result.metrics),
-            )
-          : []),
-      ];
-      metrics = [...new Set(allMetrics)].sort((a, b) =>
-        sortMetrics(comparison.metric_definitions, a, b),
-      );
+      metrics = extractByRefMetrics(comparison);
 
       // populate metric definitions for the filter
-      metricDefinitions = metrics
-        .map((name) => comparison.metric_definitions[name])
-        .filter((def) => def !== undefined);
+      metricDefinitions = extractMetricDefinitions(comparison, metrics);
 
       // reset selectedMetrics when metric definitions change
-      if (config.metrics?.length) {
-        // Use metrics from config if available
-        selectedMetrics = config.metrics.filter((m) => metrics.includes(m));
-      } else if (metricDefinitions.length <= 10) {
-        selectedMetrics = metrics;
-      } else {
-        selectedMetrics = [];
-      }
+      selectedMetrics = resolveSelectedMetrics(
+        config.metrics,
+        metrics,
+        metricDefinitions.length,
+      );
 
       // Mark as initialized after first load
       await tick();
@@ -160,10 +122,8 @@
       loadingState = "loading";
       showResults = !showResults;
       if (!results) {
-        let url = `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}`;
-        const response = await fetch(url, { credentials: "include" });
-        results = await response.json();
-        buildResultsMap();
+        results = await getSetResults(project.name, experiment.name, setName);
+        resultsByRef = buildRefMap(results);
       }
       loadingState = "loaded";
     } catch (error) {
@@ -177,10 +137,12 @@
       loadingState = "loading";
       showBaselineResults = !showBaselineResults;
       if (!baselineResults && comparison.experiment_baseline?.set) {
-        let url = `${prefix}/api/projects/${comparison.experiment_baseline.project}/experiments/${comparison.experiment_baseline.experiment}/sets/${comparison.experiment_baseline.set}`;
-        const response = await fetch(url, { credentials: "include" });
-        baselineResults = await response.json();
-        buildBaselineResultsMap();
+        baselineResults = await getSetResults(
+          comparison.experiment_baseline.project,
+          comparison.experiment_baseline.experiment,
+          comparison.experiment_baseline.set,
+        );
+        baselineResultsByRef = buildRefMap(baselineResults);
       }
       loadingState = "loaded";
     } catch (error) {
@@ -193,16 +155,7 @@
     new Promise((resolve) => setTimeout(resolve, ms));
 
   const applyFilter = async () => {
-    if (!filterFunc) {
-      filteredRefs = [...masterRefs];
-    } else {
-      filteredRefs = masterRefs.filter((ref) => {
-        return filterFunc(
-          comparison.experiment_baseline?.results?.[ref],
-          comparison.experiment_set?.results?.[ref],
-        );
-      });
-    }
+    filteredRefs = filterRefs(masterRefs, comparison, filterFunc);
   };
 
   const filter = async (func: Function | undefined) => {
@@ -215,15 +168,10 @@
   };
 
   const setAsExperimentBaseline = async () => {
-    const response = await fetch(
-      `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/${setName}/baseline`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      },
+    const response = await apiSetAsExperimentBaseline(
+      project.name,
+      experiment.name,
+      setName,
     );
     if (response.ok) {
       fetchComparison();

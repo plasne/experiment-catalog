@@ -3,6 +3,11 @@
   import ComparisonTable from "./ComparisonTable.svelte";
   import MeaningfulTags from "./MeaningfulTags.svelte";
   import type { ViewConfig } from "./Tools";
+  import {
+    useProjectBaseline,
+    setAsProjectBaseline as apiSetAsProjectBaseline,
+    computeStatistics as apiComputeStatistics,
+  } from "./api";
 
   interface Props {
     project: Project;
@@ -109,16 +114,7 @@
   };
 
   const useTheProjectBaseline = async () => {
-    const response = await fetch(
-      `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/sets/:project/baseline`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      },
-    );
+    const response = await useProjectBaseline(project.name, experiment.name);
     if (response.ok) {
       comparisonTable.reload();
       confirmUseTheProjectBaseline = false;
@@ -126,15 +122,9 @@
   };
 
   const setAsProjectBaseline = async () => {
-    const response = await fetch(
-      `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/baseline`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      },
+    const response = await apiSetAsProjectBaseline(
+      project.name,
+      experiment.name,
     );
     if (response.ok) {
       comparisonTable.reload();
@@ -143,25 +133,13 @@
   };
 
   const computeStatistics = async () => {
-    const response = await fetch(`${prefix}/api/analysis/statistics`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        project: project.name,
-        experiment: experiment.name,
-      }),
-      credentials: "include",
-    });
+    const response = await apiComputeStatistics(project.name, experiment.name);
     if (response.ok) {
       alert("Refresh in a few minutes to see the statistics.");
       confirmComputeStatistics = false;
     }
   };
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let confirmUseTheProjectBaseline = $state(false);
   let confirmSetAsProjectBaseline = $state(false);
   let confirmComputeStatistics = $state(false);

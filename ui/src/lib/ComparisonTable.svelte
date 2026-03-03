@@ -3,7 +3,11 @@
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
-  import { sortMetrics } from "./Tools";
+  import { getComparison, addAnnotation as apiAddAnnotation } from "./api";
+  import {
+    extractSortedMetrics,
+    buildSelectedEntities,
+  } from "./comparisonData";
 
   interface Props {
     project: Project;
@@ -68,26 +72,10 @@
   };
 
   const applySetList = () => {
-    selected = [];
-    if (setList) {
-      var setListSplit = setList.split(",");
-      while (
-        setListSplit.length > 0 &&
-        setListSplit[setListSplit.length - 1].trim() === ""
-      ) {
-        setListSplit.pop();
-      }
-      for (var i = 0; i < Math.max(compareCount, setListSplit.length); i++) {
-        const result =
-          i < setListSplit.length
-            ? comparison.sets.find((result) => result.set === setListSplit[i])
-            : null;
-        selected[i] = result;
-      }
-    } else {
-      selected = comparison.sets?.slice(-compareCount);
-    }
-    updateSetList();
+    const result = buildSelectedEntities(comparison, setList, compareCount);
+    selected = result.selected;
+    setList = result.reconciledSetList;
+    onchangeSetList?.(setList);
   };
 
   const select = (event: { index: number; entity: ComparisonEntity }) => {
@@ -103,20 +91,7 @@
   }) => {
     const { set, annotation, project: proj, experiment: exp } = event;
     try {
-      const response = await fetch(
-        `${prefix}/api/projects/${proj}/experiments/${exp}/results`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            set,
-            annotations: [annotation],
-          }),
-          credentials: "include",
-        },
-      );
+      const response = await apiAddAnnotation(proj, exp, set, annotation);
       if (response.ok) {
         fetchComparison();
       } else {
@@ -133,8 +108,6 @@
     updateSetList();
   };
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
   let comparison: Comparison = $state();
   let metrics: string[] = $state([]);
   let tagFilters: string = $state("");
@@ -152,23 +125,14 @@
       loadingState = "loading";
 
       // fetch comparison
-      const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments/${experiment.name}/compare?${tagFilters ?? ""}`,
-        { credentials: "include" },
+      comparison = await getComparison(
+        project.name,
+        experiment.name,
+        tagFilters || undefined,
       );
-      comparison = await response.json();
 
       // get a list of metrics
-      const allKeys = [
-        ...Object.keys(comparison.project_baseline?.result?.metrics ?? {}),
-        ...Object.keys(comparison.experiment_baseline?.result?.metrics ?? {}),
-        ...(comparison.sets ?? []).flatMap((experiment) =>
-          Object.keys(experiment.result?.metrics ?? {}),
-        ),
-      ];
-      metrics = [...new Set(allKeys)].sort((a, b) =>
-        sortMetrics(comparison.metric_definitions, a, b),
-      );
+      metrics = extractSortedMetrics(comparison);
 
       // apply the set list
       applySetList();

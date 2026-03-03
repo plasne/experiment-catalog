@@ -7,6 +7,13 @@ cd "$root_dir"
 echo "==> Test: running .NET tests..."
 dotnet test experiment-catalog.sln --nologo --verbosity quiet
 
+echo "==> Test: running UI unit tests..."
+if [ -d "ui" ] && [ -f "ui/vitest.config.ts" ]; then
+  cd ui
+  npx vitest run
+  cd "$root_dir"
+fi
+
 echo "==> Test: running UI Playwright tests..."
 if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
   cd ui

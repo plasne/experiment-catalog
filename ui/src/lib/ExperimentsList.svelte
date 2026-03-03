@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import ExperimentCard from "./ExperimentCard.svelte";
   import CreateExperimentModal from "./CreateExperimentModal.svelte";
+  import { listExperiments, createExperiment } from "./api";
 
   interface Props {
     project: Project;
@@ -16,17 +17,10 @@
   let showCreateModal = $state(false);
   let createError = $state("");
 
-  let prefix =
-    window.location.hostname === "localhost" ? "http://localhost:6010" : "";
-
   const fetchExperiments = async () => {
     try {
       loadingState = "loading";
-      const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments`,
-        { credentials: "include" }
-      );
-      experiments = await response.json();
+      experiments = await listExperiments(project.name);
       loadingState = "loaded";
     } catch (error) {
       console.error(error);
@@ -58,17 +52,7 @@
     const { name, hypothesis } = event;
     createError = "";
     try {
-      const response = await fetch(
-        `${prefix}/api/projects/${project.name}/experiments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ name, hypothesis }),
-          credentials: "include",
-        }
-      );
+      const response = await createExperiment(project.name, name, hypothesis);
       if (response.ok) {
         showCreateModal = false;
         fetchExperiments();
