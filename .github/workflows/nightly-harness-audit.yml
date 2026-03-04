@@ -5,6 +5,8 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   audit:
     runs-on: ubuntu-latest
