@@ -96,10 +96,10 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
 
 #### Backend API
 
-1. Navigate to the API directory:
+1. Navigate to the catalog directory:
 
    ```bash
-   cd api
+   cd catalog
    ```
 
 2. Create a `.env` file with required configuration:
@@ -113,7 +113,7 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
    AZURE_STORAGE_ACCOUNT_CONNSTRING=<your-connection-string>
    ```
 
-   Full configuration for the API can be found in the [API README](./api/README.md).
+   Full configuration for the API can be found in the [Catalog README](./catalog/README.md).
 
 3. Run the API:
 
@@ -180,7 +180,7 @@ Start with `make setup` after cloning, then use `make ci` before pushing changes
 
 ## API Usage
 
-All examples for using the API can be found in [catalog.http](./api/catalog.http).
+All examples for using the API can be found in [catalog.http](./catalog/catalog.http).
 
 ## Evaluator Usage
 
