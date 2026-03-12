@@ -9,6 +9,7 @@
 
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let authRequired: boolean = $state(false);
+  let username: string | undefined = $state();
   let project: Project = $state();
   let experiment: Experiment = $state();
   let setList: string = $state();
@@ -36,6 +37,7 @@
       const data = await getAuthStatus();
       if (data.username) {
         // User is authenticated, no need to show login
+        username = data.username;
         return true;
       }
       if (data.is_required) {
@@ -165,6 +167,12 @@
 
   onMount(parseQueryString);
 </script>
+
+{#if username}
+  <div class="user-bar">
+    <a href="/.auth/logout" class="user-link">{username} (logout)</a>
+  </div>
+{/if}
 
 <main>
   {#if loadingState === "loading"}
