@@ -18,6 +18,40 @@ If hosting the catalog in Azure App Service or Container Apps, EasyAuth can be c
 
 When using the Microsoft identity provider, the X-MS-TOKEN-AAD-ID-TOKEN and/or X-MS-TOKEN-AAD-ACCESS-TOKEN headers are passed to the underlying application. The Experiment Catalog can be configured to validate the token signature by setting `OIDC_AUTHORITY`. You can optionally validate other claims such as `OIDC_AUDIENCES`, `OIDC_ISSUERS`, `OIDC_VALIDATE_LIFETIME`, and `OIDC_ACCEPTABLE_ROLES`. While validation of the token is not strictly necessary when using EasyAuth, it does provide an additional layer of security, for example, if the EasyAuth configuration is disabled or changed.
 
+### App Registration Requirements
+
+The Entra ID app registration used by EasyAuth must have **ID token issuance** enabled under the implicit grant settings. EasyAuth uses `response_type=code+id_token` with `response_mode=form_post`, which requires this setting. Without it, the authentication callback returns a 401.
+
+To enable via Azure CLI:
+
+```bash
+az ad app update --id <client-id> --enable-id-token-issuance true
+```
+
+### Container Apps Token Store
+
+On Azure Container Apps, the token store must be explicitly enabled for EasyAuth to forward the `X-MS-TOKEN-AAD-ID-TOKEN` header to the application. Unlike App Service, Container Apps does not enable the token store by default and requires a blob storage container as the backing store.
+
+Without the token store enabled, API requests will fail with 401 because the catalog's JWT middleware cannot find a token to validate (the `X-MS-TOKEN-AAD-ID-TOKEN` header is not forwarded).
+
+To enable the token store:
+
+```bash
+# create a blob container for the token store
+az storage container create --name tokenstore --account-name <storage-account> --auth-mode login
+
+# enable the token store on the Container App
+az containerapp auth update \
+  --name <app-name> \
+  --resource-group <resource-group> \
+  --token-store true \
+  --blob-container-uri "https://<storage-account>.blob.core.windows.net/tokenstore"
+```
+
+The managed identity assigned to the Container App must have **Storage Blob Data Contributor** on the storage account used for the token store.
+
+After enabling the token store, users must log out and log back in to get a fresh session.
+
 ## OpenID Connect (OIDC)
 
 If you want to use OIDC authentication directly, you can configure the Experiment Catalog to use an OIDC provider using a PKCE code flow such as Azure AD, Auth0, or Okta. You will need to set the following configuration values:
