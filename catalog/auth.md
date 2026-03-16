@@ -76,3 +76,118 @@ In addition to the above configuration values, you may also want to set:
 - `OIDC_ISSUERS`
 - `OIDC_VALIDATE_LIFETIME`
 - `OIDC_ACCEPTABLE_ROLES`
+
+### Microsoft Entra ID Setup
+
+When using Entra ID as the OIDC provider, create an app registration and configure the catalog as follows.
+
+#### Create App Registration
+
+```bash
+az ad app create --display-name "<your-app-name>" \
+  --sign-in-audience AzureADMyOrg
+```
+
+Capture the `appId` from the output. Then set the identifier URI and create a service principal:
+
+```bash
+az ad app update --id <appId> \
+  --identifier-uris "api://<appId>"
+
+az ad sp create --id <appId>
+```
+
+#### Add Redirect URI for Browser Login
+
+The catalog uses a PKCE-based login flow with `/auth/callback`. The app registration must have a Web redirect URI matching the catalog's public URL:
+
+```bash
+az ad app update --id <appId> \
+  --web-redirect-uris "https://<catalog-fqdn>/auth/callback"
+```
+
+Without the redirect URI, the browser login flow completes authentication at Azure AD but fails on the callback with an AADSTS redirect mismatch error. This is easy to miss when initially configuring OIDC because API-only auth (bearer tokens) works without it.
+
+#### Configure Environment Variables
+
+Set these environment variables on the catalog host:
+
+| Variable             | Value                                                | Notes                                          |
+| -------------------- | ---------------------------------------------------- | ---------------------------------------------- |
+| `OIDC_AUTHORITY`     | `https://login.microsoftonline.com/<tenant-id>/v2.0` | Must include `/v2.0` for v2 tokens             |
+| `OIDC_CLIENT_ID`     | `<appId>`                                            | The app registration's application (client) ID |
+| `OIDC_CLIENT_SECRET` | `<secret>`                                           | Store in Key Vault when running in Azure       |
+| `OIDC_AUDIENCES`     | `<appId>,api://<appId>`                              | Must include both formats — see below          |
+
+> **Audience format**: Azure AD v2.0 tokens set the `aud` claim to the raw appId (for example, `95c2c531-...`), not the identifier URI (`api://95c2c531-...`). If `OIDC_AUDIENCES` only contains the `api://` form, all v2.0 tokens are rejected with 401. Always include both the raw appId and the `api://` URI.
+
+#### Client Secret Lifetime
+
+Some Entra ID tenants have policies limiting credential lifetimes. If `az ad app credential reset` fails with "Credential lifetime exceeds max value allowed by policy," reduce the `--end-date` until it falls within the policy limit.
+
+### Service Principal and Managed Identity Access
+
+Managed identities and service principals authenticate using the client credentials flow. This flow requires an **Application**-type app role on the app registration — a delegated scope is not sufficient.
+
+#### Create an Application-Type App Role
+
+```bash
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/<app-object-id>" \
+  --headers "Content-Type=application/json" \
+  --body '{
+    "appRoles": [{
+      "allowedMemberTypes": ["Application"],
+      "displayName": "Catalog ReadWrite",
+      "description": "Read and write catalog data",
+      "id": "<generate-a-guid>",
+      "isEnabled": true,
+      "value": "Catalog.ReadWrite"
+    }]
+  }'
+```
+
+Use `uuidgen` or equivalent to generate the GUID for the `id` field.
+
+#### Assign the Role to a Service Principal
+
+```bash
+az rest --method POST \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/<catalog-sp-id>/appRoleAssignedTo" \
+  --headers "Content-Type=application/json" \
+  --body '{
+    "principalId": "<target-principal-id>",
+    "resourceId": "<catalog-sp-id>",
+    "appRoleId": "<app-role-id>"
+  }'
+```
+
+Where `<target-principal-id>` is the object ID of the managed identity or service principal that needs access, `<catalog-sp-id>` is the service principal ID of the catalog app registration, and `<app-role-id>` is the GUID from the app role definition.
+
+### Pre-Authorizing Azure CLI for Interactive Testing
+
+To allow `az account get-access-token --resource api://<appId>` for manual testing, expose a delegated scope and pre-authorize the Azure CLI app:
+
+```bash
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/<app-object-id>" \
+  --headers "Content-Type=application/json" \
+  --body '{
+    "api": {
+      "oauth2PermissionScopes": [{
+        "adminConsentDescription": "Access catalog as user",
+        "adminConsentDisplayName": "access_as_user",
+        "id": "<generate-a-guid>",
+        "isEnabled": true,
+        "type": "User",
+        "value": "access_as_user"
+      }],
+      "preAuthorizedApplications": [{
+        "appId": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
+        "delegatedPermissionIds": ["<scope-id>"]
+      }]
+    }
+  }'
+```
+
+The Azure CLI app ID (`04b07795-8ddb-461a-bbee-02f9e1bf7b46`) is a well-known Microsoft first-party application. Without this pre-authorization, `az account get-access-token` fails with `AADSTS650057: Invalid resource`.
