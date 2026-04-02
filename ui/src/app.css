@@ -92,3 +92,21 @@ a.link:hover {
 .auth-container button:hover {
   background-color: #535bf2;
 }
+
+.user-bar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  padding: 0.5rem 1rem;
+  z-index: 1000;
+}
+
+.user-link {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.user-link:hover {
+  color: rgba(255, 255, 255, 0.87);
+}

@@ -35,10 +35,10 @@ public class Config : IConfig, IValidatableObject
     public string? AZURE_STORAGE_CONNECTION_STRING { get; set; }
 
     [SetValue("INFERENCE_CONTAINER")]
-    public string? INFERENCE_CONTAINER { get; set; }
+    public string? INFERENCE_PATH { get; set; }
 
     [SetValue("EVALUATION_CONTAINER")]
-    public string? EVALUATION_CONTAINER { get; set; }
+    public string? EVALUATION_PATH { get; set; }
 
     [SetValue("INBOUND_INFERENCE_QUEUES")]
     public string[] INBOUND_INFERENCE_QUEUES { get; set; } = [];
@@ -137,6 +137,9 @@ public class Config : IConfig, IValidatableObject
     [SetValue("PROCESS_METRICS_IN_EVALUATION_RESPONSE")]
     public bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; set; } = true;
 
+    [SetValue("INBOUND_JOB_QUEUE")]
+    public string? INBOUND_JOB_QUEUE { get; set; }
+
     [SetValue("JOB_STATUS_CONTAINER")]
     public string? JOB_STATUS_CONTAINER { get; set; }
 
@@ -195,11 +198,11 @@ public class Config : IConfig, IValidatableObject
 
         if (hasInference)
         {
-            if (string.IsNullOrEmpty(INFERENCE_CONTAINER))
+            if (string.IsNullOrEmpty(INFERENCE_PATH))
             {
                 yield return new ValidationResult(
                     "INFERENCE_CONTAINER must be set when using the InferenceProxy role.",
-                    new[] { nameof(INFERENCE_CONTAINER) });
+                    new[] { nameof(INFERENCE_PATH) });
             }
 
             if (string.IsNullOrEmpty(INFERENCE_URL))
@@ -226,18 +229,18 @@ public class Config : IConfig, IValidatableObject
 
         if (hasEvaluation)
         {
-            if (string.IsNullOrEmpty(INFERENCE_CONTAINER))
+            if (string.IsNullOrEmpty(INFERENCE_PATH))
             {
                 yield return new ValidationResult(
                     "INFERENCE_CONTAINER must be set when using the EvaluationProxy role.",
-                    new[] { nameof(INFERENCE_CONTAINER) });
+                    new[] { nameof(INFERENCE_PATH) });
             }
 
-            if (string.IsNullOrEmpty(EVALUATION_CONTAINER))
+            if (string.IsNullOrEmpty(EVALUATION_PATH))
             {
                 yield return new ValidationResult(
                     "EVALUATION_CONTAINER must be set when using the EvaluationProxy role.",
-                    new[] { nameof(EVALUATION_CONTAINER) });
+                    new[] { nameof(EVALUATION_PATH) });
             }
 
             if (string.IsNullOrEmpty(EVALUATION_URL))

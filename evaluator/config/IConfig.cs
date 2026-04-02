@@ -9,8 +9,8 @@ public interface IConfig
     string? OPEN_TELEMETRY_CONNECTION_STRING { get; set; }
     string? AZURE_STORAGE_ACCOUNT_NAME { get; set; }
     string? AZURE_STORAGE_CONNECTION_STRING { get; set; }
-    string? INFERENCE_CONTAINER { get; set; }
-    string? EVALUATION_CONTAINER { get; set; }
+    string? INFERENCE_PATH { get; set; }
+    string? EVALUATION_PATH { get; set; }
     string[] INBOUND_INFERENCE_QUEUES { get; set; }
     string[] INBOUND_EVALUATION_QUEUES { get; set; }
     string? OUTBOUND_INFERENCE_QUEUE { get; set; }
@@ -41,6 +41,7 @@ public interface IConfig
     string? INBOUND_EVALUATION_TRANSFORM_QUERY { get; set; }
     bool PROCESS_METRICS_IN_INFERENCE_RESPONSE { get; set; }
     bool PROCESS_METRICS_IN_EVALUATION_RESPONSE { get; set; }
+    string? INBOUND_JOB_QUEUE { get; set; }
     string? JOB_STATUS_CONTAINER { get; set; }
     int JOB_DONE_TIMEOUT_MINUTES { get; set; }
 }

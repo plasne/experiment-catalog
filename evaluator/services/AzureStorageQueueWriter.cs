@@ -138,14 +138,13 @@ public class AzureStorageQueueWriter(
 
                 // enqueue everything from each specified container
                 var totalItems = 0;
-                foreach (var containerPlusPath in enqueueRequest.Containers)
+                foreach (var containerPlusPath in enqueueRequest.Paths)
                 {
                     // connect to the blob container
-                    var containerAndPath = containerPlusPath.Split('/', 2);
-                    var containerClient = await this.GetBlobContainerClientAsync(containerAndPath[0], stoppingToken);
+                    var (container, prefix) = containerPlusPath.SplitContainerPath();
+                    var containerClient = await this.GetBlobContainerClientAsync(container, stoppingToken);
 
                     // enqueue blobs from that container
-                    var prefix = containerAndPath.Length == 2 ? containerAndPath[1] : null;
                     await foreach (var blob in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix: prefix, cancellationToken: stoppingToken))
                     {
                         await this.EnqueueBlobAsync(containerClient, blob, enqueueRequest, queueClient, stoppingToken);
