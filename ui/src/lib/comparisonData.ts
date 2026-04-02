@@ -36,8 +36,8 @@ export function buildSelectedEntities(
     comparison: Comparison,
     setList: string | undefined,
     compareCount: number,
-): { selected: ComparisonEntity[]; reconciledSetList: string } {
-    let selected: ComparisonEntity[] = [];
+): { selected: (ComparisonEntity | null)[]; reconciledSetList: string } {
+    let selected: (ComparisonEntity | null)[] = [];
 
     if (setList) {
         const parts = setList.split(",");

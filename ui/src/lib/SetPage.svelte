@@ -43,18 +43,18 @@
     onunselectSet?.();
   };
 
-  let results: Result[] = $state();
+  let results: Result[] | undefined = $state();
   let showResults = $state(false);
-  let baselineResults: Result[] = $state();
+  let baselineResults: Result[] | undefined = $state();
   let showBaselineResults = $state(false);
-  let comparison: ComparisonByRef = $state();
+  let comparison: ComparisonByRef | undefined = $state();
   let masterRefs: string[] = $state([]);
   let filteredRefs: string[] = $state([]);
   let metrics: string[] = $state([]);
   let selectedMetrics: string[] = $state([]);
   let metricDefinitions: MetricDefinition[] = $state([]);
   let tagFilters: string = $state("");
-  let filterFunc: Function = $state();
+  let filterFunc: Function | undefined = $state();
 
   // Pre-computed maps for O(1) lookup instead of O(n) filter in template
   let resultsByRef: Map<string, Result[]> = $state(new Map());
@@ -133,6 +133,7 @@
   };
 
   const fetchBaselineDetails = async () => {
+    if (!comparison) return;
     try {
       loadingState = "loading";
       showBaselineResults = !showBaselineResults;
@@ -155,6 +156,7 @@
     new Promise((resolve) => setTimeout(resolve, ms));
 
   const applyFilter = async () => {
+    if (!comparison) return;
     filteredRefs = filterRefs(masterRefs, comparison, filterFunc);
   };
 

@@ -12,6 +12,7 @@ export function buildRefMap(results: Result[] | undefined): Map<string, Result[]
     const map = new Map<string, Result[]>();
     if (!results) return map;
     for (const result of results) {
+        if (!result.ref) continue;
         if (!map.has(result.ref)) {
             map.set(result.ref, []);
         }
@@ -27,17 +28,17 @@ export function extractByRefMetrics(comparison: ComparisonByRef): string[] {
     const allMetrics = [
         ...(comparison.project_baseline?.results
             ? Object.values(comparison.project_baseline.results).flatMap(
-                (result) => Object.keys(result.metrics),
+                (result) => Object.keys(result.metrics ?? {}),
             )
             : []),
         ...(comparison.experiment_baseline?.results
             ? Object.values(comparison.experiment_baseline.results).flatMap(
-                (result) => Object.keys(result.metrics),
+                (result) => Object.keys(result.metrics ?? {}),
             )
             : []),
         ...(comparison.experiment_set?.results
             ? Object.values(comparison.experiment_set.results).flatMap(
-                (result) => Object.keys(result.metrics),
+                (result) => Object.keys(result.metrics ?? {}),
             )
             : []),
     ];

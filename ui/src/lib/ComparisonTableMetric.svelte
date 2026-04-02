@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    result: Result;
+    result?: Result;
     baseline?: Result;
     metric: string;
     definition?: MetricDefinition;
@@ -22,14 +22,14 @@
   }: Props = $props();
 
   let isCount: boolean = $derived(
-    definition && definition.aggregate_function === "Count"
+    !!(definition && definition.aggregate_function === "Count")
   );
   let isCost: boolean = $derived(
-    definition && definition.aggregate_function === "Cost"
+    !!(definition && definition.aggregate_function === "Cost")
   );
   let isAvg: boolean = $derived(!(isCount || isCost));
   let lowerIsBetter: boolean = $derived(
-    definition && definition.tags && definition.tags.includes("lower-is-better")
+    !!(definition && definition.tags && definition.tags.includes("lower-is-better"))
   );
 
   let diff: number = $derived.by(() => {
@@ -39,7 +39,7 @@
     return hasValidMetrics ? resultMetric.value - baselineMetric.value : 0;
   });
 
-  let difp: number = $derived.by(() => {
+  let difp: number | undefined = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
     const baselineMetric = baseline?.metrics?.[metric];
     const hasValidMetrics = resultMetric && baselineMetric;
@@ -54,9 +54,9 @@
   let opacity: number = $derived(
     difp !== undefined ? 30 + Math.abs(difp) * (80 - 30) * 4 : 30
   );
-  let p_value: number = $derived(result?.metrics?.[metric]?.p_value);
-  let ci_lower: number = $derived(result?.metrics?.[metric]?.ci_lower);
-  let ci_upper: number = $derived(result?.metrics?.[metric]?.ci_upper);
+  let p_value: number | undefined = $derived(result?.metrics?.[metric]?.p_value);
+  let ci_lower: number | undefined = $derived(result?.metrics?.[metric]?.ci_lower);
+  let ci_upper: number | undefined = $derived(result?.metrics?.[metric]?.ci_upper);
 </script>
 
 <nobr>
@@ -82,7 +82,7 @@
       >
       {#if isAvg && showActualValue}
         <span class="actual"
-          >&nbsp;{difp > 0 ? "+" : ""}{diff.toFixed(3)}&nbsp;</span
+          >&nbsp;{difp != undefined && difp > 0 ? "+" : ""}{diff.toFixed(3)}&nbsp;</span
         >
       {/if}
     {/if}

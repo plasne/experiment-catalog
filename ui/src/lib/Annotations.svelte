@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    entity: ComparisonEntity;
+    entity?: ComparisonEntity | null;
   }
 
   let { entity }: Props = $props();

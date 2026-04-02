@@ -9,10 +9,10 @@
 
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let authRequired: boolean = $state(false);
-  let project: Project = $state();
-  let experiment: Experiment = $state();
-  let setList: string = $state();
-  let setName: string = $state();
+  let project: Project | undefined = $state();
+  let experiment: Experiment | undefined = $state();
+  let setList: string | undefined = $state();
+  let setName: string | undefined = $state();
   let config: ViewConfig = $state({});
 
   function getCookie(name: string): string | null {
@@ -69,25 +69,25 @@
 
   const selectExperiment = (selectedExperiment: Experiment) => {
     experiment = selectedExperiment;
-    updateURL(project.name, experiment.name);
+    updateURL(project!.name, experiment.name);
   };
 
   const unselectExperiment = () => {
     experiment = undefined;
     setList = undefined;
-    updateURL(project.name);
+    updateURL(project!.name);
   };
 
   const selectSet = (selectedSet: string) => {
     setName = selectedSet;
-    updateURL(project.name, experiment.name, `set:${setName}`, config);
+    updateURL(project!.name, experiment!.name, `set:${setName}`, config);
   };
 
   const unselectSet = () => {
     setName = undefined;
     updateURL(
-      project.name,
-      experiment.name,
+      project!.name,
+      experiment!.name,
       setList ? `sets:${setList}` : null,
       config,
     );
@@ -95,17 +95,17 @@
 
   const changeSetList = (newSetList: string) => {
     setList = newSetList;
-    updateURL(project.name, experiment.name, `sets:${setList}`, config);
+    updateURL(project!.name, experiment!.name, `sets:${setList}`, config);
   };
 
   const changeConfig = (newConfig: ViewConfig) => {
     config = newConfig;
     if (setName) {
-      updateURL(project.name, experiment.name, `set:${setName}`, config);
+      updateURL(project!.name, experiment!.name, `set:${setName}`, config);
     } else if (setList) {
-      updateURL(project.name, experiment.name, `sets:${setList}`, config);
+      updateURL(project!.name, experiment!.name, `sets:${setList}`, config);
     } else {
-      updateURL(project.name, experiment.name, null, config);
+      updateURL(project!.name, experiment!.name, null, config);
     }
   };
 

@@ -1,6 +1,6 @@
 interface Experiment {
-    name?: string;
+    name: string;
     hypothesis?: string;
-    created?: Date;
+    created: Date;
     annotations?: Annotation[];
 }

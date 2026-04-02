@@ -2,9 +2,9 @@
   import { tick } from "svelte";
 
   interface Props {
-    entity: ComparisonEntity;
+    entity: ComparisonEntity | null;
     entities?: ComparisonEntity[];
-    onselect?: (entity: ComparisonEntity) => void;
+    onselect?: (entity: ComparisonEntity | null) => void;
   }
 
   let { entity = $bindable(), entities = [], onselect }: Props = $props();
@@ -23,7 +23,7 @@
     }
   };
 
-  const select = (selected: ComparisonEntity) => {
+  const select = (selected: ComparisonEntity | null) => {
     entity = selected;
     isOpen = false;
     onselect?.(selected);

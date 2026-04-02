@@ -12,7 +12,7 @@
   interface Props {
     project: Project;
     experiment: Experiment;
-    setList: string;
+    setList?: string;
     config?: ViewConfig;
     onunselectExperiment?: () => void;
     onselectSet?: (set: string) => void;
@@ -116,7 +116,7 @@
   const useTheProjectBaseline = async () => {
     const response = await useProjectBaseline(project.name, experiment.name);
     if (response.ok) {
-      comparisonTable.reload();
+      comparisonTable?.reload();
       confirmUseTheProjectBaseline = false;
     }
   };
@@ -127,7 +127,7 @@
       experiment.name,
     );
     if (response.ok) {
-      comparisonTable.reload();
+      comparisonTable?.reload();
       confirmSetAsProjectBaseline = false;
     }
   };
