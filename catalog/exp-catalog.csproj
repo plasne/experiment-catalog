@@ -12,12 +12,12 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.27.0" />
     <PackageReference Include="dotenv.net" Version="4.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
-    <PackageReference Include="Microsoft.OpenApi" Version="3.4.0" />
+    <PackageReference Include="Microsoft.OpenApi" Version="3.5.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0" />
     <PackageReference Include="NetBricks" Version="2.0.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="10.1.5" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="10.1.7" />
     <PackageReference Include="OpenTelemetry" Version="1.15.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
