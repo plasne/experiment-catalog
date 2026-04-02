@@ -5,12 +5,12 @@
 
   interface Props {
     title: string;
-    entity: ComparisonEntity;
+    entity?: ComparisonEntity | null;
     entities?: ComparisonEntity[];
     clickable?: boolean;
     index?: number;
     ondrilldown?: (set: string) => void;
-    onselect?: (data: { index: number; entity: ComparisonEntity }) => void;
+    onselect?: (data: { index: number; entity: ComparisonEntity | null }) => void;
     onaddAnnotation?: (data: {
       set: string;
       annotation: Annotation;
@@ -36,11 +36,11 @@
     if (entity?.set) ondrilldown?.(entity.set);
   };
 
-  const select = (selectedEntity: ComparisonEntity) => {
+  const select = (selectedEntity: ComparisonEntity | null) => {
     onselect?.({ index, entity: selectedEntity });
   };
 
-  const convertToFriendlyTime = (runtime: number): string => {
+  const convertToFriendlyTime = (runtime: number | undefined): string => {
     if (!runtime) return "-";
     const hours = Math.floor(runtime / 3600);
     const minutes = Math.floor((runtime % 3600) / 60);
@@ -55,10 +55,10 @@
   const handleAnnotationSubmit = (annotation: Annotation) => {
     showAnnotationModal = false;
     onaddAnnotation?.({
-      set: entity.set,
+      set: entity!.set!,
       annotation: annotation,
-      project: entity.project,
-      experiment: entity.experiment,
+      project: entity!.project,
+      experiment: entity!.experiment,
     });
   };
 
@@ -75,10 +75,10 @@
     <span>set: {entity?.set ?? "-"}</span>
   {/if}
   {#if entities.length > 0}
-    <SetSelector {entity} {entities} onselect={select} />
+    <SetSelector entity={entity ?? null} {entities} onselect={select} />
   {/if}
 </div>
-<Annotations {entity} />
+<Annotations entity={entity ?? null} />
 <div class="runtime-row">
   <span class="runtime">{convertToFriendlyTime(entity?.result?.runtime)}</span>
   {#if entity?.set}

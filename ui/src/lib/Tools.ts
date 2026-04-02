@@ -37,7 +37,7 @@ export function decodeConfig(encoded: string): ViewConfig {
     }
 }
 
-export function updateURL(project: string = null, experiment: string = null, page: string = null, config: ViewConfig = null) {
+export function updateURL(project?: string | null, experiment?: string | null, page?: string | null, config?: ViewConfig | null) {
     let url = `${window.location.pathname}`;
     var parts: string[] = [];
     if (project) parts.push(`project=${project}`);

@@ -12,7 +12,7 @@
   interface Props {
     project: Project;
     experiment: Experiment;
-    setList: string;
+    setList?: string;
     checked: string;
     initialTags?: string;
     showActualValue?: boolean;
@@ -44,8 +44,8 @@
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let compareCount = $state(3);
   let controls: ComparisonTableMetric[] = $state([]);
-  let selected: ComparisonEntity[] = $state();
-  let metricsHighlighted: Set<string> = $state();
+  let selected: (ComparisonEntity | null)[] = $state([]);
+  let metricsHighlighted: Set<string> = $state(new Set());
 
   const drilldown = (set: string) => {
     ondrilldown?.(set);
@@ -72,13 +72,14 @@
   };
 
   const applySetList = () => {
+    if (!comparison) return;
     const result = buildSelectedEntities(comparison, setList, compareCount);
     selected = result.selected;
     setList = result.reconciledSetList;
     onchangeSetList?.(setList);
   };
 
-  const select = (event: { index: number; entity: ComparisonEntity }) => {
+  const select = (event: { index: number; entity: ComparisonEntity | null }) => {
     selected[event.index] = event.entity;
     updateSetList();
   };
@@ -108,7 +109,7 @@
     updateSetList();
   };
 
-  let comparison: Comparison = $state();
+  let comparison: Comparison | undefined = $state();
   let metrics: string[] = $state([]);
   let tagFilters: string = $state("");
   let initialized = $state(false);
