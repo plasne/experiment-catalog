@@ -61,7 +61,8 @@ builder.Services.AddCors(options =>
 // configure Kestrel using IConfigFactory
 builder.Services.AddSingleton<IConfigureOptions<KestrelServerOptions>, KestrelConfigurator>();
 
-// add InferenceProxy, EvaluationProxy, and Maintenance services
+// add API queue reader, InferenceProxy, EvaluationProxy, and Maintenance services
+builder.Services.AddHostedService<AzureStorageQueueReaderForApi>();
 builder.Services.AddHostedService<AzureStorageQueueReaderForInference>();
 builder.Services.AddHostedService<AzureStorageQueueReaderForEvaluation>();
 builder.Services.AddHostedService<Maintenance>();

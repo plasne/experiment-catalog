@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,13 +26,13 @@ public class AzureStorageQueueReaderForInference(
     private readonly JobStatusService jobStatusService = jobStatusService;
     private readonly ILogger<AzureStorageQueueReaderForInference> logger = logger;
     private readonly List<QueueClient> inboundQueues = [];
-    private readonly List<QueueClient> inboundDeadletterQueues = [];
+    private readonly List<QueueClient?> inboundDeadletterQueues = [];
     private TaskRunner? taskRunner;
     private QueueClient? outboundQueue;
 
     private async Task<bool> ProcessRequestAsync(
          QueueClient inboundQueue,
-         QueueClient inboundDeadletterQueue,
+         QueueClient? inboundDeadletterQueue,
          CancellationToken cancellationToken)
     {
         var isConsideredToHaveProcessed = false;
@@ -70,8 +71,9 @@ public class AzureStorageQueueReaderForInference(
             isConsideredToHaveProcessed = true;
 
             // ensure required config values are present
-            var inferenceContainer = config.INFERENCE_CONTAINER
+            var inferenceContainer = config.INFERENCE_PATH
                 ?? throw new InvalidOperationException("INFERENCE_CONTAINER must be set for inference processing.");
+            var (infContainer, infPrefix) = inferenceContainer.SplitContainerPath();
             var inferenceUrl = config.INFERENCE_URL
                 ?? throw new InvalidOperationException("INFERENCE_URL must be set for inference processing.");
 
@@ -95,8 +97,8 @@ public class AzureStorageQueueReaderForInference(
 
             // upload the result
             var inferenceUri = await this.UploadBlobAsync(
-                inferenceContainer,
-                $"{request.RunId}/{request.Id}.json",
+                infContainer,
+                infPrefix.PrefixBlobName($"{request.RunId}/{request.Id}.json"),
                 responseContent,
                 cancellationToken);
 
@@ -119,10 +121,16 @@ public class AzureStorageQueueReaderForInference(
         }
         catch (DeadletterException e)
         {
-            this.logger.LogWarning("{err}; moving to dead-letter queue {q}...", e.Message, inboundDeadletterQueue.Name);
-            await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
+            if (inboundDeadletterQueue is not null)
+            {
+                this.logger.LogWarning("{err}; moving to dead-letter queue {q}...", e.Message, inboundDeadletterQueue.Name);
+                await inboundDeadletterQueue.SendMessageAsync(e.QueueBody, cancellationToken);
+            }
+            else
+            {
+                this.logger.LogWarning("{err}; no dead-letter queue configured, discarding message.", e.Message);
+            }
             await inboundQueue.DeleteMessageAsync(e.QueueMessage.MessageId, e.QueueMessage.PopReceipt, cancellationToken);
-            this.logger.LogWarning("successfully moved message {m} to dead-letter queue {q}.", e.QueueMessage.MessageId, inboundDeadletterQueue.Name);
 
             // record failure for job status tracking
             var deadletterRequest = JsonConvert.DeserializeObject<PipelineRequest>(e.QueueBody);
@@ -173,7 +181,7 @@ public class AzureStorageQueueReaderForInference(
 
     public async Task<Dictionary<string, int>> GetAllQueueMessageCountsAsync()
     {
-        List<QueueClient> queueClients = [.. this.inboundQueues, .. this.inboundDeadletterQueues];
+        List<QueueClient> queueClients = [.. this.inboundQueues, .. this.inboundDeadletterQueues.Where(q => q is not null).Cast<QueueClient>()];
         return await base.GetAllQueueMessageCountsAsync(queueClients);
     }
 
@@ -211,12 +219,20 @@ public class AzureStorageQueueReaderForInference(
             await queueClient.ConnectAsync(this.logger, cancellationToken);
             this.inboundQueues.Add(queueClient);
 
-            var deadletterUrl = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
-            var deadletterClient = string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING)
-                ? new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential)
-                : new QueueClient(config.AZURE_STORAGE_CONNECTION_STRING, queue + "-deadletter");
-            await deadletterClient.ConnectAsync(this.logger, cancellationToken);
-            this.inboundDeadletterQueues.Add(deadletterClient);
+            try
+            {
+                var deadletterUrl = $"https://{config.AZURE_STORAGE_ACCOUNT_NAME}.queue.core.windows.net/{queue}-deadletter";
+                var deadletterClient = string.IsNullOrEmpty(config.AZURE_STORAGE_CONNECTION_STRING)
+                    ? new QueueClient(new Uri(deadletterUrl), this.defaultAzureCredential)
+                    : new QueueClient(config.AZURE_STORAGE_CONNECTION_STRING, queue + "-deadletter");
+                await deadletterClient.ConnectAsync(this.logger, cancellationToken);
+                this.inboundDeadletterQueues.Add(deadletterClient);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(ex, "dead-letter queue {q}-deadletter not available; dead-lettering will be disabled for this queue.", queue);
+                this.inboundDeadletterQueues.Add(null);
+            }
         }
 
         // try and connect to the outbound inference queue

@@ -149,4 +149,17 @@ public static class Ext
         }
         return [.. total];
     }
+
+    public static (string Container, string? Prefix) SplitContainerPath(this string containerPlusPath)
+    {
+        var parts = containerPlusPath.Split('/', 2);
+        var container = parts[0];
+        var prefix = parts.Length == 2 ? parts[1] : null;
+        return (container, prefix);
+    }
+
+    public static string PrefixBlobName(this string? prefix, string blobName)
+    {
+        return string.IsNullOrEmpty(prefix) ? blobName : $"{prefix}/{blobName}";
+    }
 }

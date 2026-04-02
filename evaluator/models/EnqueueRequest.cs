@@ -21,8 +21,8 @@ public class EnqueueRequest
     [JsonProperty("is_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public bool IsBaseline { get; set; } = false;
 
-    [JsonProperty("containers", Required = Required.Always)]
-    public required List<string> Containers { get; set; }
+    [JsonProperty("paths", Required = Required.Always)]
+    public required List<string> Paths { get; set; }
 
     [JsonProperty("queue", Required = Required.Always)]
     public required string Queue { get; set; }
