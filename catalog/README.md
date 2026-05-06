@@ -84,6 +84,16 @@ The catalog supports optional JWT authentication using any OIDC-compliant identi
 
 - **OIDC_ACCEPTABLE_ROLES** [OPTIONAL]: A comma-separated list of acceptable roles. If provided, the user must have at least one of these roles (from the claim specified by `OIDC_ROLE_CLAIM_TYPE`) to access the API.
 
+### Reverse Proxy / Virtual Directory
+
+When hosting the catalog behind a reverse proxy at a sub-path (virtual directory), use the following settings to ensure correct redirect URI construction and asset serving:
+
+- **PATH_BASE** [OPTIONAL]: The path prefix under which the catalog is served (e.g., `/catalog`). Sets `Request.PathBase` via `UsePathBase()` middleware so that routing, redirect URIs, and links work correctly from the sub-path.
+
+- **EXTERNAL_SCHEME** [OPTIONAL]: The scheme (e.g., `https`) used by external clients to reach the catalog. Overrides `Request.Scheme` when constructing OIDC redirect URIs. Falls back to `Request.Scheme` if unset.
+
+- **EXTERNAL_HOST** [OPTIONAL]: The public hostname (e.g., `apps.example.com`) used by external clients. Overrides `Request.Host` when constructing OIDC redirect URIs. Falls back to `Request.Host` if unset. Use this when the reverse proxy forwards requests using an internal hostname that differs from the public domain.
+
 ## Concepts
 
 The catalog is organized around the following concepts:

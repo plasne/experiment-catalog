@@ -84,15 +84,16 @@ When the catalog runs behind a reverse proxy (e.g., Application Gateway, NGINX),
 | Variable | Purpose |
 |----------|---------|
 | `PATH_BASE` | Sets `Request.PathBase` via `UsePathBase()`. The path base is included in the OIDC redirect URI (e.g., `/catalog/auth/callback`). |
-| `EXTERNAL_SCHEME` | Overrides `Request.Scheme` in the redirect URI. Use when the proxy terminates TLS differently than what the app sees (e.g., app sees HTTPS from an internal proxy but clients connect over HTTP). Falls back to `Request.Scheme` if unset. |
+| `EXTERNAL_SCHEME` | Overrides `Request.Scheme` in the redirect URI. Use when the external scheme differs from what the app sees internally (e.g., clients connect over HTTPS but the app receives HTTP from the proxy). Falls back to `Request.Scheme` if unset. |
+| `EXTERNAL_HOST` | Overrides `Request.Host` in the redirect URI. Use when the proxy forwards requests using an internal hostname (e.g., a Container App FQDN) rather than the public domain. Falls back to `Request.Host` if unset. |
 
-The catalog also calls `UseForwardedHeaders` with `XForwardedHost` support, so setting the `X-Forwarded-Host` header on the reverse proxy will correctly populate `Request.Host` for redirect URI construction. `KnownIPNetworks` and `KnownProxies` are cleared to accept forwarded headers from any source.
+This approach is purely config-driven and does not rely on forwarded headers (`X-Forwarded-Host`, `X-Forwarded-Proto`). This avoids issues with proxies that strip or overwrite these headers (e.g., Azure Container Apps Envoy, or Application Gateway with `pickHostNameFromBackendAddress`).
 
-**Example**: For a catalog deployed at `http://apps.example.com/catalog/` behind an Application Gateway:
+**Example**: For a catalog deployed at `https://apps.example.com/catalog/` behind an Application Gateway:
 - Set `PATH_BASE=/catalog`
-- Set `EXTERNAL_SCHEME=http`
-- Configure the reverse proxy to send `X-Forwarded-Host: apps.example.com`
-- Register `http://apps.example.com/catalog/auth/callback` as the redirect URI in the app registration
+- Set `EXTERNAL_SCHEME=https`
+- Set `EXTERNAL_HOST=apps.example.com`
+- Register `https://apps.example.com/catalog/auth/callback` as the redirect URI in the app registration
 
 ### Microsoft Entra ID Setup
 
@@ -123,12 +124,14 @@ az ad app update --id <appId> \
   --web-redirect-uris "https://<catalog-fqdn>/<path-base>/auth/callback"
 ```
 
-For example, if deployed at `http://apps.example.com/catalog/`:
+For example, if deployed at `https://apps.example.com/catalog/`:
 
 ```bash
 az ad app update --id <appId> \
-  --web-redirect-uris "http://apps.example.com/catalog/auth/callback"
+  --web-redirect-uris "https://apps.example.com/catalog/auth/callback"
 ```
+
+> **Note**: Entra ID requires redirect URIs to use HTTPS (error AADSTS500117). The only exception is `http://localhost` for local development.
 
 Without the redirect URI, the browser login flow completes authentication at Azure AD but fails on the callback with an AADSTS redirect mismatch error. This is easy to miss when initially configuring OIDC because API-only auth (bearer tokens) works without it.
 
