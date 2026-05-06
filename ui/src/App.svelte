@@ -55,7 +55,8 @@
   }
 
   function login(): void {
-    window.location.href = getLoginUrl(window.location.href);
+    const returnUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.href = getLoginUrl(returnUrl);
   }
 
   const selectProject = (selectedProject: Project) => {

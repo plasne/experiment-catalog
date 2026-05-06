@@ -119,6 +119,15 @@ public class Config : IConfig, IValidatableObject
     [SetValue("OIDC_ACCEPTABLE_ROLES")]
     public string[]? OIDC_ACCEPTABLE_ROLES { get; set; }
 
+    [SetValue("EXTERNAL_SCHEME")]
+    public string? EXTERNAL_SCHEME { get; set; }
+
+    [SetValue("EXTERNAL_HOST")]
+    public string? EXTERNAL_HOST { get; set; }
+
+    [SetValue("PATH_BASE")]
+    public string? PATH_BASE { get; set; }
+
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
