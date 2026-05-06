@@ -17,16 +17,33 @@ const JSON_HEADERS = {
     "Content-Type": "application/json",
 } as const;
 
-async function fetchJson<T>(path: string): Promise<T> {
-    const response = await fetch(url(path), { credentials: "include" });
-    return response.json() as Promise<T>;
-}
-
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 export interface AuthStatus {
     username?: string;
     is_required?: boolean;
+}
+
+function toLocalReturnUrl(returnUrl: string): string {
+    // Server accepts local URLs; convert absolute same-origin URLs to local paths.
+    if (returnUrl.startsWith("/")) {
+        return returnUrl;
+    }
+
+    if (typeof window === "undefined") {
+        return "/";
+    }
+
+    try {
+        const parsed = new URL(returnUrl, window.location.origin);
+        if (parsed.origin === window.location.origin) {
+            return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+        }
+    } catch {
+        // Ignore parse errors and fall through to a safe default.
+    }
+
+    return "/";
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {
@@ -37,7 +54,22 @@ export async function getAuthStatus(): Promise<AuthStatus> {
 }
 
 export function getLoginUrl(returnUrl: string): string {
-    return `${apiPrefix}/auth/login?return-url=${encodeURIComponent(returnUrl)}`;
+    return `${apiPrefix}/auth/login?return-url=${encodeURIComponent(toLocalReturnUrl(returnUrl))}`;
+}
+
+// ── Fetch helper ────────────────────────────────────────────────────────────
+
+async function fetchJson<T>(path: string): Promise<T> {
+    const response = await fetch(url(path), { credentials: "include" });
+    if (response.status === 401) {
+        // Clear stale cookie and redirect to login
+        document.cookie =
+            "auth_not_required=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+        const returnUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        window.location.href = getLoginUrl(returnUrl);
+        throw new Error("Authentication required");
+    }
+    return response.json() as Promise<T>;
 }
 
 // ── Projects ────────────────────────────────────────────────────────────────

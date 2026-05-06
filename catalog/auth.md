@@ -77,6 +77,23 @@ In addition to the above configuration values, you may also want to set:
 - `OIDC_VALIDATE_LIFETIME`
 - `OIDC_ACCEPTABLE_ROLES`
 
+### Reverse Proxy Deployment
+
+When the catalog runs behind a reverse proxy (e.g., Application Gateway, NGINX), the login flow must construct redirect URIs using the external-facing URL rather than the internal hostname. The following configuration supports this:
+
+| Variable | Purpose |
+|----------|---------|
+| `PATH_BASE` | Sets `Request.PathBase` via `UsePathBase()`. The path base is included in the OIDC redirect URI (e.g., `/catalog/auth/callback`). |
+| `EXTERNAL_SCHEME` | Overrides `Request.Scheme` in the redirect URI. Use when the proxy terminates TLS differently than what the app sees (e.g., app sees HTTPS from an internal proxy but clients connect over HTTP). Falls back to `Request.Scheme` if unset. |
+
+The catalog also calls `UseForwardedHeaders` with `XForwardedHost` support, so setting the `X-Forwarded-Host` header on the reverse proxy will correctly populate `Request.Host` for redirect URI construction. `KnownIPNetworks` and `KnownProxies` are cleared to accept forwarded headers from any source.
+
+**Example**: For a catalog deployed at `http://apps.example.com/catalog/` behind an Application Gateway:
+- Set `PATH_BASE=/catalog`
+- Set `EXTERNAL_SCHEME=http`
+- Configure the reverse proxy to send `X-Forwarded-Host: apps.example.com`
+- Register `http://apps.example.com/catalog/auth/callback` as the redirect URI in the app registration
+
 ### Microsoft Entra ID Setup
 
 When using Entra ID as the OIDC provider, create an app registration and configure the catalog as follows.
@@ -99,11 +116,18 @@ az ad sp create --id <appId>
 
 #### Add Redirect URI for Browser Login
 
-The catalog uses a PKCE-based login flow with `/auth/callback`. The app registration must have a Web redirect URI matching the catalog's public URL:
+The catalog uses a PKCE-based login flow with `/auth/callback`. The app registration must have a Web redirect URI matching the catalog's public URL (including any path base):
 
 ```bash
 az ad app update --id <appId> \
-  --web-redirect-uris "https://<catalog-fqdn>/auth/callback"
+  --web-redirect-uris "https://<catalog-fqdn>/<path-base>/auth/callback"
+```
+
+For example, if deployed at `http://apps.example.com/catalog/`:
+
+```bash
+az ad app update --id <appId> \
+  --web-redirect-uris "http://apps.example.com/catalog/auth/callback"
 ```
 
 Without the redirect URI, the browser login flow completes authentication at Azure AD but fails on the callback with an AADSTS redirect mismatch error. This is easy to miss when initially configuring OIDC because API-only auth (bearer tokens) works without it.
