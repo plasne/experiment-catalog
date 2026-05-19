@@ -1,6 +1,8 @@
 import { test, expect } from '../fixtures';
 import * as data from '../mocks/data';
 
+type WindowWithOpenCalls = Window & { __openCalls: string[][] };
+
 /**
  * CreateAnnotationModal and annotation creation flow tests.
  *
@@ -150,9 +152,9 @@ test.describe('Annotations display', () => {
 
   test('annotation open-link button opens the annotation URI', async ({ mockedPage: page }) => {
     await page.addInitScript(() => {
-      (window as typeof window & { __openCalls: string[][] }).__openCalls = [];
+      (window as WindowWithOpenCalls).__openCalls = [];
       window.open = ((...args: string[]) => {
-        (window as typeof window & { __openCalls: string[][] }).__openCalls.push(args);
+        (window as WindowWithOpenCalls).__openCalls.push(args);
         return null;
       }) as typeof window.open;
     });
@@ -163,12 +165,7 @@ test.describe('Annotations display', () => {
     await expect
       .poll(async () =>
         page.evaluate(
-          () =>
-            (
-              window as typeof window & {
-                __openCalls: string[][];
-              }
-            ).__openCalls,
+          () => (window as WindowWithOpenCalls).__openCalls,
         ),
       )
       .toEqual([['https://example.com/notes', '_blank', 'noopener,noreferrer']]);

@@ -5,7 +5,8 @@
 
   let { entity }: Props = $props();
 
-  const openAnnotationUri = (uri: string) => {
+  const openAnnotationUri = (uri?: string | null) => {
+    if (!uri) return;
     window.open(uri, "_blank", "noopener,noreferrer");
   };
 </script>
@@ -18,7 +19,7 @@
         <button
           type="button"
           class="annotation-action"
-          onclick={() => openAnnotationUri(annotation.uri!)}
+          onclick={() => openAnnotationUri(annotation.uri)}
         >
           Open link
         </button>
