@@ -121,9 +121,8 @@ test.describe('SetPage drill-down', () => {
   test('annotations render on the aggregate row', async ({ mockedPage: page }) => {
     await page.goto(base);
     // The mock setAResult has annotation { text: 'Run note for set-a', uri: '…' }
-    // which should render as a link in the Annotations component on the aggregate row
-    await expect(
-      page.locator('a.link', { hasText: 'Run note for set-a' }),
-    ).toBeVisible();
+    // which should render as text with an explicit open-link button
+    await expect(page.getByText('Run note for set-a')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open link' })).toBeVisible();
   });
 });

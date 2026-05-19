@@ -139,14 +139,13 @@ test.describe('Create Annotation modal', () => {
 });
 
 test.describe('Annotations display', () => {
-  test('annotation with URI renders as a link', async ({ mockedPage: page }) => {
+  test('annotation with URI renders an open-link button', async ({ mockedPage: page }) => {
     // SetPage has annotations on set-a aggregate row
     await page.goto('/?project=alpha-project&experiment=exp-001&page=set:set-a');
+    await expect(page.getByText('Run note for set-a')).toBeVisible();
     await expect(
-      page.locator('a.link', { hasText: 'Run note for set-a' }),
+      page.getByRole('button', { name: 'Open link' }),
     ).toBeVisible();
-    const link = page.locator('a.link', { hasText: 'Run note for set-a' });
-    await expect(link).toHaveAttribute('href', 'https://example.com/notes');
   });
 
   test('annotation without URI renders as plain text', async ({ mockedPage: page }) => {
@@ -164,6 +163,6 @@ test.describe('Annotations display', () => {
     // Should NOT be a link
     const plainAnnotation = page.locator('.annotation', { hasText: 'Plain text note' });
     await expect(plainAnnotation).toBeVisible();
-    await expect(plainAnnotation.locator('a')).not.toBeVisible();
+    await expect(plainAnnotation.getByRole('button')).not.toBeVisible();
   });
 });
