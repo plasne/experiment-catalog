@@ -249,10 +249,6 @@
     margin-left: 0.35rem;
   }
 
-  button.btn {
-    margin-left: 0.5rem;
-  }
-
   .modal-backdrop {
     position: fixed;
     top: 0;

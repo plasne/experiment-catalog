@@ -70,13 +70,6 @@ img.loading {
   margin: 0.75rem 0;
 }
 
-.action-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
-}
-
 .link {
   background: none;
   border: none;

@@ -211,12 +211,12 @@
     set this permutation as the experiment baseline
   </button>
 </div>
-<div>
-  <span class="label">Hypothesis:</span>
+<div class="meta-row">
+  <span class="meta-label">Hypothesis</span>
   <span>{experiment.hypothesis}</span>
 </div>
-<div>
-  <span class="label">Created:</span>
+<div class="meta-row">
+  <span class="meta-label">Created</span>
   <span>
     {new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -430,12 +430,21 @@
     gap: 0.75rem;
   }
 
-  .label {
-    text-align: right;
-    font-weight: bold;
-    width: 100px;
-    display: inline-block;
-    margin-right: 0.2rem;
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .meta-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #999;
+    min-width: 90px;
+    flex-shrink: 0;
   }
 
   table {
