@@ -230,8 +230,8 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="btn" onclick={fetchDetails}>toggle set iterations</button>
-  <button class="btn" onclick={fetchBaselineDetails}>toggle baseline iterations</button>
+  <button class="btn" onclick={fetchDetails} disabled={loadingState === "loading"}>toggle set iterations</button>
+  <button class="btn" onclick={fetchBaselineDetails} disabled={loadingState === "loading"}>toggle baseline iterations</button>
 </h3>
 
 {#if comparison}

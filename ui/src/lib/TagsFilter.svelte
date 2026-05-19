@@ -85,7 +85,8 @@
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: center;
+    gap: 0.25rem;
   }
   button.btn {
     margin-left: 0.5rem;

@@ -231,7 +231,6 @@
 
 <style>
   .meaningful-tags-row {
-    margin-top: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;

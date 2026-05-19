@@ -170,12 +170,14 @@
 </script>
 
 {#if comparison}
-  <div class="selection">
+  <div class="filter-row">
     <TagsFilter
       {project}
       bind:querystring={tagFilters}
       onapply={onTagFiltersApply}
     />
+  </div>
+  <div class="permutation-row">
     <span>show at least</span>
     <select bind:value={compareCount} onchange={applySetList}>
       <option value={1}>1</option>
@@ -333,8 +335,17 @@
     cursor: pointer;
   }
 
-  .selection {
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .permutation-row {
     width: 80rem;
     text-align: right;
+    margin-bottom: 0.75rem;
   }
 </style>
