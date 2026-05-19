@@ -148,6 +148,32 @@ test.describe('Annotations display', () => {
     ).toBeVisible();
   });
 
+  test('annotation open-link button opens the annotation URI', async ({ mockedPage: page }) => {
+    await page.addInitScript(() => {
+      (window as typeof window & { __openCalls: string[][] }).__openCalls = [];
+      window.open = ((...args: string[]) => {
+        (window as typeof window & { __openCalls: string[][] }).__openCalls.push(args);
+        return null;
+      }) as typeof window.open;
+    });
+
+    await page.goto('/?project=alpha-project&experiment=exp-001&page=set:set-a');
+    await page.getByRole('button', { name: 'Open link' }).click();
+
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __openCalls: string[][];
+              }
+            ).__openCalls,
+        ),
+      )
+      .toEqual([['https://example.com/notes', '_blank', 'noopener,noreferrer']]);
+  });
+
   test('annotation without URI renders as plain text', async ({ mockedPage: page }) => {
     // Override comparison data to include a text-only annotation
     await page.route('**/api/projects/*/experiments/*/sets/*/compare-by-ref**', (route) => {
