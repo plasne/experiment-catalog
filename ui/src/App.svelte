@@ -59,6 +59,10 @@
     window.location.href = getLoginUrl(returnUrl);
   }
 
+  function logout(): void {
+    window.location.href = "/.auth/logout";
+  }
+
   const selectProject = (selectedProject: Project) => {
     project = selectedProject;
     updateURL(project.name);
@@ -171,7 +175,9 @@
 
 {#if username}
   <div class="user-bar">
-    <a href="/.auth/logout" class="user-link">{username} (logout)</a>
+    <button type="button" class="link user-link" onclick={logout}>
+      {username} (logout)
+    </button>
   </div>
 {/if}
 

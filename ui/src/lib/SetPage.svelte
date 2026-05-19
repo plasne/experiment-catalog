@@ -337,17 +337,21 @@
               <td>
                 <nobr>Baseline / {result.set}</nobr>
                 {#if result.inference_uri}
-                  <button
+                  <a
                     class="link"
-                    onclick={() => window.open(result.inference_uri, "_blank")}
-                    >(inf)</button
+                    href={result.inference_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >(inf)</a
                   >
                 {/if}
                 {#if result.evaluation_uri}
-                  <button
+                  <a
                     class="link"
-                    onclick={() => window.open(result.evaluation_uri, "_blank")}
-                    >(eval)</button
+                    href={result.evaluation_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >(eval)</a
                   >
                 {/if}
               </td>
@@ -404,17 +408,21 @@
               <td>
                 <nobr>Set / {result.set}</nobr>
                 {#if result.inference_uri}
-                  <button
+                  <a
                     class="link"
-                    onclick={() => window.open(result.inference_uri, "_blank")}
-                    >(inf)</button
+                    href={result.inference_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >(inf)</a
                   >
                 {/if}
                 {#if result.evaluation_uri}
-                  <button
+                  <a
                     class="link"
-                    onclick={() => window.open(result.evaluation_uri, "_blank")}
-                    >(eval)</button
+                    href={result.evaluation_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >(eval)</a
                   >
                 {/if}
               </td>

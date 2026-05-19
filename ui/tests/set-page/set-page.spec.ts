@@ -113,16 +113,29 @@ test.describe('SetPage drill-down', () => {
     await page.getByRole('button', { name: /toggle set iterations/ }).click();
     await expect(page.getByText('Set / set-a')).toBeVisible();
 
-    // URIs are rendered as buttons: (inf) and (eval) via window.open
-    await expect(page.getByRole('button', { name: '(inf)' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '(eval)' })).toBeVisible();
+    const inferenceLink = page.getByRole('link', { name: '(inf)' });
+    const evaluationLink = page.getByRole('link', { name: '(eval)' });
+    await expect(inferenceLink).toBeVisible();
+    await expect(inferenceLink).toHaveAttribute(
+      'href',
+      'https://example.com/inference/set-a',
+    );
+    await expect(evaluationLink).toBeVisible();
+    await expect(evaluationLink).toHaveAttribute(
+      'href',
+      'https://example.com/eval/set-a',
+    );
   });
 
   test('annotations render on the aggregate row', async ({ mockedPage: page }) => {
     await page.goto(base);
     // The mock setAResult has annotation { text: 'Run note for set-a', uri: '…' }
-    // which should render as text with an explicit open-link button
-    await expect(page.getByText('Run note for set-a')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open link' })).toBeVisible();
+    // which should render as a link in the Annotations component on the aggregate row
+    const annotationLink = page.getByRole('link', { name: 'Run note for set-a' });
+    await expect(annotationLink).toBeVisible();
+    await expect(annotationLink).toHaveAttribute(
+      'href',
+      'https://example.com/notes',
+    );
   });
 });

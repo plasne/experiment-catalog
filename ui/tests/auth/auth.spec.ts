@@ -39,6 +39,9 @@ test.describe('Authentication gating', () => {
     await expect(
       page.getByRole('heading', { name: 'Authentication Required' }),
     ).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'testuser (logout)' }),
+    ).toBeVisible();
   });
 
   test('proceeds to projects list when auth is not required', async ({ mockedPage: page }) => {
