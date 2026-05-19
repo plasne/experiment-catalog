@@ -165,7 +165,7 @@
       </select>
     </label>
     <button
-      class="compute"
+      class="btn"
       onclick={openResults}
       disabled={!selectedSet || !selectedMetric}
     >
@@ -193,7 +193,7 @@
     >
       <div class="modal-header">
         <h3>Meaningful tags</h3>
-        <button class="link" onclick={closeResults}>close</button>
+        <button class="btn" onclick={closeResults}>close</button>
       </div>
       <div class="modal-body">
         {#if resultsLoading}
@@ -250,9 +250,8 @@
     margin-left: 0.35rem;
   }
 
-  button.compute {
+  button.btn {
     margin-left: 0.5rem;
-    cursor: pointer;
   }
 
   .modal-backdrop {

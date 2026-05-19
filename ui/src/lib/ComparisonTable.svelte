@@ -193,7 +193,7 @@
       <option value={100}>100</option>
     </select>
     <span>of {comparison.sets?.length} permutations</span>
-    <button class="link" onclick={selectLastSets}>(show last)</button>
+    <button class="btn" onclick={selectLastSets}>show last</button>
   </div>
 {/if}
 

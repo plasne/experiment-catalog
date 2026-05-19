@@ -177,11 +177,9 @@
     );
     if (response.ok) {
       fetchComparison();
-      confirmBaseline = false;
     }
   };
 
-  var confirmBaseline = $state(false);
   let initialized = $state(false);
 
   // Called when metrics filter changes
@@ -205,26 +203,13 @@
   });
 </script>
 
-<button class="link" onclick={unselectSet}>back</button>
+<button class="btn" onclick={unselectSet}>&larr; back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmBaseline}
-        aria-label="Confirm set as project baseline"
-      />
-      <button
-        class="link"
-        onclick={setAsExperimentBaseline}
-        disabled={!confirmBaseline}
-      >
-        set this permutation as the experiment baseline
-      </button>
-    </label>
-  </span>
+<div class="btn-group">
+  <button class="btn" onclick={setAsExperimentBaseline}>
+    set this permutation as the experiment baseline
+  </button>
 </div>
 <div>
   <span class="label">Hypothesis:</span>
@@ -245,10 +230,8 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="link" onclick={fetchDetails}>(toggle set iterations)</button>
-  <button class="link" onclick={fetchBaselineDetails}
-    >(toggle baseline iterations)</button
-  >
+  <button class="btn" onclick={fetchDetails}>toggle set iterations</button>
+  <button class="btn" onclick={fetchBaselineDetails}>toggle baseline iterations</button>
 </h3>
 
 {#if comparison}
@@ -441,6 +424,12 @@
 {/if}
 
 <style>
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
   .label {
     text-align: right;
     font-weight: bold;

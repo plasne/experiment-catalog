@@ -68,7 +68,7 @@
 
 <div class="checkbox-container">
   {#if tags.length > 10}
-    <button class="link" onclick={() => (isCollapsed = !isCollapsed)}>
+    <button class="btn" onclick={() => (isCollapsed = !isCollapsed)}>
       tags ({selectedCount}/{tags.length})
     </button>
   {:else}
@@ -76,7 +76,7 @@
   {/if}
   {#if tags.length <= 10 || !isCollapsed}
     <TriStateCheckboxes bind:yes bind:no options={tags} />
-    <button class="apply" onclick={apply}>apply</button>
+    <button class="btn" onclick={apply}>apply</button>
   {/if}
 </div>
 
@@ -87,8 +87,7 @@
     flex-wrap: wrap;
     align-items: flex-start;
   }
-  button.apply {
+  button.btn {
     margin-left: 0.5rem;
-    cursor: pointer;
   }
 </style>

@@ -117,7 +117,6 @@
     const response = await useProjectBaseline(project.name, experiment.name);
     if (response.ok) {
       comparisonTable?.reload();
-      confirmUseTheProjectBaseline = false;
     }
   };
 
@@ -128,7 +127,6 @@
     );
     if (response.ok) {
       comparisonTable?.reload();
-      confirmSetAsProjectBaseline = false;
     }
   };
 
@@ -136,73 +134,26 @@
     const response = await apiComputeStatistics(project.name, experiment.name);
     if (response.ok) {
       alert("Refresh in a few minutes to see the statistics.");
-      confirmComputeStatistics = false;
     }
   };
 
-  let confirmUseTheProjectBaseline = $state(false);
-  let confirmSetAsProjectBaseline = $state(false);
-  let confirmComputeStatistics = $state(false);
   let comparisonTable: ComparisonTable | undefined = $state();
   let statisticsOpen = $state(false);
 </script>
 
-<button class="link" onclick={unselectExperiment}>back</button>
+<button class="btn" onclick={unselectExperiment}>&larr; back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmUseTheProjectBaseline}
-        aria-label="Confirm set as project baseline"
-      />
-      <button
-        class="link"
-        onclick={useTheProjectBaseline}
-        disabled={!confirmUseTheProjectBaseline}
-      >
-        use the project baseline
-      </button>
-    </label>
-  </span>
-</div>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmSetAsProjectBaseline}
-        aria-label="Confirm set as project baseline"
-      />
-      <button
-        class="link"
-        onclick={setAsProjectBaseline}
-        disabled={!confirmSetAsProjectBaseline}
-      >
-        set this experiment as the project baseline
-      </button>
-    </label>
-  </span>
-</div>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmComputeStatistics}
-        aria-label="Confirm compute statistics"
-      />
-      <button
-        class="link"
-        onclick={computeStatistics}
-        disabled={!confirmComputeStatistics}
-      >
-        compute statistics for this experiment
-      </button>
-    </label>
-  </span>
+<div class="btn-group">
+  <button class="btn" onclick={useTheProjectBaseline}>
+    use the project baseline
+  </button>
+  <button class="btn" onclick={setAsProjectBaseline}>
+    set this experiment as the project baseline
+  </button>
+  <button class="btn" onclick={computeStatistics}>
+    compute statistics for this experiment
+  </button>
 </div>
 <div>
   <span class="label">Hypothesis:</span>

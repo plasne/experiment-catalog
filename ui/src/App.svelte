@@ -171,7 +171,7 @@
 
 {#if username}
   <div class="user-bar">
-    <a href="/.auth/logout" class="user-link">{username} (logout)</a>
+    <button class="user-link" onclick={() => window.location.href = "/.auth/logout"}>{username} (logout)</button>
   </div>
 {/if}
 

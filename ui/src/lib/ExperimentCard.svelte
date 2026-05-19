@@ -25,12 +25,12 @@
 </script>
 
 <div class="title" bind:this={titleRef}>
-  <button class="link" onclick={select}>{experiment.name}</button>
+  <button class="btn" onclick={select}>{experiment.name}</button>
 </div>
 
 <div class="card" bind:this={cardRef}>
   <div class="title">
-    <button class="link" onclick={select}>{experiment.name}</button>
+    <button class="btn" onclick={select}>{experiment.name}</button>
   </div>
   <div class="hypothesis"><b>Hypothesis:</b> {experiment.hypothesis}</div>
 </div>
