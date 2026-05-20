@@ -18,6 +18,7 @@
     uiSettings?: UiSettings;
     onunselectExperiment?: () => void;
     onselectSet?: (set: string) => void;
+    onshowChart?: () => void;
     onchangeSetList?: (setList: string) => void;
     onchangeConfig?: (config: ViewConfig) => void;
   }
@@ -30,6 +31,7 @@
     uiSettings = {},
     onunselectExperiment,
     onselectSet,
+    onshowChart,
     onchangeSetList,
     onchangeConfig,
   }: Props = $props();
@@ -154,23 +156,36 @@
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 
-<div class="btn-group">
-  <button class="btn" onclick={useTheProjectBaseline}>
-    use the project baseline
-  </button>
-  <button class="btn" onclick={setAsProjectBaseline}>
-    set this experiment as the project baseline
-  </button>
-  <button class="btn" onclick={computeStatistics}>
-    compute statistics
-  </button>
-  <a
-    class="btn"
-    href={getExperimentDownloadUrl(project.name, experiment.name)}
-    download="{experiment.name}.jsonl"
-  >
-    download experiment
-  </a>
+<div class="toolbar">
+  <div class="toolbar-group">
+    <span class="toolbar-label">Baseline</span>
+    <button class="btn" onclick={useTheProjectBaseline}>
+      use the project baseline
+    </button>
+    <button class="btn" onclick={setAsProjectBaseline}>
+      set this experiment as the project baseline
+    </button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <span class="toolbar-label">Actions</span>
+    <button class="btn" onclick={computeStatistics}>
+      compute statistics
+    </button>
+    <a
+      class="btn"
+      href={getExperimentDownloadUrl(project.name, experiment.name)}
+      download="{experiment.name}.jsonl"
+    >
+      download
+    </a>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="btn btn-nav" onclick={() => onshowChart?.()}>
+      charts
+    </button>
+  </div>
 </div>
 
 <section class="page-content">
