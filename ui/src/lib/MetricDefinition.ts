@@ -4,5 +4,6 @@ interface MetricDefinition {
     max: number;
     aggregate_function: 'Default' | 'Average' | 'Recall' | 'Precision' | 'Accuracy' | 'Count' | 'Cost';
     order: number;
+    is_important?: boolean;
     tags: string[];
 }

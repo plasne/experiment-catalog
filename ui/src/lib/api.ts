@@ -53,6 +53,19 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     return response.json() as Promise<AuthStatus>;
 }
 
+// ── Settings ────────────────────────────────────────────────────────────────
+
+export async function getUiSettings(): Promise<UiSettings> {
+    try {
+        const response = await fetch(url("/api/settings"), {
+            credentials: "include",
+        });
+        return response.json() as Promise<UiSettings>;
+    } catch {
+        return {};
+    }
+}
+
 export function getLoginUrl(returnUrl: string): string {
     return `${apiPrefix}/auth/login?return-url=${encodeURIComponent(toLocalReturnUrl(returnUrl))}`;
 }

@@ -15,6 +15,7 @@
     experiment: Experiment;
     setList?: string;
     config?: ViewConfig;
+    uiSettings?: UiSettings;
     onunselectExperiment?: () => void;
     onselectSet?: (set: string) => void;
     onchangeSetList?: (setList: string) => void;
@@ -26,6 +27,7 @@
     experiment,
     setList = $bindable(),
     config = {},
+    uiSettings = {},
     onunselectExperiment,
     onselectSet,
     onchangeSetList,
@@ -39,6 +41,8 @@
   let showStdDev: boolean = $state(true);
   let showCount: boolean = $state(true);
   let showStatistics: boolean = $state(true);
+  let showImportantOnly: boolean = $state(false);
+  let hasImportantMetrics: boolean = $state(false);
   let ready: boolean = $state(false);
 
   // Initialize from config on mount
@@ -49,6 +53,7 @@
     showStdDev = config.show_std ?? true;
     showCount = config.show_cnt ?? true;
     showStatistics = config.show_stats ?? true;
+    showImportantOnly = config.show_important_only ?? uiSettings.show_only_important_metrics_by_default ?? false;
     ready = true;
   });
 
@@ -85,6 +90,8 @@
     } else {
       delete newConfig.show_stats;
     }
+    // Always persist show_important_only once user has toggled it
+    newConfig.show_important_only = showImportantOnly;
     onchangeConfig?.(newConfig);
   };
 
@@ -227,6 +234,16 @@
         />
         Statistics
       </label>
+      {#if hasImportantMetrics}
+        <label class="toggle-label">
+          <input
+            type="checkbox"
+            bind:checked={showImportantOnly}
+            onchange={onToggleChange}
+          />
+          Important Metrics Only
+        </label>
+      {/if}
     </div>
   </div>
 </section>
@@ -296,11 +313,13 @@
       {showStdDev}
       {showCount}
       {showStatistics}
+      {showImportantOnly}
       bind:this={comparisonTable}
       ondrilldown={selectSet}
       onchangeSetList={changeSetList}
       onchangeChecked={changeChecked}
       onchangeTags={changeTags}
+      onimportantMetricsDetected={(has) => { hasImportantMetrics = has; }}
     />
   {:else}
     <div>Loading...</div>

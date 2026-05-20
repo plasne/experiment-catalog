@@ -128,6 +128,9 @@ public class Config : IConfig, IValidatableObject
     [SetValue("PATH_BASE")]
     public string? PATH_BASE { get; set; }
 
+    [SetValue("SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT")]
+    public bool SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT { get; set; } = false;
+
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
