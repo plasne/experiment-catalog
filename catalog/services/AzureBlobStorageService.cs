@@ -772,6 +772,16 @@ public class AzureBlobStorageService(
         }
     }
 
+    public async Task<Stream> DownloadExperimentAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
+        var exists = await appendBlobClient.ExistsAsync(cancellationToken);
+        if (!exists.Value) throw new HttpException(404, "experiment not found.");
+        var response = await appendBlobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+        return response.Value.Content;
+    }
+
     private async Task<bool> ShouldBlobBeOptimizedAsync(Experiment experiment, CancellationToken cancellationToken)
     {
         if (experiment.Metadata is null || !experiment.Modified.HasValue) return false;

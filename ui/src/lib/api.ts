@@ -119,6 +119,17 @@ export async function createExperiment(
     });
 }
 
+// ── Download ────────────────────────────────────────────────────────────────
+
+export function getExperimentDownloadUrl(
+    projectName: string,
+    experimentName: string,
+): string {
+    return url(
+        `/api/projects/${projectName}/experiments/${experimentName}/download`,
+    );
+}
+
 // ── Comparison ──────────────────────────────────────────────────────────────
 
 export async function getComparison(

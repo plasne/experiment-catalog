@@ -7,6 +7,7 @@
     useProjectBaseline,
     setAsProjectBaseline as apiSetAsProjectBaseline,
     computeStatistics as apiComputeStatistics,
+    getExperimentDownloadUrl,
   } from "./api";
 
   interface Props {
@@ -137,10 +138,7 @@
     }
   };
 
-  let confirmUseBaseline: boolean = $state(false);
-  let confirmSetBaseline: boolean = $state(false);
-  let confirmComputeStats: boolean = $state(false);
-  let showStatisticsDetails: boolean = $state(false);
+
 
   let comparisonTable: ComparisonTable | undefined = $state();
 </script>
@@ -150,27 +148,22 @@
 <h2>EXPERIMENT: {experiment.name}</h2>
 
 <div class="btn-group">
-  <label class="confirm-label">
-    <input type="checkbox" bind:checked={confirmUseBaseline} aria-label="Confirm set as project baseline" />
-    Confirm
-  </label>
-  <button class="btn" onclick={useTheProjectBaseline} disabled={!confirmUseBaseline}>
+  <button class="btn" onclick={useTheProjectBaseline}>
     use the project baseline
   </button>
-  <label class="confirm-label">
-    <input type="checkbox" bind:checked={confirmSetBaseline} aria-label="Confirm set as project baseline" />
-    Confirm
-  </label>
-  <button class="btn" onclick={setAsProjectBaseline} disabled={!confirmSetBaseline}>
+  <button class="btn" onclick={setAsProjectBaseline}>
     set this experiment as the project baseline
   </button>
-  <label class="confirm-label">
-    <input type="checkbox" bind:checked={confirmComputeStats} aria-label="Confirm compute statistics" />
-    Confirm
-  </label>
-  <button class="btn" onclick={computeStatistics} disabled={!confirmComputeStats}>
-    compute statistics for this experiment
+  <button class="btn" onclick={computeStatistics}>
+    compute statistics
   </button>
+  <a
+    class="btn"
+    href={getExperimentDownloadUrl(project.name, experiment.name)}
+    download="{experiment.name}.jsonl"
+  >
+    download experiment
+  </a>
 </div>
 
 <section class="page-content">
@@ -238,53 +231,6 @@
   </div>
 </section>
 
-<div class="statistics-section">
-  <button class="statistics-toggle" onclick={() => showStatisticsDetails = !showStatisticsDetails}>Statistics:</button>
-  <span class="statistics-summary">
-    The p-value is the probability of seeing results this extreme by chance
-    alone; values below 0.05 indicate statistically significant differences. The
-    confidence interval shows the likely range of the true difference; if it
-    excludes zero, the difference is statistically significant.
-  </span>
-  {#if showStatisticsDetails}
-  <div class="statistics-details">
-    <p>
-      <strong>P-Value Calculation (Paired Permutation Test):</strong>
-      This service uses a paired permutation test with sign-flipping to calculate
-      p-values. For each pair of observations (one from the baseline, one from the
-      experiment), it computes the difference (experiment - baseline). Under the
-      null hypothesis that there's no systematic difference between conditions, each
-      paired difference is equally likely to be positive or negative. The test generates
-      a null distribution by randomly flipping the sign of each paired difference
-      thousands of times (CALC_PVALUES_USING_X_SAMPLES), calculating the mean for
-      each permutation. The p-value is then computed as the proportion of permuted
-      mean differences that are as extreme or more extreme than the observed mean
-      difference (two-tailed), using the formula (extremeCount + 1) / (numSamples
-      + 1) to ensure the p-value is never exactly zero.
-    </p>
-    <p>
-      <strong>Confidence Interval Calculation (Bootstrap Resampling):</strong>
-      The confidence interval is calculated using the bootstrap percentile method.
-      The service repeatedly resamples the paired differences with replacement, calculating
-      the mean of each bootstrap sample. After generating many bootstrap samples,
-      the confidence interval is determined by taking the appropriate percentiles
-      from the sorted bootstrap means (e.g., for a 95% CI, the 2.5th and 97.5th percentiles).
-      This non-parametric approach makes no assumptions about the underlying distribution
-      of the data.
-    </p>
-    <p>
-      <strong>Interpretation and Use:</strong>
-      Together, these statistics help users make informed decisions about whether
-      an experiment shows a meaningful improvement over the baseline. A low p-value
-      (typically &lt; 0.05) combined with a confidence interval that doesn't cross
-      zero provides strong evidence of a real effect. Users should consider both
-      metrics: the p-value tells you whether there's a significant difference, while
-      the confidence interval tells you the magnitude and direction of that difference.
-    </p>
-  </div>
-  {/if}
-</div>
-
 <details class="reference-info">
   <summary>Details</summary>
   <div class="reference-content">
@@ -293,6 +239,48 @@
       [value] ([standard-deviation]) [change-vs-experiment-baseline]
       x[number-of-values] p=[p-value] ([CI-lower] - [CI-upper])
     </p>
+    <p>
+      <strong>Statistics:</strong>
+      The p-value is the probability of seeing results this extreme by chance
+      alone; values below 0.05 indicate statistically significant differences. The
+      confidence interval shows the likely range of the true difference; if it
+      excludes zero, the difference is statistically significant.
+    </p>
+    <div class="statistics-subsections">
+      <p>
+        <strong>P-Value Calculation (Paired Permutation Test):</strong>
+        This service uses a paired permutation test with sign-flipping to calculate
+        p-values. For each pair of observations (one from the baseline, one from the
+        experiment), it computes the difference (experiment - baseline). Under the
+        null hypothesis that there's no systematic difference between conditions, each
+        paired difference is equally likely to be positive or negative. The test generates
+        a null distribution by randomly flipping the sign of each paired difference
+        thousands of times (CALC_PVALUES_USING_X_SAMPLES), calculating the mean for
+        each permutation. The p-value is then computed as the proportion of permuted
+        mean differences that are as extreme or more extreme than the observed mean
+        difference (two-tailed), using the formula (extremeCount + 1) / (numSamples
+        + 1) to ensure the p-value is never exactly zero.
+      </p>
+      <p>
+        <strong>Confidence Interval Calculation (Bootstrap Resampling):</strong>
+        The confidence interval is calculated using the bootstrap percentile method.
+        The service repeatedly resamples the paired differences with replacement, calculating
+        the mean of each bootstrap sample. After generating many bootstrap samples,
+        the confidence interval is determined by taking the appropriate percentiles
+        from the sorted bootstrap means (e.g., for a 95% CI, the 2.5th and 97.5th percentiles).
+        This non-parametric approach makes no assumptions about the underlying distribution
+        of the data.
+      </p>
+      <p>
+        <strong>Interpretation and Use:</strong>
+        Together, these statistics help users make informed decisions about whether
+        an experiment shows a meaningful improvement over the baseline. A low p-value
+        (typically &lt; 0.05) combined with a confidence interval that doesn't cross
+        zero provides strong evidence of a real effect. Users should consider both
+        metrics: the p-value tells you whether there's a significant difference, while
+        the confidence interval tells you the magnitude and direction of that difference.
+      </p>
+    </div>
   </div>
 </details>
 
@@ -380,14 +368,10 @@
     font-size: 0.8rem;
   }
 
-  .statistics-details {
-    margin-top: 0.75rem;
-    padding-left: 1rem;
+  .statistics-subsections {
+    margin-left: 1rem;
+    padding-left: 0.75rem;
     border-left: 2px solid #3a3a3a;
-  }
-
-  .statistics-details p {
-    margin: 0.75rem 0;
   }
 
   .toggle-label {
@@ -404,33 +388,7 @@
     gap: 0.75rem;
   }
 
-  .confirm-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.85rem;
-  }
 
-  .statistics-toggle {
-    background: none;
-    border: none;
-    color: inherit;
-    font: inherit;
-    font-weight: bold;
-    cursor: pointer;
-    padding: 0;
-  }
-
-  .statistics-section {
-    margin: 0.75rem 0;
-    font-size: 0.85rem;
-    color: #bbb;
-    line-height: 1.5;
-  }
-
-  .statistics-summary {
-    margin-left: 0.5rem;
-  }
 
   .table {
     margin-top: 1.5rem;
