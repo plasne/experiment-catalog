@@ -13,7 +13,7 @@
 
 <div class="card">
   <div class="title">
-    <button class="link" onclick={select}>{project.name}</button>
+    <button class="btn" onclick={select}>{project.name}</button>
   </div>
 </div>
 

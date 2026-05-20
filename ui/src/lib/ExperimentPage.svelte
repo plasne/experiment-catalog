@@ -117,7 +117,6 @@
     const response = await useProjectBaseline(project.name, experiment.name);
     if (response.ok) {
       comparisonTable?.reload();
-      confirmUseTheProjectBaseline = false;
     }
   };
 
@@ -128,7 +127,6 @@
     );
     if (response.ok) {
       comparisonTable?.reload();
-      confirmSetAsProjectBaseline = false;
     }
   };
 
@@ -136,114 +134,122 @@
     const response = await apiComputeStatistics(project.name, experiment.name);
     if (response.ok) {
       alert("Refresh in a few minutes to see the statistics.");
-      confirmComputeStatistics = false;
     }
   };
 
-  let confirmUseTheProjectBaseline = $state(false);
-  let confirmSetAsProjectBaseline = $state(false);
-  let confirmComputeStatistics = $state(false);
+  let confirmUseBaseline: boolean = $state(false);
+  let confirmSetBaseline: boolean = $state(false);
+  let confirmComputeStats: boolean = $state(false);
+  let showStatisticsDetails: boolean = $state(false);
+
   let comparisonTable: ComparisonTable | undefined = $state();
-  let statisticsOpen = $state(false);
 </script>
 
-<button class="link" onclick={unselectExperiment}>back</button>
+<button class="btn" onclick={unselectExperiment}>&larr; back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmUseTheProjectBaseline}
-        aria-label="Confirm set as project baseline"
-      />
-      <button
-        class="link"
-        onclick={useTheProjectBaseline}
-        disabled={!confirmUseTheProjectBaseline}
-      >
-        use the project baseline
-      </button>
-    </label>
-  </span>
+
+<div class="btn-group">
+  <label class="confirm-label">
+    <input type="checkbox" bind:checked={confirmUseBaseline} aria-label="Confirm set as project baseline" />
+    Confirm
+  </label>
+  <button class="btn" onclick={useTheProjectBaseline} disabled={!confirmUseBaseline}>
+    use the project baseline
+  </button>
+  <label class="confirm-label">
+    <input type="checkbox" bind:checked={confirmSetBaseline} aria-label="Confirm set as project baseline" />
+    Confirm
+  </label>
+  <button class="btn" onclick={setAsProjectBaseline} disabled={!confirmSetBaseline}>
+    set this experiment as the project baseline
+  </button>
+  <label class="confirm-label">
+    <input type="checkbox" bind:checked={confirmComputeStats} aria-label="Confirm compute statistics" />
+    Confirm
+  </label>
+  <button class="btn" onclick={computeStatistics} disabled={!confirmComputeStats}>
+    compute statistics for this experiment
+  </button>
 </div>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmSetAsProjectBaseline}
-        aria-label="Confirm set as project baseline"
-      />
-      <button
-        class="link"
-        onclick={setAsProjectBaseline}
-        disabled={!confirmSetAsProjectBaseline}
-      >
-        set this experiment as the project baseline
-      </button>
-    </label>
-  </span>
-</div>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmComputeStatistics}
-        aria-label="Confirm compute statistics"
-      />
-      <button
-        class="link"
-        onclick={computeStatistics}
-        disabled={!confirmComputeStatistics}
-      >
-        compute statistics for this experiment
-      </button>
-    </label>
-  </span>
-</div>
-<div>
-  <span class="label">Hypothesis:</span>
-  <span>{experiment.hypothesis}</span>
-</div>
-<div>
-  <span class="label">Created:</span>
-  <span>
-    {new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(new Date(experiment.created))}
-  </span>
-</div>
-<div>
-  <span class="label">Legend:</span>
-  <span
-    >[value] ([standard-deviation]) [change-vs-experiment-baseline]
-    x[number-of-values] p=[p-value] ([CI-lower] - [CI-upper])</span
-  >
-</div>
-<div class="statistics-row">
-  <button
-    class="label statistics-label"
-    onclick={() => (statisticsOpen = !statisticsOpen)}>Statistics:</button
-  >
-  <span
-    >The p-value is the probability of seeing results this extreme by chance
+
+<section class="page-content">
+  <div class="meta-row">
+    <span class="meta-label">Hypothesis</span>
+    <span>{experiment.hypothesis}</span>
+  </div>
+  <div class="meta-row">
+    <span class="meta-label">Created</span>
+    <span>
+      {new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }).format(new Date(experiment.created))}
+    </span>
+  </div>
+  {#if experiment.annotations}
+    {#each experiment.annotations as annotation}
+      <div class="meta-row">
+        <span class="meta-label">Annotation</span>
+        <span>{annotation.text}</span>
+      </div>
+    {/each}
+  {/if}
+  <div class="meta-row">
+    <span class="meta-label">Tag Impact</span>
+    <MeaningfulTags {project} {experiment} />
+  </div>
+  <div class="meta-row">
+    <span class="meta-label">Show</span>
+    <div class="toggles">
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showActualValue}
+          onchange={onToggleChange}
+        />
+        Actual Value
+      </label>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showStdDev}
+          onchange={onToggleChange}
+        />
+        Std Dev
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" bind:checked={showCount} onchange={onToggleChange} />
+        Count
+      </label>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showStatistics}
+          onchange={onToggleChange}
+        />
+        Statistics
+      </label>
+    </div>
+  </div>
+</section>
+
+<div class="statistics-section">
+  <button class="statistics-toggle" onclick={() => showStatisticsDetails = !showStatisticsDetails}>Statistics:</button>
+  <span class="statistics-summary">
+    The p-value is the probability of seeing results this extreme by chance
     alone; values below 0.05 indicate statistically significant differences. The
     confidence interval shows the likely range of the true difference; if it
-    excludes zero, the difference is statistically significant.</span
-  >
-</div>
-{#if statisticsOpen}
+    excludes zero, the difference is statistically significant.
+  </span>
+  {#if showStatisticsDetails}
   <div class="statistics-details">
     <p>
-      <b>P-Value Calculation (Paired Permutation Test):</b>
+      <strong>P-Value Calculation (Paired Permutation Test):</strong>
       This service uses a paired permutation test with sign-flipping to calculate
       p-values. For each pair of observations (one from the baseline, one from the
       experiment), it computes the difference (experiment - baseline). Under the
@@ -256,8 +262,8 @@
       difference (two-tailed), using the formula (extremeCount + 1) / (numSamples
       + 1) to ensure the p-value is never exactly zero.
     </p>
-    <p style="margin-top: 0.5rem;">
-      <b>Confidence Interval Calculation (Bootstrap Resampling):</b>
+    <p>
+      <strong>Confidence Interval Calculation (Bootstrap Resampling):</strong>
       The confidence interval is calculated using the bootstrap percentile method.
       The service repeatedly resamples the paired differences with replacement, calculating
       the mean of each bootstrap sample. After generating many bootstrap samples,
@@ -266,65 +272,29 @@
       This non-parametric approach makes no assumptions about the underlying distribution
       of the data.
     </p>
-    <p style="margin-top: 0.5rem;">
-      <b>Interpretation and Use:</b>
+    <p>
+      <strong>Interpretation and Use:</strong>
       Together, these statistics help users make informed decisions about whether
       an experiment shows a meaningful improvement over the baseline. A low p-value
       (typically &lt; 0.05) combined with a confidence interval that doesn't cross
       zero provides strong evidence of a real effect. Users should consider both
       metrics: the p-value tells you whether there's a significant difference, while
       the confidence interval tells you the magnitude and direction of that difference.
-      For example, if comparing accuracy metrics between two models, a p-value of
-      0.02 with a CI of [0.5, 2.3] would indicate a statistically significant improvement
-      of roughly 0.5 to 2.3 units. However, users should also consider practical
-      significance—a statistically significant but tiny improvement may not be worth
-      pursuing in practice.
     </p>
   </div>
-{/if}
-<div class="meaningful-tags-row">
-  <span class="label">Tag Impact:</span>
-  <MeaningfulTags {project} {experiment} />
+  {/if}
 </div>
-<div class="toggles">
-  <span class="label">Show:</span>
-  <label>
-    <input
-      type="checkbox"
-      bind:checked={showActualValue}
-      onchange={onToggleChange}
-    />
-    Actual Value
-  </label>
-  <label>
-    <input
-      type="checkbox"
-      bind:checked={showStdDev}
-      onchange={onToggleChange}
-    />
-    Std Dev
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={showCount} onchange={onToggleChange} />
-    Count
-  </label>
-  <label>
-    <input
-      type="checkbox"
-      bind:checked={showStatistics}
-      onchange={onToggleChange}
-    />
-    Statistics
-  </label>
-</div>
-{#if experiment.annotations}
-  {#each experiment.annotations as annotation}
-    <div>
-      <span class="label">Annotation:</span>
-      <span>{annotation.text}</span>
-    </div>
-  {/each}
-{/if}
+
+<details class="reference-info">
+  <summary>Details</summary>
+  <div class="reference-content">
+    <p class="legend">
+      <strong>Legend:</strong>
+      [value] ([standard-deviation]) [change-vs-experiment-baseline]
+      x[number-of-values] p=[p-value] ([CI-lower] - [CI-upper])
+    </p>
+  </div>
+</details>
 
 <div class="table">
   {#if ready}
@@ -353,50 +323,116 @@
 </div>
 
 <style>
-  .label {
-    text-align: right;
-    font-weight: bold;
-    width: 100px;
-    display: inline-block;
+  .page-content {
+    margin: 1.25rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
   }
 
-  .statistics-label {
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .meta-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #999;
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+
+  .reference-info {
+    margin: 0.75rem 0;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+  }
+
+  .reference-info summary {
     cursor: pointer;
-    text-decoration: underline;
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    color: inherit;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #aaa;
+  }
+
+  .reference-info summary:hover {
+    color: #ddd;
+  }
+
+  .reference-content {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #bbb;
+    line-height: 1.5;
+  }
+
+  .reference-content p {
+    margin: 0.5rem 0;
+  }
+
+  .reference-content .legend {
+    font-family: monospace;
+    font-size: 0.8rem;
   }
 
   .statistics-details {
-    margin-left: 1rem;
-    line-height: 1.4;
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+    border-left: 2px solid #3a3a3a;
   }
 
-  .toggles {
-    margin-top: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+  .statistics-details p {
+    margin: 0.75rem 0;
   }
 
-  .toggles label {
+  .toggle-label {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
     cursor: pointer;
+    font-size: 0.9rem;
   }
 
-  .table {
-    margin-top: 2rem;
-  }
-
-  .meaningful-tags-row {
-    margin-top: 0.5rem;
+  .toggles {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+  }
+
+  .confirm-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+  }
+
+  .statistics-toggle {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .statistics-section {
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+    color: #bbb;
+    line-height: 1.5;
+  }
+
+  .statistics-summary {
+    margin-left: 0.5rem;
+  }
+
+  .table {
+    margin-top: 1.5rem;
   }
 </style>
