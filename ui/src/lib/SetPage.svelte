@@ -181,6 +181,7 @@
   };
 
   let initialized = $state(false);
+  let confirmSetBaseline: boolean = $state(false);
 
   // Called when metrics filter changes
   const onMetricsChange = () => {
@@ -207,7 +208,11 @@
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
 <div class="btn-group">
-  <button class="btn" onclick={setAsExperimentBaseline}>
+  <label class="confirm-label">
+    <input type="checkbox" bind:checked={confirmSetBaseline} aria-label="Confirm set as project baseline" />
+    Confirm
+  </label>
+  <button class="btn" onclick={setAsExperimentBaseline} disabled={!confirmSetBaseline}>
     set this permutation as the experiment baseline
   </button>
 </div>
@@ -445,6 +450,13 @@
     color: #999;
     min-width: 90px;
     flex-shrink: 0;
+  }
+
+  .confirm-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
   }
 
   table {

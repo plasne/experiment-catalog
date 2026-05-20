@@ -37,8 +37,8 @@
 <div class="top">
   <label for={buttonId}>filter:</label>
   <textarea id={buttonId} bind:value={filter}></textarea>
-  <button class="btn" onclick={apply}>apply</button>
-  <button class="btn" onclick={clear}>clear</button>
+  <button class="btn" onclick={apply}>Apply</button>
+  <button class="btn" onclick={clear}>Clear</button>
   <span class="count">{filteredCount} of {totalCount}</span>
 </div>
 
