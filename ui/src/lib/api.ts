@@ -170,6 +170,15 @@ export async function getComparisonByRef(
 
 // ── Sets / Results ──────────────────────────────────────────────────────────
 
+export async function getSets(
+    projectName: string,
+    experimentName: string,
+): Promise<string[]> {
+    return fetchJson<string[]>(
+        `/api/projects/${projectName}/experiments/${experimentName}/sets`,
+    );
+}
+
 export async function getSetResults(
     projectName: string,
     experimentName: string,

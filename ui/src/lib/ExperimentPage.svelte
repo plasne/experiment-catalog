@@ -18,6 +18,7 @@
     uiSettings?: UiSettings;
     onunselectExperiment?: () => void;
     onselectSet?: (set: string) => void;
+    onshowChart?: () => void;
     onchangeSetList?: (setList: string) => void;
     onchangeConfig?: (config: ViewConfig) => void;
   }
@@ -30,6 +31,7 @@
     uiSettings = {},
     onunselectExperiment,
     onselectSet,
+    onshowChart,
     onchangeSetList,
     onchangeConfig,
   }: Props = $props();
@@ -155,6 +157,9 @@
 <h2>EXPERIMENT: {experiment.name}</h2>
 
 <div class="btn-group">
+  <button class="btn" onclick={() => onshowChart?.()}>
+    distribution chart
+  </button>
   <button class="btn" onclick={useTheProjectBaseline}>
     use the project baseline
   </button>
