@@ -164,6 +164,14 @@
     rebuildGroups();
   }
 
+  type ChartType = "distribution";
+
+  const chartTypes: { value: ChartType; label: string }[] = [
+    { value: "distribution", label: "distribution" },
+  ];
+
+  let selectedChart: ChartType = $state("distribution");
+
   onMount(() => {
     fetchData();
   });
@@ -171,7 +179,7 @@
 
 <button class="btn" onclick={onback}>&larr; back</button>
 <h1>PROJECT: {project.name}</h1>
-<h2>EXPERIMENT: {experiment.name} — Distribution Chart</h2>
+<h2>EXPERIMENT: {experiment.name}</h2>
 
 {#if loadingState === "loading"}
   <div>Loading...</div>
@@ -183,6 +191,14 @@
 {:else}
   <div class="controls">
     <div class="control-group">
+      <label for="chart-select">Chart</label>
+      <select id="chart-select" bind:value={selectedChart}>
+        {#each chartTypes as ct}
+          <option value={ct.value}>{ct.label}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="control-group">
       <label for="metric-select">Metric</label>
       <select id="metric-select" bind:value={selectedMetric} onchange={onMetricChange}>
         {#each allMetrics as metric}
@@ -192,14 +208,16 @@
     </div>
   </div>
 
-  {#if chartGroups.length === 0}
-    <div class="no-data">No data available for metric "{selectedMetric}"</div>
-  {:else}
-    <DistributionChart
-      groups={chartGroups}
-      metric={selectedMetric}
-      metricDefinition={currentMetricDefinition}
-    />
+  {#if selectedChart === "distribution"}
+    {#if chartGroups.length === 0}
+      <div class="no-data">No data available for metric "{selectedMetric}"</div>
+    {:else}
+      <DistributionChart
+        groups={chartGroups}
+        metric={selectedMetric}
+        metricDefinition={currentMetricDefinition}
+      />
+    {/if}
   {/if}
 {/if}
 

@@ -30,7 +30,7 @@ if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
       -w /work/ui \
       -e CI="${CI:-}" \
       "$PW_IMAGE" \
-      bash -c "npm ci --ignore-scripts && npx playwright test"
+      bash -c "npm ci && npx playwright test"
   else
     echo "    [warn] Docker not available — running Playwright tests natively."
     npx playwright install --with-deps chromium

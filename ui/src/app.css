@@ -47,6 +47,11 @@ img.loading {
   color: #ddd;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   white-space: nowrap;
+  box-sizing: border-box;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .btn:hover {
@@ -68,6 +73,59 @@ img.loading {
   gap: 0.5rem;
   align-items: center;
   margin: 0.75rem 0;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #4a4a4a;
+  color: #aaa;
+}
+
+.btn-secondary:hover {
+  background: #2a2a2a;
+  border-color: #666;
+  color: #ddd;
+}
+
+.btn-nav {
+  background: transparent;
+  border: 1px solid #5a7a5a;
+  color: #8fbf8f;
+}
+
+.btn-nav:hover {
+  background: #2a3a2a;
+  border-color: #7a9a7a;
+  color: #b0dfb0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toolbar-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #777;
+  margin-right: 0.2rem;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 1.4rem;
+  background: #444;
+  margin: 0 0.4rem;
 }
 
 .link {
