@@ -1,6 +1,6 @@
 <script lang="ts">
   import { updateURL, decodeConfig, type ViewConfig } from "./lib/Tools";
-  import { getAuthStatus, getLoginUrl, getExperiment } from "./lib/api";
+  import { getAuthStatus, getLoginUrl, getExperiment, getUiSettings } from "./lib/api";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
@@ -15,6 +15,7 @@
   let setList: string | undefined = $state();
   let setName: string | undefined = $state();
   let config: ViewConfig = $state({});
+  let uiSettings: UiSettings = $state({});
 
   function getCookie(name: string): string | null {
     const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
@@ -120,6 +121,9 @@
       return;
     }
 
+    // Fetch UI settings from server
+    uiSettings = await getUiSettings();
+
     try {
       const params = new URLSearchParams(window.location.search);
       const qproject = params.get("project");
@@ -205,6 +209,7 @@
       {experiment}
       {setList}
       {config}
+      {uiSettings}
     />
   {:else if project}
     <ExperimentsList
